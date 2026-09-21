@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: groshik
+      POSTGRES_USER: groshik_admin
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?set POSTGRES_ADMIN_PASSWORD in .env}
+    ports:
+      # Bound to loopback only — not reachable from outside this machine.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - groshik_pgdata:/var/lib/postgresql/data
+
+volumes:
+  groshik_pgdata:

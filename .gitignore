@@ -18,7 +18,6 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# Claude Code local runtime/config — never commit
 .claude/
 
 # The .vscode folder contains launch configuration and tasks you configure in
@@ -49,3 +48,4 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+.env

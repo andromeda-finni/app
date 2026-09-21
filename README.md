@@ -6,7 +6,7 @@
 
 - **Frontend**: Flutter (Dart), таргет — Android
 - **Backend**: см. раздел [Backend](#backend) ниже
-- **БД**: PostgreSQL
+- **БД**: PostgreSQL — схема и миграции в [`db/`](db/README.md)
 - **CI/CD**: GitHub Actions
 
 ## Структура проекта
@@ -17,6 +17,19 @@
 - `android/` — нативный Android-проект (gradle, манифест и т.д.)
 - `test/` — unit/widget-тесты
 - `.github/workflows/` — пайплайны CI/CD
+- `db/` — SQL-миграции PostgreSQL и `docker-compose.yml` для локальной БД (подробнее в [`db/README.md`](db/README.md))
+
+## Переменные окружения (.env)
+
+Перед любой работой с БД/бэкендом **обязательно** создать `.env` из шаблона:
+
+```bash
+cp .env.example .env
+```
+
+и заполнить значения (пароли для `POSTGRES_ADMIN_PASSWORD` и `GROSHIK_APP_PASSWORD`, при необходимости — `DATABASE_URL`/`APP_DATABASE_URL`). Без `.env` не запустится ни `docker compose up`, ни `db/scripts/migrate.sh` — переменные без значений намеренно обрывают выполнение (`set -euo pipefail` + проверки в скрипте), чтобы никто случайно не накатил миграции на БД с пустым/дефолтным паролем.
+
+`.env` в `.gitignore` и никогда не коммитится — там реальные пароли. В репозитории есть только `.env.example` с плейсхолдерами `change_me`. Каждый, кто клонирует репозиторий, создаёт свой `.env` заново; продовые секреты хранятся в переменных окружения CI/хостинга, а не в файле.
 
 ## Разработка
 
@@ -25,6 +38,7 @@
 1. Установить Flutter SDK: `brew install --cask flutter` (macOS) или см. [flutter.dev/get-started](https://docs.flutter.dev/get-started/install)
 2. Установить Android Studio + Android SDK, принять лицензии: `flutter doctor --android-licenses`
 3. Проверить окружение: `flutter doctor`
+4. Скопировать `.env.example` → `.env` и заполнить (см. раздел [Переменные окружения](#переменные-окружения-env) выше) — нужно для локальной БД
 
 ### Запуск
 
@@ -116,3 +130,5 @@ adb install -r ~/Downloads/app-release.apk
 - или **Go** (Fiber/Echo) + **PostgreSQL** — если важны производительность и минимальный рантайм.
 
 Если позже понадобится поднять свой backend и CI/CD для него — можно добавить отдельный репозиторий/каталог с аналогичным набором GitHub Actions пайплайнов (тесты → билд Docker-образа → деплой).
+
+Схема БД (`db/migrations/`) — обычный portable SQL, накатится и на Supabase (через их SQL Editor/CLI), и на self-hosted/managed Postgres любого провайдера — выбор из пункта выше ни на что здесь не завязан.
