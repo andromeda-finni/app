@@ -1,0 +1,3 @@
+interface:
+  display_name: "Andromeda Postgres Integrity"
+  short_description: "Help with Andromeda Postgres Integrity tasks"
