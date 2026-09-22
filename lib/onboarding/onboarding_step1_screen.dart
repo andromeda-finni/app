@@ -74,6 +74,7 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
                     const SizedBox(height: 20),
                     StoryButton(
                       label: 'Далее',
+                      showFlourish: true,
                       onPressed: _canContinue ? () => widget.onNext(_data) : null,
                     ),
                   ],
@@ -106,15 +107,12 @@ class _StoryParagraph extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text('В', style: AppTextStyles.dropCap),
             const SizedBox(width: 8),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Text('одном государстве жил котёнок по имени', style: AppTextStyles.story),
-              ),
+              child: Text('одном государстве жил котёнок по имени', style: AppTextStyles.story),
             ),
           ],
         ),

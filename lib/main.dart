@@ -49,7 +49,13 @@ class _StartupGateState extends State<_StartupGate> {
           );
         }
         if (snapshot.data == null) {
-          return const OnboardingFlow();
+          return OnboardingFlow(
+            onFinished: (data) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => OnboardingCompletePlaceholder(data: data)),
+              );
+            },
+          );
         }
         // TODO: replace with the real pet home screen once it exists.
         return const Scaffold(

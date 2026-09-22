@@ -11,9 +11,12 @@ abstract final class AppColors {
   static const skyBottom = Color(0xFFEAF6EC);
   static const crimson = Color(0xFFA3271F);
   static const crimsonDark = Color(0xFF7E1E18);
+  static const crimsonFaded = Color(0xFFD9AFA6);
   static const ink = Color(0xFF3B2F27);
   static const inkMuted = Color(0xFF8A7C6C);
   static const fieldBorder = Color(0xFFC9B79B);
+  static const leafGreen = Color(0xFF4C6B3C);
+  static const cardBg = Color(0xFFFBF4E7);
 }
 
 abstract final class AppTextStyles {
@@ -44,5 +47,21 @@ abstract final class AppTextStyles {
     color: Colors.white,
     fontSize: 20,
     letterSpacing: 0.5,
+  );
+
+  static TextStyle cardTitle = GoogleFonts.yesevaOne(
+    color: AppColors.ink,
+    fontSize: 22,
+  );
+
+  static TextStyle cardRowLabel = GoogleFonts.ptSerif(
+    color: AppColors.ink,
+    fontSize: 16,
+  );
+
+  static TextStyle counterValue = GoogleFonts.ptSerif(
+    color: AppColors.ink,
+    fontSize: 18,
+    fontWeight: FontWeight.bold,
   );
 }

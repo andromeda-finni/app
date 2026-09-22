@@ -10,18 +10,46 @@ class FurColorOption {
   final int swatch; // ARGB color value, kept as int to avoid importing Flutter here.
 }
 
-/// Data collected across all 4 onboarding steps. Only step 1's fields are
-/// populated for now; later steps add to this as they're built.
+/// Total coins the tutorial budget on step 3 distributes between the three
+/// categories. Maps to budget_plans.need_amount/want_amount/savings_amount
+/// in the backend (see db/migrations/0007_periods.sql) once wired up —
+/// candy = WANT, other things = NEED, piggy bank = SAVINGS.
+const kTutorialBudgetTotal = 10;
+
+/// Data collected across all 4 onboarding steps.
 class OnboardingData {
-  OnboardingData({this.petName = '', this.furColorId});
+  OnboardingData({
+    this.petName = '',
+    this.furColorId,
+    this.candyAmount = 4,
+    this.otherAmount = 2,
+    this.piggyAmount = 4,
+  });
 
   String petName;
   String? furColorId;
 
-  OnboardingData copyWith({String? petName, String? furColorId}) {
+  // Step 3: tutorial budget split. Always sums to kTutorialBudgetTotal.
+  int candyAmount; // WANT
+  int otherAmount; // NEED
+  int piggyAmount; // SAVINGS
+
+  int get allocated => candyAmount + otherAmount + piggyAmount;
+  int get unallocated => kTutorialBudgetTotal - allocated;
+
+  OnboardingData copyWith({
+    String? petName,
+    String? furColorId,
+    int? candyAmount,
+    int? otherAmount,
+    int? piggyAmount,
+  }) {
     return OnboardingData(
       petName: petName ?? this.petName,
       furColorId: furColorId ?? this.furColorId,
+      candyAmount: candyAmount ?? this.candyAmount,
+      otherAmount: otherAmount ?? this.otherAmount,
+      piggyAmount: piggyAmount ?? this.piggyAmount,
     );
   }
 }
