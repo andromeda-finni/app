@@ -5,7 +5,7 @@
 ## Стек
 
 - **Frontend**: Flutter (Dart), таргет — Android
-- **Backend**: см. раздел [Backend](#backend) ниже
+- **Backend**: Node.js/TypeScript (Fastify) — см. [`backend/`](backend/README.md)
 - **БД**: PostgreSQL — схема и миграции в [`db/`](db/README.md)
 - **CI/CD**: GitHub Actions
 
@@ -18,6 +18,7 @@
 - `test/` — unit/widget-тесты
 - `.github/workflows/` — пайплайны CI/CD
 - `db/` — SQL-миграции PostgreSQL и `docker-compose.yml` для локальной БД (подробнее в [`db/README.md`](db/README.md))
+- `backend/` — Node.js/TypeScript API-сервер (подробнее в [`backend/README.md`](backend/README.md))
 
 ## Переменные окружения (.env)
 
@@ -120,15 +121,6 @@ adb install -r ~/Downloads/app-release.apk
 
 ## Backend
 
-Приложению нужен бэкенд с PostgreSQL. Рекомендация:
+Node.js + TypeScript + Fastify, поверх схемы из `db/` — код в [`backend/`](backend/README.md). Параметризованные SQL-запросы (без ORM), аутентификация без ПДн (анонимный bearer-токен), вся экономика (кошельки/покупки/квесты/Сундук Морозко/вредные советы) проведена через единый атомарный леджер. Подробности запуска, список эндпоинтов и известные упрощения — в [`backend/README.md`](backend/README.md).
 
-**Основной вариант — Supabase.**
-Это BaaS поверх настоящего PostgreSQL: сразу даёт REST/GraphQL API, авторизацию, файловое хранилище и realtime-подписки без написания сервера с нуля. У Flutter есть официальный пакет `supabase_flutter`. Хорошо подходит, чтобы быстро начать и не поддерживать отдельный сервис на первых порах; self-host тоже возможен (open source), если нужен полный контроль над инфраструктурой.
-
-**Альтернатива — свой backend, если нужна сложная бизнес-логика:**
-- **NestJS** (TypeScript) + **Prisma** + **PostgreSQL** — типизированный REST/GraphQL API, много готовых модулей (auth, validation, queues), хорошо ложится на Flutter-клиент через codegen моделей.
-- или **Go** (Fiber/Echo) + **PostgreSQL** — если важны производительность и минимальный рантайм.
-
-Если позже понадобится поднять свой backend и CI/CD для него — можно добавить отдельный репозиторий/каталог с аналогичным набором GitHub Actions пайплайнов (тесты → билд Docker-образа → деплой).
-
-Схема БД (`db/migrations/`) — обычный portable SQL, накатится и на Supabase (через их SQL Editor/CLI), и на self-hosted/managed Postgres любого провайдера — выбор из пункта выше ни на что здесь не завязан.
+Если позже понадобится альтернатива своему серверу — схема БД (`db/migrations/`) обычный portable SQL и накатится и на Supabase (через их SQL Editor/CLI), и на self-hosted/managed Postgres любого провайдера.
