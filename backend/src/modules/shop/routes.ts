@@ -3,6 +3,7 @@ import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
+import { bodySchema, idempotencyKeySchema, shortIdSchema } from "../../lib/schema.js";
 
 const IMPULSE_ENERGY_PENALTY = 5;
 const IMPULSE_JOY_PENALTY = 5;
@@ -23,16 +24,37 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
   // Feeding / playing with / caring for the pet are all just NEED/WANT
   // purchases from the child's point of view — spend earned coins on
   // something that helps (or merely delights) the pet.
-  app.post<{ Body: { itemId?: string; quantity?: number } }>(
+  app.post<{ Body: { itemId: string; quantity?: number; idempotencyKey: string } }>(
     "/purchases",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: bodySchema(
+        {
+          itemId: shortIdSchema,
+          quantity: { type: "integer", minimum: 1, maximum: 20 },
+          idempotencyKey: idempotencyKeySchema,
+        },
+        ["itemId", "idempotencyKey"],
+      ),
+    },
     async (req, reply) => {
       const childUserId = req.authUser!.id;
-      const itemId = req.body?.itemId;
-      const quantity = req.body?.quantity ?? 1;
-      if (!itemId) throw new HttpError(400, "item_id_required");
-      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) {
-        throw new HttpError(400, "quantity_must_be_1_to_20");
+      const { itemId, idempotencyKey } = req.body;
+      const quantity = req.body.quantity ?? 1;
+
+      // Client-supplied idempotency key: a retried request (e.g. after a
+      // timeout that hid a successful commit from the client) with the same
+      // key returns the original result instead of charging twice.
+      const existing = await pool.query<{ id: string; balance_after: number }>(
+        `SELECT p.id, t.balance_after
+           FROM purchases p JOIN transactions t ON t.id = p.transaction_id
+          WHERE p.child_user_id = $1 AND t.idempotency_key = $2`,
+        [childUserId, `purchase:${idempotencyKey}`],
+      );
+      if (existing.rows[0]) {
+        const row = existing.rows[0];
+        reply.code(200).send({ purchaseId: row.id, balanceAfter: row.balance_after, replayed: true });
+        return;
       }
 
       const result = await withTransaction(async (client) => {
@@ -80,7 +102,7 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
           deltaAmount: -totalPrice,
           referenceType: "shop_item",
           referenceId: itemId,
-          idempotencyKey: `purchase:${childUserId}:${Date.now()}:${Math.random()}`,
+          idempotencyKey: `purchase:${idempotencyKey}`,
         });
 
         const purchaseRes = await client.query<{ id: string }>(

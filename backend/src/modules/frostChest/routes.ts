@@ -3,6 +3,7 @@ import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
+import { bodySchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
 
 const MATURITY_DAYS = 3;
 
@@ -27,30 +28,30 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.post<{ Body: { principalAmount?: number } }>(
+  app.post<{ Body: { principalAmount: number } }>(
     "/frost-chests",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: bodySchema({ principalAmount: { type: "integer", minimum: 10 } }, ["principalAmount"]),
+    },
     async (req, reply) => {
       const childUserId = req.authUser!.id;
-      const principalAmount = req.body?.principalAmount;
-      if (!Number.isInteger(principalAmount) || (principalAmount as number) < 10) {
-        throw new HttpError(400, "principalAmount_must_be_at_least_10");
-      }
-      const bonusAmount = Math.floor((principalAmount as number) / 10);
+      const principalAmount = req.body.principalAmount;
+      const bonusAmount = Math.floor(principalAmount / 10);
 
       const result = await withTransaction(async (client) => {
         await postTransaction(client, {
           childUserId,
           walletKind: "SAVINGS",
           eventType: "FROST_DEPOSIT",
-          deltaAmount: -(principalAmount as number),
+          deltaAmount: -principalAmount,
           idempotencyKey: `frost-deposit-savings:${childUserId}:${Date.now()}`,
         });
         const frozenTxn = await postTransaction(client, {
           childUserId,
           walletKind: "FROZEN",
           eventType: "FROST_DEPOSIT",
-          deltaAmount: principalAmount as number,
+          deltaAmount: principalAmount,
           idempotencyKey: `frost-deposit-frozen:${childUserId}:${Date.now()}`,
         });
 
@@ -76,7 +77,10 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Params: { chestId: string } }>(
     "/frost-chests/:chestId/withdraw-early",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: paramsSchema({ chestId: uuidSchema }, ["chestId"]),
+    },
     async (req) => {
       const childUserId = req.authUser!.id;
       const { chestId } = req.params;
@@ -120,7 +124,10 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Params: { chestId: string } }>(
     "/frost-chests/:chestId/collect",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: paramsSchema({ chestId: uuidSchema }, ["chestId"]),
+    },
     async (req) => {
       const childUserId = req.authUser!.id;
       const { chestId } = req.params;

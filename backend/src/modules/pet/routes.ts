@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { pool } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
+import { bodySchema, shortIdSchema } from "../../lib/schema.js";
 
 // Minimal placeholder profanity/PII guard for the free-text pet name. Not a
 // production moderation system — swap for a proper service later; this just
@@ -43,17 +44,24 @@ export async function petRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.post<{ Body: { petName?: string; furOptionId?: string; accessoryOptionId?: string | null } }>(
+  app.post<{ Body: { petName: string; furOptionId: string; accessoryOptionId?: string | null } }>(
     "/pet",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: bodySchema(
+        {
+          petName: { type: "string", minLength: 1, maxLength: 24 },
+          furOptionId: shortIdSchema,
+          accessoryOptionId: { type: ["string", "null"], minLength: 1, maxLength: 50 },
+        },
+        ["petName", "furOptionId"],
+      ),
+    },
     async (req, reply) => {
-      const { petName, furOptionId } = req.body ?? {};
-      const accessoryOptionId = req.body?.accessoryOptionId ?? null;
-      if (!petName || petName.trim().length < 1 || petName.trim().length > 24) {
+      const { petName, furOptionId } = req.body;
+      const accessoryOptionId = req.body.accessoryOptionId ?? null;
+      if (petName.trim().length < 1) {
         throw new HttpError(400, "pet_name_must_be_1_to_24_chars");
-      }
-      if (!furOptionId) {
-        throw new HttpError(400, "fur_option_id_required");
       }
 
       const screening = screenPetName(petName.trim());

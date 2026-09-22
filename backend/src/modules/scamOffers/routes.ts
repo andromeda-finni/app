@@ -4,6 +4,7 @@ import { HttpError } from "../../lib/errors.js";
 import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { pickWeighted } from "../../lib/random.js";
+import { bodySchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
 
 const TRIGGER_PROBABILITY = 0.15;
 const DECLINE_JOY_REWARD = 2;
@@ -64,16 +65,19 @@ export async function scamOfferRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.post<{ Params: { occurrenceId: string }; Body: { decision?: "ACCEPTED" | "DECLINED" } }>(
+  app.post<{ Params: { occurrenceId: string }; Body: { decision: "ACCEPTED" | "DECLINED" } }>(
     "/scam-offers/:occurrenceId/respond",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: {
+        ...paramsSchema({ occurrenceId: uuidSchema }, ["occurrenceId"]),
+        ...bodySchema({ decision: { type: "string", enum: ["ACCEPTED", "DECLINED"] } }, ["decision"]),
+      },
+    },
     async (req) => {
       const childUserId = req.authUser!.id;
       const { occurrenceId } = req.params;
-      const decision = req.body?.decision;
-      if (decision !== "ACCEPTED" && decision !== "DECLINED") {
-        throw new HttpError(400, "decision_must_be_ACCEPTED_or_DECLINED");
-      }
+      const { decision } = req.body;
 
       return withTransaction(async (client) => {
         const res = await client.query<{

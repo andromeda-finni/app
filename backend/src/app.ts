@@ -3,6 +3,7 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import sensible from "@fastify/sensible";
 import { HttpError } from "./lib/errors.js";
+import { pool } from "./lib/db.js";
 import { authRoutes } from "./auth/routes.js";
 import { petRoutes } from "./modules/pet/routes.js";
 import { walletRoutes } from "./modules/wallet/routes.js";
@@ -45,7 +46,16 @@ export async function buildApp() {
     reply.code(500).send({ error: "internal_server_error" });
   });
 
-  app.get("/health", async () => ({ ok: true }));
+  app.get("/health", async (_req, reply) => {
+    try {
+      await pool.query("SELECT 1");
+      return { ok: true };
+    } catch (err) {
+      app.log.error(err, "health check: database unreachable");
+      reply.code(503);
+      return { ok: false, error: "database_unreachable" };
+    }
+  });
 
   await app.register(authRoutes);
   await app.register(petRoutes);

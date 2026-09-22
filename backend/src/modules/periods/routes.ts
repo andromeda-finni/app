@@ -3,6 +3,7 @@ import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { postTransaction, transferBetweenWallets } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
+import { bodySchema, nonNegativeIntSchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
 
 const PERIOD_GRANT_BY_DIFFICULTY: Record<"SIMPLE" | "ADVANCED", number> = {
   SIMPLE: 100,
@@ -106,16 +107,24 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
     Body: { needAmount: number; wantAmount: number; savingsAmount: number };
   }>(
     "/periods/:periodId/budget-plan",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: {
+        ...paramsSchema({ periodId: uuidSchema }, ["periodId"]),
+        ...bodySchema(
+          {
+            needAmount: nonNegativeIntSchema,
+            wantAmount: nonNegativeIntSchema,
+            savingsAmount: nonNegativeIntSchema,
+          },
+          ["needAmount", "wantAmount", "savingsAmount"],
+        ),
+      },
+    },
     async (req) => {
       const childUserId = req.authUser!.id;
       const { periodId } = req.params;
-      const { needAmount, wantAmount, savingsAmount } = req.body ?? {};
-      for (const [name, value] of Object.entries({ needAmount, wantAmount, savingsAmount })) {
-        if (!Number.isInteger(value) || value < 0) {
-          throw new HttpError(400, `${name}_must_be_a_nonnegative_integer`);
-        }
-      }
+      const { needAmount, wantAmount, savingsAmount } = req.body;
 
       const res = await pool.query(
         `UPDATE budget_plans
@@ -136,7 +145,10 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Params: { periodId: string } }>(
     "/periods/:periodId/budget-plan/confirm",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: paramsSchema({ periodId: uuidSchema }, ["periodId"]),
+    },
     async (req) => {
       const childUserId = req.authUser!.id;
       const { periodId } = req.params;
@@ -197,7 +209,10 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Params: { periodId: string } }>(
     "/periods/:periodId/close",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: paramsSchema({ periodId: uuidSchema }, ["periodId"]),
+    },
     async (req) => {
       const childUserId = req.authUser!.id;
       const { periodId } = req.params;
@@ -269,8 +284,9 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
             : "В этот раз не хватило на нужное. Грошик расстроился, но ничего страшного — попробуем снова.";
 
         await client.query(
-          `UPDATE pets SET evolution_stage = $1, updated_at = now() WHERE child_user_id = $2`,
-          [stageAfter, childUserId],
+          `UPDATE pets SET evolution_stage = $1, successful_period_streak = $2, updated_at = now()
+            WHERE child_user_id = $3`,
+          [stageAfter, newStreak, childUserId],
         );
 
         await client.query(
@@ -305,6 +321,7 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
           netSavings,
           petStageBefore: stageBefore,
           petStageAfter: stageAfter,
+          successfulPeriodStreak: newStreak,
           feedback,
         };
       });

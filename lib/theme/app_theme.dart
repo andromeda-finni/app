@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Colors and text styles for the storybook/fairy-tale visual style used in
 /// onboarding — a warm parchment card under a painted illustration, with a
@@ -19,47 +18,63 @@ abstract final class AppColors {
   static const cardBg = Color(0xFFFBF4E7);
 }
 
+// Bundled as local assets (pubspec.yaml `fonts:`), not fetched at runtime via
+// the google_fonts package — that package downloads font files from
+// fonts.gstatic.com on first use, which fails (and silently falls back to
+// the system font) on a device with no network on first launch. Confirmed
+// on a real Android emulator run with no internet access.
+const _dropCapFontFamily = 'Yeseva One';
+const _storyFontFamily = 'PT Serif';
+
 abstract final class AppTextStyles {
-  static TextStyle dropCap = GoogleFonts.yesevaOne(
+  static const TextStyle dropCap = TextStyle(
+    fontFamily: _dropCapFontFamily,
     color: AppColors.crimson,
     fontSize: 64,
     height: 1,
     fontWeight: FontWeight.w400,
   );
 
-  static TextStyle story = GoogleFonts.ptSerif(
+  static const TextStyle story = TextStyle(
+    fontFamily: _storyFontFamily,
     color: AppColors.ink,
     fontSize: 19,
     height: 1.45,
   );
 
-  static TextStyle swatchLabel = GoogleFonts.ptSerif(
+  static const TextStyle swatchLabel = TextStyle(
+    fontFamily: _storyFontFamily,
     color: AppColors.inkMuted,
     fontSize: 13,
   );
 
-  static TextStyle stepCounter = GoogleFonts.ptSerif(
+  static const TextStyle stepCounter = TextStyle(
+    fontFamily: _storyFontFamily,
     color: AppColors.inkMuted,
     fontSize: 14,
   );
 
-  static TextStyle button = GoogleFonts.yesevaOne(
+  static const TextStyle button = TextStyle(
+    fontFamily: _dropCapFontFamily,
     color: Colors.white,
     fontSize: 20,
     letterSpacing: 0.5,
   );
 
-  static TextStyle cardTitle = GoogleFonts.yesevaOne(
+  static const TextStyle cardTitle = TextStyle(
+    fontFamily: _dropCapFontFamily,
     color: AppColors.ink,
     fontSize: 22,
   );
 
-  static TextStyle cardRowLabel = GoogleFonts.ptSerif(
+  static const TextStyle cardRowLabel = TextStyle(
+    fontFamily: _storyFontFamily,
     color: AppColors.ink,
     fontSize: 16,
   );
 
-  static TextStyle counterValue = GoogleFonts.ptSerif(
+  static const TextStyle counterValue = TextStyle(
+    fontFamily: _storyFontFamily,
     color: AppColors.ink,
     fontSize: 18,
     fontWeight: FontWeight.bold,

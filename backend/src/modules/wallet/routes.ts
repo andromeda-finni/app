@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { pool, withTransaction } from "../../lib/db.js";
-import { HttpError } from "../../lib/errors.js";
 import { transferBetweenWallets } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
+import { bodySchema, idempotencyKeySchema } from "../../lib/schema.js";
 
 export async function walletRoutes(app: FastifyInstance): Promise<void> {
   app.get(
@@ -37,23 +37,43 @@ export async function walletRoutes(app: FastifyInstance): Promise<void> {
     ["deposit", "SPENDABLE", "SAVINGS"],
     ["withdraw", "SAVINGS", "SPENDABLE"],
   ] as const) {
-    app.post<{ Body: { amount?: number } }>(
+    app.post<{ Body: { amount: number; idempotencyKey: string } }>(
       `/savings/${path}`,
-      { preHandler: [requireAuth, requireRole("CHILD")] },
-      async (req) => {
-        const amount = req.body?.amount;
-        if (!Number.isInteger(amount) || (amount as number) < 1) {
-          throw new HttpError(400, "amount_must_be_a_positive_integer");
-        }
+      {
+        preHandler: [requireAuth, requireRole("CHILD")],
+        schema: bodySchema(
+          {
+            amount: { type: "integer", minimum: 1 },
+            idempotencyKey: idempotencyKeySchema,
+          },
+          ["amount", "idempotencyKey"],
+        ),
+      },
+      async (req, reply) => {
+        const { amount, idempotencyKey } = req.body;
         const childUserId = req.authUser!.id;
+        const keyPrefix = `manual-${path}:${idempotencyKey}`;
+
+        // Same replay guard as /purchases: a retried request with the same
+        // client-supplied key returns the original transfer instead of
+        // moving the money twice.
+        const existing = await pool.query<{ id: string }>(
+          `SELECT id FROM transactions WHERE child_user_id = $1 AND idempotency_key = $2`,
+          [childUserId, `${keyPrefix}:from`],
+        );
+        if (existing.rows[0]) {
+          reply.code(200).send({ ok: true, fromTransactionId: existing.rows[0].id, replayed: true });
+          return;
+        }
+
         const result = await withTransaction((client) =>
           transferBetweenWallets(client, {
             childUserId,
             fromWallet: from,
             toWallet: to,
-            amount: amount as number,
+            amount,
             eventType: path === "deposit" ? "SAVINGS_DEPOSIT" : "SAVINGS_WITHDRAWAL",
-            idempotencyKeyPrefix: `manual-${path}:${childUserId}:${Date.now()}`,
+            idempotencyKeyPrefix: keyPrefix,
           }),
         );
         return { ok: true, fromTransactionId: result.fromTxnId, toTransactionId: result.toTxnId };

@@ -4,6 +4,7 @@ import { HttpError } from "../../lib/errors.js";
 import { postSpendableThenSavings } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { pickWeighted } from "../../lib/random.js";
+import { paramsSchema, uuidSchema } from "../../lib/schema.js";
 
 const TRIGGER_PROBABILITY = 0.2;
 
@@ -71,7 +72,10 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Params: { occurrenceId: string } }>(
     "/pet-events/:occurrenceId/resolve",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: paramsSchema({ occurrenceId: uuidSchema }, ["occurrenceId"]),
+    },
     async (req) => {
       const childUserId = req.authUser!.id;
       const { occurrenceId } = req.params;

@@ -3,6 +3,7 @@ import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
+import { bodySchema, paramsSchema, shortIdSchema, uuidSchema } from "../../lib/schema.js";
 
 export async function goalRoutes(app: FastifyInstance): Promise<void> {
   app.get(
@@ -31,13 +32,15 @@ export async function goalRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.post<{ Body: { targetItemId?: string } }>(
+  app.post<{ Body: { targetItemId: string } }>(
     "/goals",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: bodySchema({ targetItemId: shortIdSchema }, ["targetItemId"]),
+    },
     async (req, reply) => {
       const childUserId = req.authUser!.id;
-      const targetItemId = req.body?.targetItemId;
-      if (!targetItemId) throw new HttpError(400, "targetItemId_required");
+      const { targetItemId } = req.body;
 
       const itemRes = await pool.query<{ price: number }>(
         `SELECT price FROM shop_items WHERE id = $1 AND kind = 'ARTIFACT' AND active`,
@@ -68,7 +71,10 @@ export async function goalRoutes(app: FastifyInstance): Promise<void> {
   ] as const) {
     app.post<{ Params: { goalId: string } }>(
       `/goals/:goalId/${path}`,
-      { preHandler: [requireAuth, requireRole("CHILD")] },
+      {
+        preHandler: [requireAuth, requireRole("CHILD")],
+        schema: paramsSchema({ goalId: uuidSchema }, ["goalId"]),
+      },
       async (req) => {
         const fromStatuses = toStatus === "CANCELLED" ? "('ACTIVE','PAUSED')" : toStatus === "PAUSED" ? "('ACTIVE')" : "('PAUSED')";
         const res = await pool.query(
@@ -86,7 +92,10 @@ export async function goalRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Params: { goalId: string } }>(
     "/goals/:goalId/redeem",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: paramsSchema({ goalId: uuidSchema }, ["goalId"]),
+    },
     async (req) => {
       const childUserId = req.authUser!.id;
       const { goalId } = req.params;
@@ -146,7 +155,10 @@ export async function goalRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Body: { inventoryItemId?: string | null } }>(
     "/pet/equip",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: bodySchema({ inventoryItemId: { type: ["string", "null"], format: "uuid" } }),
+    },
     async (req) => {
       const childUserId = req.authUser!.id;
       const inventoryItemId = req.body?.inventoryItemId ?? null;

@@ -1,0 +1,98 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'auth_storage.dart';
+
+/// Override at build/run time: `flutter run --dart-define=API_BASE_URL=http://192.168.1.23:3000`
+/// (needed for a physical device, which can't reach the dev machine via
+/// 10.0.2.2 — that address only exists inside the Android emulator's NAT).
+const _baseUrlOverride = String.fromEnvironment('API_BASE_URL');
+
+String _defaultBaseUrl() {
+  if (kIsWeb) return 'http://127.0.0.1:3000';
+  // 10.0.2.2 is the Android emulator's alias for the host machine's
+  // localhost — plain 127.0.0.1 from inside the emulator means the
+  // emulator itself, not the dev machine running the backend.
+  if (defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:3000';
+  return 'http://127.0.0.1:3000';
+}
+
+/// Thrown for both transport failures (statusCode 0) and non-2xx API
+/// responses, so callers can branch on one type for "show an error state".
+class ApiException implements Exception {
+  ApiException(this.statusCode, this.code, [this.details]);
+
+  final int statusCode;
+  final String code;
+  final Object? details;
+
+  bool get isNetworkError => statusCode == 0;
+
+  @override
+  String toString() => 'ApiException($statusCode, $code)';
+}
+
+class ApiClient {
+  ApiClient({http.Client? httpClient, AuthStorage? authStorage, String? baseUrl})
+      : _http = httpClient ?? http.Client(),
+        _authStorage = authStorage ?? AuthStorage(),
+        baseUrl = baseUrl ?? (_baseUrlOverride.isNotEmpty ? _baseUrlOverride : _defaultBaseUrl());
+
+  final http.Client _http;
+  final AuthStorage _authStorage;
+  final String baseUrl;
+
+  Future<Map<String, dynamic>> post(
+    String path, {
+    Map<String, dynamic>? body,
+    bool auth = true,
+  }) => _send('POST', path, body: body, auth: auth);
+
+  Future<Map<String, dynamic>> get(String path, {bool auth = true}) => _send('GET', path, auth: auth);
+
+  Future<Map<String, dynamic>> _send(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    required bool auth,
+  }) async {
+    final uri = Uri.parse('$baseUrl$path');
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (auth) {
+      final token = await _authStorage.readToken();
+      if (token != null) headers['Authorization'] = 'Bearer $token';
+    }
+
+    // A route with a Fastify body schema validates against `{}` fine but
+    // rejects a genuinely missing body (undefined fails `type: object`
+    // even when every property is optional) — always send a real JSON
+    // object, even an empty one, for any POST/PUT so a no-argument call
+    // like child registration doesn't 400 before reaching the handler.
+    final effectiveBody = (method == 'POST' || method == 'PUT') ? (body ?? const {}) : body;
+
+    http.Response response;
+    try {
+      final request = http.Request(method, uri)..headers.addAll(headers);
+      if (effectiveBody != null) request.body = jsonEncode(effectiveBody);
+      final streamed = await _http.send(request).timeout(const Duration(seconds: 10));
+      response = await http.Response.fromStream(streamed);
+    } catch (_) {
+      // Covers timeouts, DNS/connection refused, and any other transport
+      // failure — surfaced uniformly so the UI can show one retry state.
+      throw ApiException(0, 'network_error');
+    }
+
+    final decoded = response.body.isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode >= 400) {
+      throw ApiException(
+        response.statusCode,
+        decoded['error'] as String? ?? 'unknown_error',
+        decoded['details'],
+      );
+    }
+    return decoded;
+  }
+}

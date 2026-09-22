@@ -83,34 +83,59 @@ class _CounterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Two lines instead of one cramped row: the 48x48 accessible tap targets
+    // plus icon + coin count leave a single-line layout with almost no room
+    // for the label at narrow widths (e.g. 320px), which forced "Другие
+    // вещи" to text-wrap across dozens of lines and blew the row's height
+    // out by hundreds of pixels. Stacking guarantees each line always has
+    // the row's full width to itself, at any screen width.
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.parchment,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: AppColors.ink, size: 20),
-          const SizedBox(width: 8),
-          Expanded(child: Text(label, style: AppTextStyles.cardRowLabel)),
-          _RoundIconButton(
-            icon: Icons.remove,
-            color: AppColors.crimson,
-            onPressed: canDecrement ? onDecrement : null,
+          Row(
+            children: [
+              Icon(icon, color: AppColors.ink, size: 20),
+              const SizedBox(width: 8),
+              Flexible(child: Text(label, style: AppTextStyles.cardRowLabel)),
+            ],
           ),
-          const SizedBox(width: 10),
-          const Icon(Icons.monetization_on, color: AppColors.leafGreen, size: 20),
-          const SizedBox(width: 6),
-          SizedBox(
-            width: 18,
-            child: Text('$value', textAlign: TextAlign.center, style: AppTextStyles.counterValue),
-          ),
-          const SizedBox(width: 10),
-          _RoundIconButton(
-            icon: Icons.add,
-            color: AppColors.leafGreen,
-            onPressed: canIncrement ? onIncrement : null,
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _RoundIconButton(
+                icon: Icons.remove,
+                color: AppColors.crimson,
+                onPressed: canDecrement ? onDecrement : null,
+                semanticLabel: 'Убрать монету из категории «$label»',
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.monetization_on, color: AppColors.leafGreen, size: 20),
+              const SizedBox(width: 6),
+              SizedBox(
+                width: 20,
+                child: Text(
+                  '$value',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.counterValue,
+                  semanticsLabel: '$value монет в категории $label',
+                ),
+              ),
+              const SizedBox(width: 6),
+              _RoundIconButton(
+                icon: Icons.add,
+                color: AppColors.leafGreen,
+                onPressed: canIncrement ? onIncrement : null,
+                semanticLabel: 'Добавить монету в категорию «$label»',
+              ),
+            ],
           ),
         ],
       ),
@@ -119,25 +144,53 @@ class _CounterRow extends StatelessWidget {
 }
 
 class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({required this.icon, required this.color, required this.onPressed});
+  const _RoundIconButton({
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+    required this.semanticLabel,
+  });
 
   final IconData icon;
   final Color color;
   final VoidCallback? onPressed;
+  final String semanticLabel;
+
+  // Visible circle stays small (28) to match the card's proportions; the
+  // actual tappable area is padded out to Android's ~48dp minimum target.
+  static const _visibleSize = 28.0;
+  static const _tapTargetSize = 48.0;
 
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
-    return Material(
-      color: enabled ? color : color.withValues(alpha: 0.3),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onPressed,
-        child: SizedBox(
-          width: 28,
-          height: 28,
-          child: Icon(icon, color: Colors.white, size: 16),
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: semanticLabel,
+      child: SizedBox(
+        width: _tapTargetSize,
+        height: _tapTargetSize,
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onPressed,
+            child: ExcludeSemantics(
+              child: Center(
+                child: Container(
+                  width: _visibleSize,
+                  height: _visibleSize,
+                  decoration: BoxDecoration(
+                    color: enabled ? color : color.withValues(alpha: 0.3),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 16),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

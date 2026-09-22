@@ -3,6 +3,7 @@ import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
+import { bodySchema, paramsSchema, shortIdSchema, uuidSchema } from "../../lib/schema.js";
 
 interface UiSpec {
   correctOptionCode?: string;
@@ -35,7 +36,10 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Params: { questId: string } }>(
     "/quests/:questId/start",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: paramsSchema({ questId: shortIdSchema }, ["questId"]),
+    },
     async (req, reply) => {
       const childUserId = req.authUser!.id;
       const { questId } = req.params;
@@ -46,6 +50,18 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
       );
       const quest = questRes.rows[0];
       if (!quest) throw new HttpError(404, "quest_not_found");
+
+      // A quest already IN_PROGRESS or COMPLETED for this child can't be
+      // started again — otherwise the reward could be farmed repeatedly.
+      const existingRes = await pool.query(
+        `SELECT 1 FROM assignments
+          WHERE child_user_id = $1 AND quest_id = $2 AND origin = 'SYSTEM'
+            AND status IN ('IN_PROGRESS', 'COMPLETED')`,
+        [childUserId, questId],
+      );
+      if ((existingRes.rowCount ?? 0) > 0) {
+        throw new HttpError(409, "quest_already_started_or_completed");
+      }
 
       const periodRes = await pool.query<{ id: string }>(
         `SELECT id FROM game_periods WHERE child_user_id = $1 AND status = 'ACTIVE'`,
@@ -64,7 +80,13 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
 
   app.get<{ Params: { assignmentId: string; stepNo: string } }>(
     "/assignments/:assignmentId/steps/:stepNo",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: paramsSchema(
+        { assignmentId: uuidSchema, stepNo: { type: "string", pattern: "^[1-9][0-9]*$" } },
+        ["assignmentId", "stepNo"],
+      ),
+    },
     async (req) => {
       const childUserId = req.authUser!.id;
       const { assignmentId, stepNo } = req.params;
@@ -94,12 +116,23 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
     Body: { stepNo: number; selectedOptionCode?: string };
   }>(
     "/assignments/:assignmentId/answer",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: {
+        ...paramsSchema({ assignmentId: uuidSchema }, ["assignmentId"]),
+        ...bodySchema(
+          {
+            stepNo: { type: "integer", minimum: 1 },
+            selectedOptionCode: { type: "string", minLength: 1, maxLength: 80 },
+          },
+          ["stepNo"],
+        ),
+      },
+    },
     async (req) => {
       const childUserId = req.authUser!.id;
       const { assignmentId } = req.params;
-      const { stepNo, selectedOptionCode } = req.body ?? {};
-      if (!Number.isInteger(stepNo) || stepNo < 1) throw new HttpError(400, "stepNo_required");
+      const { stepNo, selectedOptionCode } = req.body;
 
       return withTransaction(async (client) => {
         const assignmentRes = await client.query<{
@@ -114,6 +147,19 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         const assignment = assignmentRes.rows[0];
         if (!assignment) throw new HttpError(404, "assignment_not_found");
         if (assignment.status !== "IN_PROGRESS") throw new HttpError(409, "assignment_not_in_progress");
+
+        // Steps must be answered in order: stepNo can only be attempted once
+        // every earlier step already has a recorded SUCCESS.
+        if (stepNo > 1) {
+          const priorRes = await client.query<{ count: string }>(
+            `SELECT COUNT(*) FROM quest_step_progress
+              WHERE assignment_id = $1 AND step_no < $2 AND outcome = 'SUCCESS'`,
+            [assignmentId, stepNo],
+          );
+          if (Number(priorRes.rows[0]?.count ?? 0) < stepNo - 1) {
+            throw new HttpError(409, "earlier_steps_not_completed");
+          }
+        }
 
         const stepRes = await client.query<{
           success_feedback: string;

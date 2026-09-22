@@ -12,18 +12,22 @@ class StoryButton extends StatelessWidget {
     required this.onPressed,
     this.expand = true,
     this.showFlourish = false,
+    this.isLoading = false,
+    this.semanticLabel,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final bool expand;
   final bool showFlourish;
+  final bool isLoading;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
-    final enabled = onPressed != null;
+    final enabled = onPressed != null && !isLoading;
     final button = ElevatedButton(
-      onPressed: onPressed,
+      onPressed: enabled ? onPressed : null,
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.crimson,
         disabledBackgroundColor: AppColors.crimson.withValues(alpha: 0.4),
@@ -32,27 +36,51 @@ class StoryButton extends StatelessWidget {
         shape: const StadiumBorder(),
         elevation: enabled ? 3 : 0,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (showFlourish) ...[
-            const Icon(Icons.eco_outlined, color: Colors.white70, size: 18),
-            const SizedBox(width: 12),
-          ],
-          Text(label, style: AppTextStyles.button),
-          if (showFlourish) ...[
-            const SizedBox(width: 12),
-            Transform.flip(
-              flipX: true,
-              child: const Icon(Icons.eco_outlined, color: Colors.white70, size: 18),
+      child: isLoading
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+            )
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (showFlourish) ...[
+                  const Icon(Icons.eco_outlined, color: Colors.white70, size: 18),
+                  const SizedBox(width: 12),
+                ],
+                // Flexible + ellipsis: at large text-scale factors or on very
+                // narrow screens, a long label (e.g. "Начать игру") shrinks
+                // to fit whatever width the parent Row gives this button
+                // instead of forcing a RenderFlex overflow.
+                Flexible(
+                  child: Text(
+                    label,
+                    style: AppTextStyles.button,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (showFlourish) ...[
+                  const SizedBox(width: 12),
+                  Transform.flip(
+                    flipX: true,
+                    child: const Icon(Icons.eco_outlined, color: Colors.white70, size: 18),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ],
-      ),
     );
 
-    if (!expand) return button;
-    return SizedBox(width: double.infinity, height: 56, child: button);
+    final semantics = Semantics(
+      button: true,
+      enabled: enabled,
+      label: semanticLabel ?? label,
+      child: ExcludeSemantics(child: button),
+    );
+
+    if (!expand) return semantics;
+    return SizedBox(width: double.infinity, height: 56, child: semantics);
   }
 }

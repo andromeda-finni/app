@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import 'back_circle_button.dart';
+import 'onboarding_scroll_layout.dart';
 import 'step_progress.dart';
 import 'story_button.dart';
 
@@ -23,6 +24,7 @@ class OnboardingStepScaffold extends StatelessWidget {
     required this.nextLabel,
     this.nextEnabled = true,
     this.nextShowFlourish = false,
+    this.topSizeToFraction = true,
   });
 
   final int stepNumber;
@@ -34,56 +36,65 @@ class OnboardingStepScaffold extends StatelessWidget {
   final bool nextEnabled;
   final bool nextShowFlourish;
 
+  /// False for a `top` with real content needs (e.g. step 3's interactive
+  /// card) so it can size to its own content instead of being squeezed into
+  /// a fixed fraction of the viewport — see OnboardingScrollLayout.
+  final bool topSizeToFraction;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.parchment,
-      body: Column(
-        children: [
-          Expanded(child: top),
-          Container(
-            decoration: const BoxDecoration(
-              color: AppColors.parchment,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(28),
-                topRight: Radius.circular(28),
-              ),
+      body: OnboardingScrollLayout(
+        top: top,
+        sizeTopToFraction: topSizeToFraction,
+        bottom: Container(
+          decoration: const BoxDecoration(
+            color: AppColors.parchment,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
             ),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    content,
-                    const SizedBox(height: 24),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        BackCircleButton(onPressed: onBack),
-                        Expanded(
-                          child: Center(
-                            child: StepProgress(
-                              currentStep: stepNumber,
-                              totalSteps: kOnboardingTotalSteps,
-                            ),
-                          ),
-                        ),
-                        StoryButton(
-                          label: nextLabel,
-                          expand: false,
-                          showFlourish: nextShowFlourish,
-                          onPressed: nextEnabled ? onNext : null,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  content,
+                  const SizedBox(height: 24),
+                  // Wrap, not Row: giving the progress section and the
+                  // button equal flex shares (Expanded/Flexible) split the
+                  // row 50/50 regardless of actual content width, which
+                  // could starve a long label ("Начать игру" at a large
+                  // text-scale factor) of the room its icons + padding
+                  // need and overflow. Wrap lets every item take its
+                  // natural width and only drops the button to its own
+                  // line on the rare screen where all three truly don't
+                  // fit on one — it can never overflow.
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    runSpacing: 12,
+                    children: [
+                      BackCircleButton(onPressed: onBack),
+                      StepProgress(currentStep: stepNumber, totalSteps: kOnboardingTotalSteps),
+                      StoryButton(
+                        label: nextLabel,
+                        expand: false,
+                        showFlourish: nextShowFlourish,
+                        onPressed: nextEnabled ? onNext : null,
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

@@ -4,18 +4,22 @@ import 'onboarding_data.dart';
 import 'widgets/fur_color_picker.dart';
 import 'widgets/inline_name_field.dart';
 import 'widgets/onboarding_illustration.dart';
+import 'widgets/onboarding_scroll_layout.dart';
 import 'widgets/step_progress.dart';
 import 'widgets/story_button.dart';
 
 const _totalOnboardingSteps = 4;
 
-/// Onboarding step 1 of 4 — shown when no child pet exists on this device
-/// yet (no saved auth token, see core/auth_storage.dart). The child names
-/// their pet and picks a fur color, told as a fairy-tale sentence.
+/// Onboarding step 1 of 4 — shown when no pet exists yet for this account
+/// (see main.dart's startup gate). The child names their pet and picks a
+/// fur color, told as a fairy-tale sentence. Tapping "Далее" awaits
+/// [onNext], which creates the account/pet server-side (see
+/// onboarding_flow.dart) — this screen owns the loading/error UI for that
+/// call so a network failure never silently eats the tap.
 class OnboardingStep1Screen extends StatefulWidget {
   const OnboardingStep1Screen({super.key, required this.onNext, this.initialData});
 
-  final ValueChanged<OnboardingData> onNext;
+  final Future<void> Function(OnboardingData data) onNext;
   final OnboardingData? initialData;
 
   @override
@@ -25,6 +29,8 @@ class OnboardingStep1Screen extends StatefulWidget {
 class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
   late final TextEditingController _nameController;
   late OnboardingData _data;
+  bool _submitting = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -39,50 +45,75 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
     super.dispose();
   }
 
-  bool get _canContinue => _data.petName.trim().isNotEmpty && _data.furColorId != null;
+  bool get _canContinue => _data.petName.trim().isNotEmpty && _data.furColorId != null && !_submitting;
+
+  Future<void> _handleNext() async {
+    setState(() {
+      _submitting = true;
+      _errorMessage = null;
+    });
+    try {
+      await widget.onNext(_data);
+      // On success the parent navigates away; this widget may already be
+      // gone by the time we'd otherwise clear `_submitting` below.
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _errorMessage = 'Не получилось сохранить питомца. Проверьте связь и попробуйте ещё раз.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.parchment,
-      body: Column(
-        children: [
-          Expanded(child: OnboardingIllustration(stepNumber: 1)),
-          Container(
-            decoration: const BoxDecoration(
-              color: AppColors.parchment,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(28),
-                topRight: Radius.circular(28),
-              ),
+      body: OnboardingScrollLayout(
+        top: const OnboardingIllustration(stepNumber: 1),
+        bottom: Container(
+          decoration: const BoxDecoration(
+            color: AppColors.parchment,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
             ),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _StoryParagraph(
-                      data: _data,
-                      nameController: _nameController,
-                      onNameChanged: (value) => setState(() => _data = _data.copyWith(petName: value)),
-                      onFurSelected: (id) => setState(() => _data = _data.copyWith(furColorId: id)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _StoryParagraph(
+                    data: _data,
+                    nameController: _nameController,
+                    onNameChanged: (value) => setState(() => _data = _data.copyWith(petName: value)),
+                    onFurSelected: (id) => setState(() => _data = _data.copyWith(furColorId: id)),
+                  ),
+                  const SizedBox(height: 24),
+                  const StepProgress(currentStep: 1, totalSteps: _totalOnboardingSteps),
+                  const SizedBox(height: 20),
+                  if (_errorMessage != null) ...[
+                    Text(
+                      _errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.swatchLabel.copyWith(color: AppColors.crimson),
                     ),
-                    const SizedBox(height: 24),
-                    const StepProgress(currentStep: 1, totalSteps: _totalOnboardingSteps),
-                    const SizedBox(height: 20),
-                    StoryButton(
-                      label: 'Далее',
-                      showFlourish: true,
-                      onPressed: _canContinue ? () => widget.onNext(_data) : null,
-                    ),
+                    const SizedBox(height: 12),
                   ],
-                ),
+                  StoryButton(
+                    label: 'Далее',
+                    showFlourish: true,
+                    isLoading: _submitting,
+                    onPressed: _canContinue ? _handleNext : null,
+                  ),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

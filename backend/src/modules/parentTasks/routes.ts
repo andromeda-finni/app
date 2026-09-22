@@ -3,21 +3,28 @@ import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { postTransaction } from "../../lib/ledger.js";
 import { assertActiveLink, requireAuth, requireRole } from "../../auth/plugin.js";
+import { bodySchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
 
 // Real-life chores assigned by the parent (вынес мусор, помыл посуду, ...),
 // confirmed by the parent — from behind the app's parent-gate (PIN/math
 // captcha) on the client — before the reward is ever paid.
 export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
-  app.post<{ Body: { childUserId?: string; title?: string; rewardAmount?: number } }>(
+  app.post<{ Body: { childUserId: string; title: string; rewardAmount: number } }>(
     "/parent/tasks",
-    { preHandler: [requireAuth, requireRole("PARENT")] },
+    {
+      preHandler: [requireAuth, requireRole("PARENT")],
+      schema: bodySchema(
+        {
+          childUserId: uuidSchema,
+          title: { type: "string", minLength: 1, maxLength: 160 },
+          rewardAmount: { type: "integer", minimum: 1 },
+        },
+        ["childUserId", "title", "rewardAmount"],
+      ),
+    },
     async (req, reply) => {
       const parentUserId = req.authUser!.id;
-      const { childUserId, title, rewardAmount } = req.body ?? {};
-      if (!childUserId || !title?.trim()) throw new HttpError(400, "childUserId_and_title_required");
-      if (!Number.isInteger(rewardAmount) || (rewardAmount as number) < 1) {
-        throw new HttpError(400, "rewardAmount_must_be_a_positive_integer");
-      }
+      const { childUserId, title, rewardAmount } = req.body;
       await assertActiveLink(parentUserId, childUserId);
 
       const linkRes = await pool.query<{ id: string }>(
@@ -50,7 +57,10 @@ export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
 
   app.post<{ Params: { assignmentId: string } }>(
     "/child/tasks/:assignmentId/submit",
-    { preHandler: [requireAuth, requireRole("CHILD")] },
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: paramsSchema({ assignmentId: uuidSchema }, ["assignmentId"]),
+    },
     async (req) => {
       const res = await pool.query(
         `UPDATE assignments SET status = 'AWAITING_PARENT', updated_at = now()
@@ -84,7 +94,10 @@ export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
   // token holding the ACTIVE link to this exact child can verify/pay it.
   app.post<{ Params: { assignmentId: string } }>(
     "/parent/tasks/:assignmentId/verify",
-    { preHandler: [requireAuth, requireRole("PARENT")] },
+    {
+      preHandler: [requireAuth, requireRole("PARENT")],
+      schema: paramsSchema({ assignmentId: uuidSchema }, ["assignmentId"]),
+    },
     async (req) => {
       const parentUserId = req.authUser!.id;
       const { assignmentId } = req.params;

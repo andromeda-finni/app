@@ -144,7 +144,7 @@ export async function postSpendableThenSavings(
     referenceId: string;
     idempotencyKeyPrefix: string;
   },
-): Promise<{ spendableTxnId: string; savingsTxnId: string | null }> {
+): Promise<{ spendableTxnId: string | null; savingsTxnId: string | null }> {
   const spendableRes = await client.query<{ balance: number }>(
     `SELECT balance FROM wallets WHERE child_user_id = $1 AND kind = 'SPENDABLE' FOR UPDATE`,
     [args.childUserId],
@@ -153,18 +153,26 @@ export async function postSpendableThenSavings(
   const fromSpendable = Math.min(spendableBalance, args.amount);
   const remainder = args.amount - fromSpendable;
 
-  const spendable = await postTransaction(client, {
-    childUserId: args.childUserId,
-    walletKind: "SPENDABLE",
-    eventType: args.eventType,
-    deltaAmount: -fromSpendable,
-    referenceType: args.referenceType,
-    referenceId: args.referenceId,
-    idempotencyKey: `${args.idempotencyKeyPrefix}:spendable`,
-  });
+  // transactions.delta_amount has CHECK (delta_amount <> 0) — skip posting a
+  // leg entirely when it would be zero (e.g. SPENDABLE is already empty)
+  // instead of letting that constraint reject the whole operation.
+  const spendableTxnId =
+    fromSpendable > 0
+      ? (
+          await postTransaction(client, {
+            childUserId: args.childUserId,
+            walletKind: "SPENDABLE",
+            eventType: args.eventType,
+            deltaAmount: -fromSpendable,
+            referenceType: args.referenceType,
+            referenceId: args.referenceId,
+            idempotencyKey: `${args.idempotencyKeyPrefix}:spendable`,
+          })
+        ).id
+      : null;
 
   if (remainder === 0) {
-    return { spendableTxnId: spendable.id, savingsTxnId: null };
+    return { spendableTxnId, savingsTxnId: null };
   }
 
   const savings = await postTransaction(client, {
@@ -177,5 +185,5 @@ export async function postSpendableThenSavings(
     idempotencyKey: `${args.idempotencyKeyPrefix}:savings`,
   });
 
-  return { spendableTxnId: spendable.id, savingsTxnId: savings.id };
+  return { spendableTxnId, savingsTxnId: savings.id };
 }

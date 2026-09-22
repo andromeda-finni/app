@@ -9,7 +9,12 @@ dotenv.config({ path: path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 const { buildApp } = await import("./app.js");
 
 const port = Number(process.env["PORT"] ?? 3000);
-const host = process.env["HOST"] ?? "127.0.0.1";
+// 0.0.0.0 by default: a loopback-only bind would refuse connections coming
+// in via the Android emulator's 10.0.2.2 host-forwarding route (and from a
+// physical device on the same LAN) even though they originate on this same
+// machine — they don't arrive on the literal loopback interface. Local dev
+// convenience only; set HOST explicitly for any non-local deployment.
+const host = process.env["HOST"] ?? "0.0.0.0";
 
 const app = await buildApp();
 

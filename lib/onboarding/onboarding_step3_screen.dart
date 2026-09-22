@@ -28,23 +28,36 @@ class OnboardingStep3Screen extends StatefulWidget {
 
 class _OnboardingStep3ScreenState extends State<OnboardingStep3Screen> {
   late OnboardingData _data = widget.initialData;
+  // The default split (4/2/4) is already valid, so without this the child
+  // could tap "Готово" without ever touching a +/- control — this tracks
+  // whether they actually practiced moving a coin at least once.
+  bool _hasInteracted = false;
 
   @override
   Widget build(BuildContext context) {
     return OnboardingStepScaffold(
       stepNumber: 3,
+      // The card's content decides its own height instead of being
+      // squeezed into a fraction of the viewport (see OnboardingScrollLayout
+      // — a fixed fraction can be smaller than what this card's rows
+      // actually need on a short device, which used to overflow).
+      topSizeToFraction: false,
       top: Container(
         color: AppColors.cardBg,
         padding: const EdgeInsets.all(24),
         child: Center(
           child: TutorialBudgetCard(
             data: _data,
-            onChanged: (next) => setState(() => _data = next),
+            onChanged: (next) => setState(() {
+              _data = next;
+              _hasInteracted = true;
+            }),
           ),
         ),
       ),
       onBack: widget.onBack,
       onNext: () => widget.onNext(_data),
+      nextEnabled: _hasInteracted,
       nextLabel: 'Готово',
       content: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
