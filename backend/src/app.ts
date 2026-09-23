@@ -24,7 +24,7 @@ import { passportRoutes } from "./modules/passport/routes.js";
  * traffic and then 500ing on the first query that hits a missing column.
  * Bump this whenever a migration the code depends on is added.
  */
-const REQUIRED_SCHEMA_VERSION = "0019_concurrency_and_idempotency.sql";
+const REQUIRED_SCHEMA_VERSION = "0020_pet_health.sql";
 
 export async function buildApp() {
   const app = Fastify({

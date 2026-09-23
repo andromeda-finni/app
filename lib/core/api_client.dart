@@ -89,12 +89,44 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? body,
     bool auth = true,
-  }) => _send('POST', path, body: body, auth: auth);
+  }) async => _asObject(await _send('POST', path, body: body, auth: auth));
 
-  Future<Map<String, dynamic>> get(String path, {bool auth = true}) =>
-      _send('GET', path, auth: auth);
+  Future<Map<String, dynamic>> put(
+    String path, {
+    Map<String, dynamic>? body,
+    bool auth = true,
+  }) async => _asObject(await _send('PUT', path, body: body, auth: auth));
 
-  Future<Map<String, dynamic>> _send(
+  /// For a route that answers with a JSON object. Pass [allowNullBody] for one
+  /// that legitimately answers `null` (e.g. "no active period"), which is a
+  /// valid answer rather than an error.
+  Future<Map<String, dynamic>?> get(
+    String path, {
+    bool auth = true,
+    bool allowNullBody = false,
+  }) async {
+    final decoded = await _send('GET', path, auth: auth);
+    if (decoded == null && allowNullBody) return null;
+    return _asObject(decoded);
+  }
+
+  /// For a route that answers with a JSON array.
+  Future<List<dynamic>> getList(String path, {bool auth = true}) async {
+    final decoded = await _send('GET', path, auth: auth);
+    if (decoded is! List) {
+      throw ApiException(0, 'unexpected_response_shape');
+    }
+    return decoded;
+  }
+
+  Map<String, dynamic> _asObject(Object? decoded) {
+    if (decoded is! Map<String, dynamic>) {
+      throw ApiException(0, 'unexpected_response_shape');
+    }
+    return decoded;
+  }
+
+  Future<Object?> _send(
     String method,
     String path, {
     Map<String, dynamic>? body,
@@ -132,13 +164,16 @@ class ApiClient {
 
     final decoded = response.body.isEmpty
         ? <String, dynamic>{}
-        : jsonDecode(response.body) as Map<String, dynamic>;
+        : jsonDecode(response.body);
 
     if (response.statusCode >= 400) {
+      // An error body is always an object; anything else means the failure
+      // came from somewhere that doesn't speak this API's error shape.
+      final error = decoded is Map<String, dynamic> ? decoded : const {};
       throw ApiException(
         response.statusCode,
-        decoded['error'] as String? ?? 'unknown_error',
-        decoded['details'],
+        error['error'] as String? ?? 'unknown_error',
+        error['details'],
       );
     }
     return decoded;

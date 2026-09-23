@@ -20,10 +20,6 @@ class FurColorOption {
   final String catAsset;
 }
 
-/// Shown on step 1 until a fur colour has been chosen — the cat is still
-/// "any cat", so the art is the uncoloured base pose.
-const kBaseCatAsset = 'assets/Cat/Base/playful.png';
-
 /// Total coins the tutorial budget on step 3 distributes between the three
 /// categories. Maps to budget_plans.need_amount/want_amount/savings_amount
 /// in the backend (see db/migrations/0007_periods.sql) once wired up —

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/pet_assets.dart';
 import '../../theme/app_theme.dart';
 import '../onboarding_data.dart';
 
@@ -35,12 +36,7 @@ const _swatchFocus = Alignment(-0.45, 0.30);
 
 /// Looks up the cat art for a chosen fur id, falling back to the base pose
 /// while nothing is chosen yet.
-String catAssetForFur(String? furColorId) {
-  for (final option in furColorOptions) {
-    if (option.id == furColorId) return option.catAsset;
-  }
-  return kBaseCatAsset;
-}
+String catAssetForFur(String? furColorId) => catAsset(furOptionId: furColorId);
 
 /// One fur swatch + label, sized to sit inline inside the story paragraph
 /// via a WidgetSpan (see onboarding_step1_screen.dart).

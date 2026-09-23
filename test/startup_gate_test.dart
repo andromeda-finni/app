@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:andromeda_app/core/api_client.dart';
+import 'package:andromeda_app/home/main_shell.dart';
 import 'package:andromeda_app/main.dart';
 import 'package:andromeda_app/onboarding/onboarding_step1_screen.dart';
 
@@ -62,7 +63,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(OnboardingStep1Screen), findsNothing);
-      expect(find.textContaining('Питомец уже создан'), findsOneWidget);
+      expect(find.byType(MainShell), findsOneWidget);
     },
   );
 
@@ -167,6 +168,6 @@ void main() {
     await tester.tap(find.text('Повторить'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Питомец уже создан'), findsOneWidget);
+    expect(find.byType(MainShell), findsOneWidget);
   });
 }
