@@ -59,9 +59,22 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
+  # Listed file by file rather than by folder: the art is authored at very
+  # high resolution (a 1254x1254 coin icon weighs 1.2MB and is drawn at 22px),
+  # so declaring whole folders pulled ~56MB of mostly unused images into the
+  # APK. Add a line here when a screen starts using another image.
   assets:
-    - assets/images/onboarding/
+    - assets/backgrounds/town.png
+    - assets/backgrounds/shop.png
+    - assets/backgrounds/paper.png
+    - assets/icons/sweet.png
+    - assets/icons/ball.png
+    - assets/icons/pig.png
+    - assets/icons/coin.png
+    - assets/Cat/Base/playful.png
+    - assets/Cat/Red_collar/base/striped.png
+    - assets/Cat/Red_collar/base/red.png
+    - assets/Cat/Red_collar/base/white.png
 
   # Bundled locally (not via google_fonts' runtime download) — on a device
   # with no network on first launch (offline, restricted Wi-Fi, an emulator
@@ -69,14 +82,9 @@ flutter:
   # fonts.gstatic.com fails and silently falls back to the system font,
   # which would have quietly broken this app's entire storybook look.
   fonts:
-    - family: PT Serif
+    - family: Monomakh
       fonts:
-        - asset: assets/fonts/PTSerif-Regular.ttf
-        - asset: assets/fonts/PTSerif-Bold.ttf
-          weight: 700
-    - family: Yeseva One
-      fonts:
-        - asset: assets/fonts/YesevaOne-Regular.ttf
+        - asset: assets/fonts/ofont.ru_Monomakh Unicode.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

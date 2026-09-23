@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../theme/app_theme.dart';
 import '../onboarding_data.dart';
 
@@ -8,56 +9,94 @@ import '../onboarding_data.dart';
 /// never appear or disappear: a row's "+" is disabled once every coin is
 /// already assigned somewhere, and "-" is disabled once a row hits zero.
 class TutorialBudgetCard extends StatelessWidget {
-  const TutorialBudgetCard({super.key, required this.data, required this.onChanged});
+  const TutorialBudgetCard({
+    super.key,
+    required this.data,
+    required this.onChanged,
+  });
 
   final OnboardingData data;
   final ValueChanged<OnboardingData> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.fieldBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Center(child: Text('$kTutorialBudgetTotal монет', style: AppTextStyles.cardTitle)),
-          const SizedBox(height: 16),
-          _CounterRow(
-            icon: Icons.icecream_outlined,
-            label: 'Конфеты',
-            value: data.candyAmount,
-            canIncrement: data.unallocated > 0,
-            canDecrement: data.candyAmount > 0,
-            onIncrement: () => onChanged(data.copyWith(candyAmount: data.candyAmount + 1)),
-            onDecrement: () => onChanged(data.copyWith(candyAmount: data.candyAmount - 1)),
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        // The scroll art carries a dark vignette right up to its edges, so it
+        // is drawn slightly oversized behind a clip — that pushes the vignette
+        // out of frame and leaves just the parchment and its curls.
+        Positioned.fill(
+          child: ClipRect(
+            child: Transform.scale(
+              scale: 1.24,
+              // Anchored above centre: the art's darkest corner is the
+              // bottom-right one behind the coins, so biasing upward pushes
+              // it out of frame while keeping the top curl visible.
+              alignment: const Alignment(0, -0.2),
+              child: Image.asset(
+                'assets/backgrounds/paper.png',
+                fit: BoxFit.fill,
+              ),
+            ),
           ),
-          const SizedBox(height: 10),
-          _CounterRow(
-            icon: Icons.sports_baseball_outlined,
-            label: 'Другие вещи',
-            value: data.otherAmount,
-            canIncrement: data.unallocated > 0,
-            canDecrement: data.otherAmount > 0,
-            onIncrement: () => onChanged(data.copyWith(otherAmount: data.otherAmount + 1)),
-            onDecrement: () => onChanged(data.copyWith(otherAmount: data.otherAmount - 1)),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(34, 30, 34, 34),
+          child: _rows(),
+        ),
+      ],
+    );
+  }
+
+  Widget _rows() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: Text(
+            '$kTutorialBudgetTotal монет',
+            style: AppTextStyles.cardTitle,
           ),
-          const SizedBox(height: 10),
-          _CounterRow(
-            icon: Icons.savings_outlined,
-            label: 'Копилка',
-            value: data.piggyAmount,
-            canIncrement: data.unallocated > 0,
-            canDecrement: data.piggyAmount > 0,
-            onIncrement: () => onChanged(data.copyWith(piggyAmount: data.piggyAmount + 1)),
-            onDecrement: () => onChanged(data.copyWith(piggyAmount: data.piggyAmount - 1)),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 14),
+        _CounterRow(
+          icon: 'assets/icons/sweet.png',
+          label: 'Конфеты',
+          value: data.candyAmount,
+          canIncrement: data.unallocated > 0,
+          canDecrement: data.candyAmount > 0,
+          onIncrement: () =>
+              onChanged(data.copyWith(candyAmount: data.candyAmount + 1)),
+          onDecrement: () =>
+              onChanged(data.copyWith(candyAmount: data.candyAmount - 1)),
+        ),
+        const SizedBox(height: 10),
+        _CounterRow(
+          icon: 'assets/icons/ball.png',
+          label: 'Другие вещи',
+          value: data.otherAmount,
+          canIncrement: data.unallocated > 0,
+          canDecrement: data.otherAmount > 0,
+          onIncrement: () =>
+              onChanged(data.copyWith(otherAmount: data.otherAmount + 1)),
+          onDecrement: () =>
+              onChanged(data.copyWith(otherAmount: data.otherAmount - 1)),
+        ),
+        const SizedBox(height: 10),
+        _CounterRow(
+          icon: 'assets/icons/pig.png',
+          label: 'Копилка',
+          value: data.piggyAmount,
+          canIncrement: data.unallocated > 0,
+          canDecrement: data.piggyAmount > 0,
+          onIncrement: () =>
+              onChanged(data.copyWith(piggyAmount: data.piggyAmount + 1)),
+          onDecrement: () =>
+              onChanged(data.copyWith(piggyAmount: data.piggyAmount - 1)),
+        ),
+      ],
     );
   }
 }
@@ -73,7 +112,7 @@ class _CounterRow extends StatelessWidget {
     required this.onDecrement,
   });
 
-  final IconData icon;
+  final String icon;
   final String label;
   final int value;
   final bool canIncrement;
@@ -101,14 +140,17 @@ class _CounterRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: AppColors.ink, size: 20),
+              Image.asset(icon, width: 24, height: 24, fit: BoxFit.contain),
               const SizedBox(width: 8),
               Flexible(child: Text(label, style: AppTextStyles.cardRowLabel)),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
+          // Minus at one edge, plus at the other and the count between them,
+          // as the reference draws it — the controls read as a single dial
+          // rather than a cluster pushed against the right margin.
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _RoundIconButton(
                 icon: Icons.remove,
@@ -116,19 +158,23 @@ class _CounterRow extends StatelessWidget {
                 onPressed: canDecrement ? onDecrement : null,
                 semanticLabel: 'Убрать монету из категории «$label»',
               ),
-              const SizedBox(width: 6),
-              const Icon(Icons.monetization_on, color: AppColors.leafGreen, size: 20),
-              const SizedBox(width: 6),
-              SizedBox(
-                width: 20,
-                child: Text(
-                  '$value',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.counterValue,
-                  semanticsLabel: '$value монет в категории $label',
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    'assets/icons/coin.png',
+                    width: 24,
+                    height: 24,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$value',
+                    style: AppTextStyles.counterValue,
+                    semanticsLabel: '$value монет в категории $label',
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
               _RoundIconButton(
                 icon: Icons.add,
                 color: AppColors.leafGreen,

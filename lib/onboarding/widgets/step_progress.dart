@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+
 import '../../theme/app_theme.dart';
 
 class StepProgress extends StatelessWidget {
-  const StepProgress({super.key, required this.currentStep, required this.totalSteps});
+  const StepProgress({
+    super.key,
+    required this.currentStep,
+    required this.totalSteps,
+  });
 
   final int currentStep;
   final int totalSteps;

@@ -3,12 +3,26 @@
 /// the value collected here can be sent to `POST /pet` as-is once the later
 /// onboarding steps (and account creation) exist.
 class FurColorOption {
-  const FurColorOption({required this.id, required this.label, required this.swatch});
+  const FurColorOption({
+    required this.id,
+    required this.label,
+    required this.swatch,
+    required this.catAsset,
+  });
 
   final String id;
   final String label;
-  final int swatch; // ARGB color value, kept as int to avoid importing Flutter here.
+  final int
+  swatch; // ARGB color value, kept as int to avoid importing Flutter here.
+
+  /// The cat drawn in this fur, shown on step 1 as soon as this option is
+  /// picked and cropped into the option's own swatch.
+  final String catAsset;
 }
+
+/// Shown on step 1 until a fur colour has been chosen — the cat is still
+/// "any cat", so the art is the uncoloured base pose.
+const kBaseCatAsset = 'assets/Cat/Base/playful.png';
 
 /// Total coins the tutorial budget on step 3 distributes between the three
 /// categories. Maps to budget_plans.need_amount/want_amount/savings_amount

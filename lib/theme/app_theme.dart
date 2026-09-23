@@ -18,63 +18,71 @@ abstract final class AppColors {
   static const cardBg = Color(0xFFFBF4E7);
 }
 
-// Bundled as local assets (pubspec.yaml `fonts:`), not fetched at runtime via
+// Bundled as a local asset (pubspec.yaml `fonts:`), not fetched at runtime via
 // the google_fonts package — that package downloads font files from
 // fonts.gstatic.com on first use, which fails (and silently falls back to
 // the system font) on a device with no network on first launch. Confirmed
 // on a real Android emulator run with no internet access.
-const _dropCapFontFamily = 'Yeseva One';
-const _storyFontFamily = 'PT Serif';
+//
+// One family across every screen, so the storybook voice stays consistent;
+// weight and size carry the hierarchy instead of a second typeface.
+abstract final class AppFonts {
+  static const family = 'Monomakh';
+}
+
+const _fontFamily = AppFonts.family;
 
 abstract final class AppTextStyles {
   static const TextStyle dropCap = TextStyle(
-    fontFamily: _dropCapFontFamily,
+    fontFamily: _fontFamily,
     color: AppColors.crimson,
     fontSize: 64,
     height: 1,
     fontWeight: FontWeight.w400,
   );
 
+  // Monomakh runs wider than the previous serif at the same point size, so
+  // the story size comes down a little to keep the reference's line breaks.
   static const TextStyle story = TextStyle(
-    fontFamily: _storyFontFamily,
+    fontFamily: _fontFamily,
     color: AppColors.ink,
-    fontSize: 19,
-    height: 1.45,
+    fontSize: 17,
+    height: 1.4,
   );
 
   static const TextStyle swatchLabel = TextStyle(
-    fontFamily: _storyFontFamily,
+    fontFamily: _fontFamily,
     color: AppColors.inkMuted,
     fontSize: 13,
   );
 
   static const TextStyle stepCounter = TextStyle(
-    fontFamily: _storyFontFamily,
+    fontFamily: _fontFamily,
     color: AppColors.inkMuted,
     fontSize: 14,
   );
 
   static const TextStyle button = TextStyle(
-    fontFamily: _dropCapFontFamily,
+    fontFamily: _fontFamily,
     color: Colors.white,
     fontSize: 20,
     letterSpacing: 0.5,
   );
 
   static const TextStyle cardTitle = TextStyle(
-    fontFamily: _dropCapFontFamily,
+    fontFamily: _fontFamily,
     color: AppColors.ink,
     fontSize: 22,
   );
 
   static const TextStyle cardRowLabel = TextStyle(
-    fontFamily: _storyFontFamily,
+    fontFamily: _fontFamily,
     color: AppColors.ink,
     fontSize: 16,
   );
 
   static const TextStyle counterValue = TextStyle(
-    fontFamily: _storyFontFamily,
+    fontFamily: _fontFamily,
     color: AppColors.ink,
     fontSize: 18,
     fontWeight: FontWeight.bold,

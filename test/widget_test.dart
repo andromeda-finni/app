@@ -17,13 +17,17 @@ Future<void> _pumpAtSize(
   double textScale = 1.0,
 }) async {
   final dpr = tester.view.devicePixelRatio;
-  tester.view.physicalSize = Size(logicalSize.width * dpr, logicalSize.height * dpr);
+  tester.view.physicalSize = Size(
+    logicalSize.width * dpr,
+    logicalSize.height * dpr,
+  );
   addTearDown(tester.view.resetPhysicalSize);
 
   await tester.pumpWidget(
     MaterialApp(
       builder: (context, widget) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(textScale)),
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(textScale)),
         child: widget!,
       ),
       home: child,
@@ -34,56 +38,60 @@ Future<void> _pumpAtSize(
 }
 
 void main() {
-  testWidgets('onboarding step 1 requires a name and a fur color before continuing', (tester) async {
-    OnboardingData? submitted;
+  testWidgets(
+    'onboarding step 1 requires a name and a fur color before continuing',
+    (tester) async {
+      OnboardingData? submitted;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: OnboardingStep1Screen(
-          onNext: (data) async => submitted = data,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OnboardingStep1Screen(onNext: (data) async => submitted = data),
         ),
-      ),
-    );
+      );
 
-    // "Далее" is disabled until both a name and a fur color are chosen.
-    var button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
-    expect(button.onPressed, isNull);
+      // "Далее" is disabled until both a name and a fur color are chosen.
+      var button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+      expect(button.onPressed, isNull);
 
-    await tester.enterText(find.byType(TextField), 'Грошик');
-    await tester.tap(find.text('серый'));
-    await tester.pump();
+      await tester.enterText(find.byType(TextField), 'Грошик');
+      await tester.tap(find.text('серый'));
+      await tester.pump();
 
-    button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
-    expect(button.onPressed, isNotNull);
+      button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+      expect(button.onPressed, isNotNull);
 
-    // The page is scrollable by design now (see OnboardingScrollLayout) so
-    // the button may sit below the fold on a short viewport.
-    await tester.ensureVisible(find.byType(ElevatedButton));
-    await tester.tap(find.byType(ElevatedButton));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
 
-    expect(submitted?.petName, 'Грошик');
-    expect(submitted?.furColorId, 'FUR_GRAY');
-  });
+      expect(submitted?.petName, 'Грошик');
+      expect(submitted?.furColorId, 'FUR_GRAY');
+    },
+  );
 
   group('no overflow on small screens or large text scale', () {
     final screens = <String, Widget Function()>{
       'step 1': () => OnboardingStep1Screen(onNext: (_) async {}),
       'step 2': () => OnboardingStep2Screen(onBack: () {}, onNext: () {}),
       'step 3': () => OnboardingStep3Screen(
-            initialData: OnboardingData(),
-            onBack: () {},
-            onNext: (_) {},
-          ),
+        initialData: OnboardingData(),
+        onBack: () {},
+        onNext: (_) {},
+      ),
       'step 4': () => OnboardingStep4Screen(onBack: () {}, onFinish: () {}),
     };
 
     for (final entry in screens.entries) {
       testWidgets('${entry.key} at 320x568', (tester) async {
-        await _pumpAtSize(tester, entry.value(), logicalSize: const Size(320, 568));
+        await _pumpAtSize(
+          tester,
+          entry.value(),
+          logicalSize: const Size(320, 568),
+        );
       });
 
-      testWidgets('${entry.key} at 412x915 with 1.3x text scale', (tester) async {
+      testWidgets('${entry.key} at 412x915 with 1.3x text scale', (
+        tester,
+      ) async {
         await _pumpAtSize(
           tester,
           entry.value(),
@@ -92,7 +100,9 @@ void main() {
         );
       });
 
-      testWidgets('${entry.key} at 320x568 with 1.3x text scale (worst case)', (tester) async {
+      testWidgets('${entry.key} at 320x568 with 1.3x text scale (worst case)', (
+        tester,
+      ) async {
         await _pumpAtSize(
           tester,
           entry.value(),

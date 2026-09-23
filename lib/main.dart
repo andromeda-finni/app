@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'core/api_client.dart';
 import 'core/auth_storage.dart';
 import 'onboarding/onboarding_flow.dart';
@@ -9,7 +10,11 @@ void main() {
 }
 
 class GroshikApp extends StatelessWidget {
-  const GroshikApp({super.key, @visibleForTesting this.authStorage, @visibleForTesting this.apiClient});
+  const GroshikApp({
+    super.key,
+    @visibleForTesting this.authStorage,
+    @visibleForTesting this.apiClient,
+  });
 
   final AuthStorage? authStorage;
   final ApiClient? apiClient;
@@ -22,6 +27,9 @@ class GroshikApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.crimson),
         scaffoldBackgroundColor: AppColors.parchment,
+        // App-wide default so any Text without an explicit style still picks
+        // up the storybook face instead of falling back to Roboto.
+        fontFamily: AppFonts.family,
       ),
       home: _StartupGate(authStorage: authStorage, apiClient: apiClient),
     );
@@ -71,10 +79,17 @@ class _StartupGateState extends State<_StartupGate> {
       if (!mounted) return;
       setState(() => _state = _StartupState.hasPet);
     } on ApiException catch (e) {
+      // 401 means the saved token is dead server-side (revoked or expired).
+      // It has to be *deleted*, not merely ignored: onboarding reuses any
+      // token it finds rather than registering again, so leaving it behind
+      // sends the revoked token straight back out on POST /pet and traps the
+      // child in a loop no retry can escape.
+      if (e.statusCode == 401) {
+        await _authStorage.clearToken();
+      }
       if (!mounted) return;
-      // 404 = account exists, pet doesn't yet (onboarding was interrupted).
-      // 401 = the saved token is no longer valid server-side. Either way
-      // the correct recovery is the same: run onboarding again.
+      // 404 = account exists, pet doesn't yet (onboarding was interrupted);
+      // the token is still good, so onboarding will skip re-registering.
       if (e.statusCode == 404 || e.statusCode == 401) {
         setState(() => _state = _StartupState.needsOnboarding);
       } else {
@@ -89,7 +104,9 @@ class _StartupGateState extends State<_StartupGate> {
       case _StartupState.checking:
         return const Scaffold(
           backgroundColor: AppColors.parchment,
-          body: Center(child: CircularProgressIndicator(color: AppColors.crimson)),
+          body: Center(
+            child: CircularProgressIndicator(color: AppColors.crimson),
+          ),
         );
       case _StartupState.needsOnboarding:
         return OnboardingFlow(
@@ -101,7 +118,9 @@ class _StartupGateState extends State<_StartupGate> {
         // TODO: replace with the real pet home screen once it exists.
         return const Scaffold(
           backgroundColor: AppColors.parchment,
-          body: Center(child: Text('Питомец уже создан — экран дома в разработке')),
+          body: Center(
+            child: Text('Питомец уже создан — экран дома в разработке'),
+          ),
         );
       case _StartupState.error:
         return Scaffold(

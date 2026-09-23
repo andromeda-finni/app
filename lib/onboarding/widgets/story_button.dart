@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../theme/app_theme.dart';
 
 /// The red pill button used to advance onboarding. Step 1 uses a full-width
@@ -32,7 +33,10 @@ class StoryButton extends StatelessWidget {
         backgroundColor: AppColors.crimson,
         disabledBackgroundColor: AppColors.crimson.withValues(alpha: 0.4),
         foregroundColor: Colors.white,
-        padding: EdgeInsets.symmetric(horizontal: expand ? 24 : 28, vertical: 16),
+        padding: EdgeInsets.symmetric(
+          horizontal: expand ? 24 : 28,
+          vertical: 16,
+        ),
         shape: const StadiumBorder(),
         elevation: enabled ? 3 : 0,
       ),
@@ -40,14 +44,21 @@ class StoryButton extends StatelessWidget {
           ? const SizedBox(
               width: 22,
               height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Colors.white,
+              ),
             )
           : Row(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (showFlourish) ...[
-                  const Icon(Icons.eco_outlined, color: Colors.white70, size: 18),
+                  const Icon(
+                    Icons.eco_outlined,
+                    color: Colors.white70,
+                    size: 18,
+                  ),
                   const SizedBox(width: 12),
                 ],
                 // Flexible + ellipsis: at large text-scale factors or on very
@@ -66,7 +77,11 @@ class StoryButton extends StatelessWidget {
                   const SizedBox(width: 12),
                   Transform.flip(
                     flipX: true,
-                    child: const Icon(Icons.eco_outlined, color: Colors.white70, size: 18),
+                    child: const Icon(
+                      Icons.eco_outlined,
+                      color: Colors.white70,
+                      size: 18,
+                    ),
                   ),
                 ],
               ],
@@ -77,6 +92,10 @@ class StoryButton extends StatelessWidget {
       button: true,
       enabled: enabled,
       label: semanticLabel ?? label,
+      // ExcludeSemantics drops the InkWell's tap action along with the rest
+      // of the subtree, so without re-declaring it here the node announces
+      // itself as a button that a screen reader then cannot activate.
+      onTap: enabled ? onPressed : null,
       child: ExcludeSemantics(child: button),
     );
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_theme.dart';
 import 'onboarding_data.dart';
 import 'widgets/drop_cap_ornament.dart';
@@ -37,21 +38,33 @@ class _OnboardingStep3ScreenState extends State<OnboardingStep3Screen> {
   Widget build(BuildContext context) {
     return OnboardingStepScaffold(
       stepNumber: 3,
-      // The card's content decides its own height instead of being
-      // squeezed into a fraction of the viewport (see OnboardingScrollLayout
-      // — a fixed fraction can be smaller than what this card's rows
-      // actually need on a short device, which used to overflow).
-      topSizeToFraction: false,
-      top: Container(
+      // This screen's "top" is the exercise itself, not decoration, so it
+      // keeps the lion's share of the viewport and the caption below stays
+      // compact.
+      topMinFraction: 0.62,
+      top: ColoredBox(
         color: AppColors.cardBg,
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: TutorialBudgetCard(
-            data: _data,
-            onChanged: (next) => setState(() {
-              _data = next;
-              _hasInteracted = true;
-            }),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          // Unlike the other steps, this "top" is the exercise rather than a
+          // painted backdrop: it has a real minimum height and cannot simply
+          // be cropped like an image. On a short screen it scales down as a
+          // whole instead of overflowing, which keeps all three rows and
+          // their +/- controls on screen.
+          child: LayoutBuilder(
+            builder: (context, constraints) => FittedBox(
+              fit: BoxFit.scaleDown,
+              child: SizedBox(
+                width: constraints.maxWidth,
+                child: TutorialBudgetCard(
+                  data: _data,
+                  onChanged: (next) => setState(() {
+                    _data = next;
+                    _hasInteracted = true;
+                  }),
+                ),
+              ),
+            ),
           ),
         ),
       ),

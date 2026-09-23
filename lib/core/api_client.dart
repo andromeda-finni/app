@@ -1,6 +1,8 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
 import 'auth_storage.dart';
 
 /// Override at build/run time: `flutter run --dart-define=API_BASE_URL=http://192.168.1.23:3000`
@@ -13,7 +15,9 @@ String _defaultBaseUrl() {
   // 10.0.2.2 is the Android emulator's alias for the host machine's
   // localhost — plain 127.0.0.1 from inside the emulator means the
   // emulator itself, not the dev machine running the backend.
-  if (defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:3000';
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    return 'http://10.0.2.2:3000';
+  }
   return 'http://127.0.0.1:3000';
 }
 
@@ -32,11 +36,50 @@ class ApiException implements Exception {
   String toString() => 'ApiException($statusCode, $code)';
 }
 
+/// Hosts allowed to be reached over plain HTTP: the loopback addresses and the
+/// Android emulator's alias for the host machine. This traffic never leaves
+/// the developer's machine.
+bool _isLocalDevHost(String host) =>
+    host == 'localhost' ||
+    host == '127.0.0.1' ||
+    host == '::1' ||
+    host == '10.0.2.2';
+
+/// Refuses to let a release binary talk to a remote host over plain HTTP.
+///
+/// Android's `usesCleartextTraffic` / Network Security Config does not cover
+/// this. Flutter's dart:io HttpClient opens its own sockets and never consults
+/// `NetworkSecurityPolicy` — confirmed on a release APK with targetSdk 36 and
+/// no config present, which reached an http:// backend without complaint. The
+/// platform will not stop a cleartext production build, so this check is the
+/// only thing that does.
+void _assertTransportIsSafe(String baseUrl) {
+  if (kDebugMode) return;
+  final uri = Uri.parse(baseUrl);
+  if (uri.scheme == 'https' || _isLocalDevHost(uri.host)) return;
+  throw ArgumentError.value(
+    baseUrl,
+    'baseUrl',
+    'Refusing to send API traffic to a remote host over plain HTTP in a '
+        'release build — the bearer token would be readable on the wire. '
+        'Use https, or point API_BASE_URL at a local dev address.',
+  );
+}
+
 class ApiClient {
-  ApiClient({http.Client? httpClient, AuthStorage? authStorage, String? baseUrl})
-      : _http = httpClient ?? http.Client(),
-        _authStorage = authStorage ?? AuthStorage(),
-        baseUrl = baseUrl ?? (_baseUrlOverride.isNotEmpty ? _baseUrlOverride : _defaultBaseUrl());
+  ApiClient({
+    http.Client? httpClient,
+    AuthStorage? authStorage,
+    String? baseUrl,
+  }) : _http = httpClient ?? http.Client(),
+       _authStorage = authStorage ?? AuthStorage(),
+       baseUrl =
+           baseUrl ??
+           (_baseUrlOverride.isNotEmpty
+               ? _baseUrlOverride
+               : _defaultBaseUrl()) {
+    _assertTransportIsSafe(this.baseUrl);
+  }
 
   final http.Client _http;
   final AuthStorage _authStorage;
@@ -48,7 +91,8 @@ class ApiClient {
     bool auth = true,
   }) => _send('POST', path, body: body, auth: auth);
 
-  Future<Map<String, dynamic>> get(String path, {bool auth = true}) => _send('GET', path, auth: auth);
+  Future<Map<String, dynamic>> get(String path, {bool auth = true}) =>
+      _send('GET', path, auth: auth);
 
   Future<Map<String, dynamic>> _send(
     String method,
@@ -68,13 +112,17 @@ class ApiClient {
     // even when every property is optional) — always send a real JSON
     // object, even an empty one, for any POST/PUT so a no-argument call
     // like child registration doesn't 400 before reaching the handler.
-    final effectiveBody = (method == 'POST' || method == 'PUT') ? (body ?? const {}) : body;
+    final effectiveBody = (method == 'POST' || method == 'PUT')
+        ? (body ?? const {})
+        : body;
 
     http.Response response;
     try {
       final request = http.Request(method, uri)..headers.addAll(headers);
       if (effectiveBody != null) request.body = jsonEncode(effectiveBody);
-      final streamed = await _http.send(request).timeout(const Duration(seconds: 10));
+      final streamed = await _http
+          .send(request)
+          .timeout(const Duration(seconds: 10));
       response = await http.Response.fromStream(streamed);
     } catch (_) {
       // Covers timeouts, DNS/connection refused, and any other transport

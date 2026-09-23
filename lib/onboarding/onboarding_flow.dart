@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../core/api_client.dart';
 import '../core/auth_storage.dart';
 import '../theme/app_theme.dart';
@@ -23,7 +24,12 @@ import 'widgets/story_button.dart';
 /// [onFinished] fires once the child taps "Начать игру" on step 4 — by then
 /// the account and pet already exist server-side.
 class OnboardingFlow extends StatefulWidget {
-  const OnboardingFlow({super.key, required this.onFinished, this.apiClient, this.authStorage});
+  const OnboardingFlow({
+    super.key,
+    required this.onFinished,
+    this.apiClient,
+    this.authStorage,
+  });
 
   final VoidCallback onFinished;
   final ApiClient? apiClient;
@@ -74,10 +80,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   /// Awaited by step 1's own submit handler — throwing here keeps the child
   /// on step 1 with an inline error instead of silently losing the tap.
   Future<void> _createPet(OnboardingData data) async {
-    await _api.post('/pet', body: {
-      'petName': data.petName.trim(),
-      'furOptionId': data.furColorId,
-    });
+    await _api.post(
+      '/pet',
+      body: {'petName': data.petName.trim(), 'furOptionId': data.furColorId},
+    );
     if (!mounted) return;
     setState(() => _data = data);
   }
@@ -88,7 +94,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       case _RegistrationState.loading:
         return const Scaffold(
           backgroundColor: AppColors.parchment,
-          body: Center(child: CircularProgressIndicator(color: AppColors.crimson)),
+          body: Center(
+            child: CircularProgressIndicator(color: AppColors.crimson),
+          ),
         );
       case _RegistrationState.error:
         return Scaffold(
@@ -105,7 +113,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                     style: AppTextStyles.story,
                   ),
                   const SizedBox(height: 20),
-                  StoryButton(label: 'Повторить', expand: false, onPressed: _register),
+                  StoryButton(
+                    label: 'Повторить',
+                    expand: false,
+                    onPressed: _register,
+                  ),
                 ],
               ),
             ),
@@ -127,8 +139,10 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Widget _buildStep2(BuildContext context) {
     return OnboardingStep2Screen(
+      data: _data,
       onBack: () => Navigator.of(context).pop(),
-      onNext: () => Navigator.of(context).push(MaterialPageRoute(builder: _buildStep3)),
+      onNext: () =>
+          Navigator.of(context).push(MaterialPageRoute(builder: _buildStep3)),
     );
   }
 
@@ -145,8 +159,16 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Widget _buildStep4(BuildContext context) {
     return OnboardingStep4Screen(
+      data: _data,
       onBack: () => Navigator.of(context).pop(),
-      onFinish: widget.onFinished,
+      // Steps 2-4 are pushed routes sitting on top of this flow, and the
+      // home screen replaces the route *underneath* them. Without tearing
+      // the stack down first, finishing onboarding swaps the screen nobody
+      // can see and leaves the child looking at step 4 forever.
+      onFinish: () {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        widget.onFinished();
+      },
     );
   }
 }

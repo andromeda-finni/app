@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../theme/app_theme.dart';
 
 class BackCircleButton extends StatelessWidget {
@@ -20,7 +21,9 @@ class BackCircleButton extends StatelessWidget {
           child: const SizedBox(
             width: 52,
             height: 52,
-            child: ExcludeSemantics(child: Icon(Icons.arrow_back, color: AppColors.ink, size: 22)),
+            child: ExcludeSemantics(
+              child: Icon(Icons.arrow_back, color: AppColors.ink, size: 22),
+            ),
           ),
         ),
       ),

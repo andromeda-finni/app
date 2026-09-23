@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+
 import '../theme/app_theme.dart';
 import 'onboarding_data.dart';
 import 'widgets/fur_color_picker.dart';
 import 'widgets/inline_name_field.dart';
-import 'widgets/onboarding_illustration.dart';
-import 'widgets/onboarding_scroll_layout.dart';
+import 'widgets/onboarding_fixed_layout.dart';
+import 'widgets/onboarding_scene.dart';
 import 'widgets/step_progress.dart';
 import 'widgets/story_button.dart';
 
@@ -17,7 +18,11 @@ const _totalOnboardingSteps = 4;
 /// onboarding_flow.dart) — this screen owns the loading/error UI for that
 /// call so a network failure never silently eats the tap.
 class OnboardingStep1Screen extends StatefulWidget {
-  const OnboardingStep1Screen({super.key, required this.onNext, this.initialData});
+  const OnboardingStep1Screen({
+    super.key,
+    required this.onNext,
+    this.initialData,
+  });
 
   final Future<void> Function(OnboardingData data) onNext;
   final OnboardingData? initialData;
@@ -45,7 +50,10 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
     super.dispose();
   }
 
-  bool get _canContinue => _data.petName.trim().isNotEmpty && _data.furColorId != null && !_submitting;
+  bool get _canContinue =>
+      _data.petName.trim().isNotEmpty &&
+      _data.furColorId != null &&
+      !_submitting;
 
   Future<void> _handleNext() async {
     setState(() {
@@ -58,7 +66,9 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
       // gone by the time we'd otherwise clear `_submitting` below.
     } catch (_) {
       if (!mounted) return;
-      setState(() => _errorMessage = 'Не получилось сохранить питомца. Проверьте связь и попробуйте ещё раз.');
+      setState(
+        () => _errorMessage = 'Не получилось сохранить питомца. Проверьте связь и попробуйте ещё раз.',
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -68,8 +78,15 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.parchment,
-      body: OnboardingScrollLayout(
-        top: const OnboardingIllustration(stepNumber: 1),
+      body: OnboardingFixedLayout(
+        topMinFraction: 0.44,
+        top: OnboardingScene(
+          background: 'assets/backgrounds/town.png',
+          // Base pose until a colour is chosen, then the cat in that coat —
+          // the child sees the pet they are describing take shape as they
+          // fill the sentence in.
+          cat: catAssetForFur(_data.furColorId),
+        ),
         bottom: Container(
           decoration: const BoxDecoration(
             color: AppColors.parchment,
@@ -81,7 +98,7 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
           child: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -89,17 +106,24 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
                   _StoryParagraph(
                     data: _data,
                     nameController: _nameController,
-                    onNameChanged: (value) => setState(() => _data = _data.copyWith(petName: value)),
-                    onFurSelected: (id) => setState(() => _data = _data.copyWith(furColorId: id)),
+                    onNameChanged: (value) =>
+                        setState(() => _data = _data.copyWith(petName: value)),
+                    onFurSelected: (id) =>
+                        setState(() => _data = _data.copyWith(furColorId: id)),
                   ),
-                  const SizedBox(height: 24),
-                  const StepProgress(currentStep: 1, totalSteps: _totalOnboardingSteps),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 14),
+                  const StepProgress(
+                    currentStep: 1,
+                    totalSteps: _totalOnboardingSteps,
+                  ),
+                  const SizedBox(height: 12),
                   if (_errorMessage != null) ...[
                     Text(
                       _errorMessage!,
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.swatchLabel.copyWith(color: AppColors.crimson),
+                      style: AppTextStyles.swatchLabel.copyWith(
+                        color: AppColors.crimson,
+                      ),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -143,7 +167,10 @@ class _StoryParagraph extends StatelessWidget {
             Text('В', style: AppTextStyles.dropCap),
             const SizedBox(width: 8),
             Expanded(
-              child: Text('одном государстве жил котёнок по имени', style: AppTextStyles.story),
+              child: Text(
+                'одном государстве жил котёнок по имени',
+                style: AppTextStyles.story,
+              ),
             ),
           ],
         ),
@@ -154,18 +181,27 @@ class _StoryParagraph extends StatelessWidget {
             children: [
               WidgetSpan(
                 alignment: PlaceholderAlignment.middle,
-                child: InlineNameField(controller: nameController, onChanged: onNameChanged),
+                child: InlineNameField(
+                  controller: nameController,
+                  onChanged: onNameChanged,
+                ),
               ),
               const TextSpan(text: '. Он был '),
               WidgetSpan(
                 alignment: PlaceholderAlignment.middle,
-                child: FurColorPicker(selectedId: data.furColorId, onSelected: onFurSelected),
+                child: FurColorPicker(
+                  selectedId: data.furColorId,
+                  onSelected: onFurSelected,
+                ),
               ),
             ],
           ),
         ),
         const SizedBox(height: 12),
-        Text('и был очень-очень любопытен, игрив и добр.', style: AppTextStyles.story),
+        Text(
+          'и был очень-очень любопытен, игрив и добр.',
+          style: AppTextStyles.story,
+        ),
       ],
     );
   }

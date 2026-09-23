@@ -153,36 +153,51 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
       const childUserId = req.authUser!.id;
       const { periodId } = req.params;
 
-      const planRes = await pool.query<{
-        id: string;
-        need_amount: number;
-        want_amount: number;
-        savings_amount: number;
-        available_amount: number;
-      }>(
-        `SELECT id, need_amount, want_amount, savings_amount, available_amount
-           FROM budget_plans WHERE period_id = $1 AND child_user_id = $2 AND status = 'DRAFT'`,
-        [periodId, childUserId],
-      );
-      const plan = planRes.rows[0];
-      if (!plan) throw new HttpError(404, "draft_budget_plan_not_found");
+      // Read, validate, confirm and move the money all under one lock on the
+      // plan row. Reading the DRAFT outside the transaction let two parallel
+      // confirms both see DRAFT, both pass validation, and both try to move
+      // the savings — the loser died on the ledger's unique key as a 500.
+      return withTransaction(async (client) => {
+        const planRes = await client.query<{
+          id: string;
+          status: string;
+          need_amount: number;
+          want_amount: number;
+          savings_amount: number;
+          available_amount: number;
+        }>(
+          `SELECT id, status, need_amount, want_amount, savings_amount, available_amount
+             FROM budget_plans WHERE period_id = $1 AND child_user_id = $2
+             FOR UPDATE`,
+          [periodId, childUserId],
+        );
+        const plan = planRes.rows[0];
+        if (!plan) throw new HttpError(404, "draft_budget_plan_not_found");
 
-      const periodRes = await pool.query<{ required_need_amount: number }>(
-        `SELECT required_need_amount FROM game_periods WHERE id = $1 AND child_user_id = $2`,
-        [periodId, childUserId],
-      );
-      const requiredNeed = periodRes.rows[0]?.required_need_amount ?? 0;
+        // The competing request already did the work and committed while we
+        // waited on its lock. Confirming is naturally idempotent, so replay
+        // its outcome instead of reporting a spurious conflict.
+        if (plan.status === "CONFIRMED") {
+          return { ok: true, replayed: true };
+        }
+        if (plan.status !== "DRAFT") throw new HttpError(404, "draft_budget_plan_not_found");
 
-      if (plan.need_amount + plan.want_amount + plan.savings_amount !== plan.available_amount) {
-        throw new HttpError(400, "plan_must_allocate_the_full_available_amount");
-      }
-      if (plan.need_amount < requiredNeed) {
-        throw new HttpError(400, `need_amount_must_be_at_least_${requiredNeed}`);
-      }
+        const periodRes = await client.query<{ required_need_amount: number }>(
+          `SELECT required_need_amount FROM game_periods WHERE id = $1 AND child_user_id = $2`,
+          [periodId, childUserId],
+        );
+        const requiredNeed = periodRes.rows[0]?.required_need_amount ?? 0;
 
-      await withTransaction(async (client) => {
+        if (plan.need_amount + plan.want_amount + plan.savings_amount !== plan.available_amount) {
+          throw new HttpError(400, "plan_must_allocate_the_full_available_amount");
+        }
+        if (plan.need_amount < requiredNeed) {
+          throw new HttpError(400, `need_amount_must_be_at_least_${requiredNeed}`);
+        }
+
         await client.query(
-          `UPDATE budget_plans SET status = 'CONFIRMED', confirmed_at = now() WHERE id = $1`,
+          `UPDATE budget_plans SET status = 'CONFIRMED', confirmed_at = now()
+            WHERE id = $1 AND status = 'DRAFT'`,
           [plan.id],
         );
 
@@ -201,9 +216,9 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
             idempotencyKeyPrefix: `budget-plan-savings:${plan.id}`,
           });
         }
-      });
 
-      return { ok: true };
+        return { ok: true, replayed: false };
+      });
     },
   );
 
