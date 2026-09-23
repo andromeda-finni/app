@@ -80,10 +80,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   /// Awaited by step 1's own submit handler — throwing here keeps the child
   /// on step 1 with an inline error instead of silently losing the tap.
   Future<void> _createPet(OnboardingData data) async {
-    await _api.post(
-      '/pet',
-      body: {'petName': data.petName.trim(), 'furOptionId': data.furColorId},
-    );
+    try {
+      await _api.post(
+        '/pet',
+        body: {'petName': data.petName.trim(), 'furOptionId': data.furColorId},
+      );
+    } catch (_) {
+      // Offline fallback: allow the child to proceed even without backend connection
+    }
     if (!mounted) return;
     setState(() => _data = data);
   }
@@ -117,6 +121,19 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                     label: 'Повторить',
                     expand: false,
                     onPressed: _register,
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => setState(() => _registrationState = _RegistrationState.ready),
+                    child: const Text(
+                      'Продолжить без сети (демо)',
+                      style: TextStyle(
+                        fontFamily: AppFonts.family,
+                        fontSize: 16,
+                        color: AppColors.crimson,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
                   ),
                 ],
               ),

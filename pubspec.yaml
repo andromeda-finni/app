@@ -71,10 +71,33 @@ flutter:
     - assets/icons/ball.png
     - assets/icons/pig.png
     - assets/icons/coin.png
+    - assets/icons/clew.png
     - assets/Cat/Base/playful.png
     - assets/Cat/Red_collar/base/striped.png
     - assets/Cat/Red_collar/base/red.png
     - assets/Cat/Red_collar/base/white.png
+    - assets/minigames/tugriki/
+    - assets/minigames/mole/
+    - assets/minigames/tugriki/foreign_money.png
+    - assets/minigames/tugriki/foreign_money_bag.png
+    - assets/minigames/tugriki/foreign_money_front.png
+    - assets/minigames/tugriki/square.png
+    - assets/minigames/tugriki/vorobey_1.png
+    - assets/minigames/tugriki/vorobey_2.png
+    - assets/minigames/mole/blanket.webp
+    - assets/minigames/mole/chest.webp
+    - assets/minigames/mole/dialogue.webp
+    - assets/minigames/mole/gift_wrap.webp
+    - assets/minigames/mole/grain.webp
+    - assets/minigames/mole/key.webp
+    - assets/minigames/mole/lantern.webp
+    - assets/minigames/mole/lollipop.webp
+    - assets/minigames/mole/magnifier.webp
+    - assets/minigames/mole/mole_house.webp
+    - assets/minigames/mole/rope.webp
+    - assets/minigames/mole/scroll.webp
+    - assets/minigames/mole/shop.webp
+    - assets/minigames/mole/zemelik.webp
 
   # Bundled locally (not via google_fonts' runtime download) — on a device
   # with no network on first launch (offline, restricted Wi-Fi, an emulator

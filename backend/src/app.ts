@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import sensible from "@fastify/sensible";
@@ -43,7 +44,15 @@ export async function buildApp() {
     },
   });
 
-  await app.register(helmet);
+  await app.register(cors, {
+    origin: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-idempotency-key"],
+    credentials: true,
+  });
+  await app.register(helmet, {
+    crossOriginResourcePolicy: false,
+  });
   await app.register(sensible);
   await app.register(rateLimit, {
     max: 120,
