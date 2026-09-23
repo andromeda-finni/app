@@ -7,43 +7,39 @@ const furColorOptions = [
   FurColorOption(
     id: 'FUR_GRAY',
     label: 'серый',
-    swatch: 0xFF9B9082,
+    swatch: 0xFF85817E,
     catAsset: 'assets/Cat/Red_collar/base/striped.png',
   ),
   FurColorOption(
     id: 'FUR_ORANGE',
     label: 'рыжий',
-    swatch: 0xFFC97A3D,
+    swatch: 0xFFD27A32,
     catAsset: 'assets/Cat/Red_collar/base/red.png',
   ),
   FurColorOption(
     id: 'FUR_WHITE',
     label: 'белый',
-    swatch: 0xFFEDE6D8,
+    swatch: 0xFFF3EDE2,
     catAsset: 'assets/Cat/Red_collar/base/white.png',
   ),
 ];
 
-// The swatch shows a patch of the cat's own coat rather than a flat colour,
-// so "серый/рыжий/белый" previews the actual art. The cut-out is drawn far
-// larger than the 40px circle and offset onto the flank, which is the one
-// region that is pure fur in all three variants (the chest is white on every
-// cat and the collar is red on every cat, so either would preview the same
-// swatch three times).
-const _swatchZoom = 116.0;
-const _swatchFocus = Alignment(-0.45, 0.30);
-
 /// Looks up the cat art for a chosen fur id, falling back to the base pose
 /// while nothing is chosen yet.
-String catAssetForFur(String? furColorId) {
+String catAssetForFur(String? furColorId, {bool happy = false}) {
   for (final option in furColorOptions) {
-    if (option.id == furColorId) return option.catAsset;
+    if (option.id == furColorId) {
+      return happy
+          ? option.catAsset.replaceFirst('/base/', '/happy/')
+          : option.catAsset;
+    }
   }
   return kBaseCatAsset;
 }
 
-/// One fur swatch + label, sized to sit inline inside the story paragraph
-/// via a WidgetSpan (see onboarding_step1_screen.dart).
+/// Three clean flat-colour choices. The transparent hit area is larger than
+/// the painted circle, while selection remains visible through a ring, check
+/// mark and semantics rather than colour alone.
 class FurColorPicker extends StatelessWidget {
   const FurColorPicker({
     super.key,
@@ -56,19 +52,25 @@ class FurColorPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Wrap, not Row: at large text-scale factors the labels below each
-    // swatch widen past the circle, and a plain Row (sized to fit inline
-    // inside the story text) has no way to shrink and overflows. Wrap lets
-    // a swatch drop to a second line instead.
-    return Wrap(
-      children: [
-        for (final option in furColorOptions)
-          _Swatch(
-            option: option,
-            selectedId: selectedId,
-            onSelected: onSelected,
-          ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tileWidth = (constraints.maxWidth - AppSpacing.sm * 2) / 3;
+        return Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            for (final option in furColorOptions)
+              SizedBox(
+                width: tileWidth,
+                child: _Swatch(
+                  option: option,
+                  selectedId: selectedId,
+                  onSelected: onSelected,
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -87,77 +89,92 @@ class _Swatch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSelected = option.id == selectedId;
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: Semantics(
-        button: true,
-        selected: isSelected,
-        label: 'Цвет шёрстки: ${option.label}',
-        child: GestureDetector(
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: 'Цвет шёрстки: ${option.label}',
+      onTap: () => onSelected(option.id),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
           onTap: () => onSelected(option.id),
-          behavior: HitTestBehavior.opaque,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          splashFactory: NoSplash.splashFactory,
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          focusColor: Colors.transparent,
+          hoverColor: Colors.transparent,
           child: ExcludeSemantics(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        // Sits under the art so the circle still reads as the
-                        // right colour wherever the cut-out is transparent.
-                        color: Color(option.swatch),
-                        border: Border.all(
-                          color: isSelected
-                              ? AppColors.crimson
-                              : AppColors.fieldBorder,
-                          width: isSelected ? 2.5 : 1,
-                        ),
-                      ),
-                      child: ClipOval(
-                        child: OverflowBox(
-                          maxWidth: _swatchZoom,
-                          maxHeight: _swatchZoom,
-                          alignment: _swatchFocus,
-                          child: Image.asset(
-                            option.catAsset,
-                            width: _swatchZoom,
-                            height: _swatchZoom,
-                            fit: BoxFit.cover,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 82),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(option.swatch),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.crimson
+                                : option.id == 'FUR_WHITE'
+                                ? AppColors.parchmentDark
+                                : Colors.transparent,
+                            width: isSelected ? 3 : 1,
                           ),
+                          boxShadow: isSelected
+                              ? const [
+                                  BoxShadow(
+                                    color: Color(0x24AD2B23),
+                                    blurRadius: 0,
+                                    spreadRadius: 4,
+                                  ),
+                                ]
+                              : null,
                         ),
                       ),
-                    ),
-                    if (isSelected)
-                      Positioned(
-                        right: -2,
-                        bottom: -2,
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.crimson,
-                            border: Border.fromBorderSide(
-                              BorderSide(color: Colors.white, width: 1.5),
+                      if (isSelected)
+                        Positioned(
+                          right: -3,
+                          bottom: -3,
+                          child: Container(
+                            width: 18,
+                            height: 18,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.crimson,
+                              border: Border.fromBorderSide(
+                                BorderSide(color: AppColors.canvas, width: 2),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.check_rounded,
+                              size: 12,
+                              color: Colors.white,
                             ),
                           ),
-                          child: const Icon(
-                            Icons.check,
-                            size: 11,
-                            color: Colors.white,
-                          ),
                         ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(option.label, style: AppTextStyles.swatchLabel),
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    option.label,
+                    style: AppTextStyles.swatchLabel.copyWith(
+                      color: isSelected
+                          ? AppColors.crimsonDark
+                          : AppColors.inkMuted,
+                    ),
+                    maxLines: 1,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

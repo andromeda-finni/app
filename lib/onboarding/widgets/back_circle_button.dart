@@ -13,16 +13,16 @@ class BackCircleButton extends StatelessWidget {
       button: true,
       label: 'Назад',
       child: Material(
-        color: AppColors.cardBg,
-        shape: CircleBorder(side: BorderSide(color: AppColors.fieldBorder)),
+        color: AppColors.parchment,
+        shape: const CircleBorder(),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onPressed,
           child: const SizedBox(
-            width: 52,
-            height: 52,
+            width: 54,
+            height: 54,
             child: ExcludeSemantics(
-              child: Icon(Icons.arrow_back, color: AppColors.ink, size: 22),
+              child: Icon(Icons.arrow_back, color: AppColors.ink, size: 26),
             ),
           ),
         ),

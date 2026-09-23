@@ -1,9 +1,11 @@
 import pg from "pg";
+import { validateAppDatabaseUrl } from "./database-config.js";
 
-const connectionString = process.env["APP_DATABASE_URL"];
-if (!connectionString) {
+const configuredConnectionString = process.env["APP_DATABASE_URL"];
+if (!configuredConnectionString) {
   throw new Error("APP_DATABASE_URL is not set — copy .env.example to .env and fill it in");
 }
+const connectionString = validateAppDatabaseUrl(configuredConnectionString);
 
 // Single pool for the whole process, connected as the least-privilege
 // groshik_app role (see db/migrations/0011_roles_and_grants.sql) — it has no

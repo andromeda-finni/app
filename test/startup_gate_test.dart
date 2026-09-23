@@ -7,6 +7,9 @@ import 'package:http/testing.dart';
 import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/main.dart';
 import 'package:andromeda_app/onboarding/onboarding_step1_screen.dart';
+import 'package:andromeda_app/onboarding/onboarding_step2_screen.dart';
+import 'package:andromeda_app/onboarding/onboarding_step3_screen.dart';
+import 'package:andromeda_app/onboarding/onboarding_step4_screen.dart';
 
 import 'support/fake_auth_storage.dart';
 
@@ -41,12 +44,16 @@ void main() {
   });
 
   testWidgets(
-    'saved token + GET /pet 200 -> shows the home placeholder, not onboarding',
+    'saved token + completed onboarding -> shows the home placeholder',
     (tester) async {
       final authStorage = FakeAuthStorage(initialToken: 'tok');
       final client = MockClient((request) async {
-        expect(request.url.path, '/pet');
-        return _jsonResponse({'id': 'p1', 'pet_name': 'Грошик'}, 200);
+        expect(request.url.path, '/onboarding/status');
+        return _jsonResponse({
+          'currentStep': 4,
+          'completed': true,
+          'pet': {'petName': 'Грошик', 'furOptionId': 'FUR_GRAY'},
+        }, 200);
       });
 
       await tester.pumpWidget(
@@ -66,14 +73,57 @@ void main() {
     },
   );
 
+  for (final resumeCase in <({int step, Type screen})>[
+    (step: 1, screen: OnboardingStep1Screen),
+    (step: 3, screen: OnboardingStep3Screen),
+    (step: 4, screen: OnboardingStep4Screen),
+  ]) {
+    testWidgets(
+      'saved token resumes interrupted onboarding at step ${resumeCase.step}',
+      (tester) async {
+        final authStorage = FakeAuthStorage(initialToken: 'tok');
+        var registerCalls = 0;
+        final client = MockClient((request) async {
+          if (request.url.path == '/auth/child/register') registerCalls++;
+          return _jsonResponse({
+            'currentStep': resumeCase.step,
+            'completed': false,
+            'pet': resumeCase.step == 1
+                ? null
+                : {'petName': 'Мурзик', 'furOptionId': 'FUR_GRAY'},
+          }, 200);
+        });
+
+        await tester.pumpWidget(
+          GroshikApp(
+            authStorage: authStorage,
+            apiClient: ApiClient(
+              httpClient: client,
+              authStorage: authStorage,
+              baseUrl: 'http://test',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(resumeCase.screen), findsOneWidget);
+        expect(registerCalls, 0);
+      },
+    );
+  }
+
   testWidgets(
-    'saved token + GET /pet 404 -> resumes onboarding without re-registering',
+    'pet saved at step 1 -> resumes at step 2 without re-registering',
     (tester) async {
       final authStorage = FakeAuthStorage(initialToken: 'tok');
       var registerCalls = 0;
       final client = MockClient((request) async {
-        if (request.url.path == '/pet') {
-          return _jsonResponse({'error': 'pet_not_created'}, 404);
+        if (request.url.path == '/onboarding/status') {
+          return _jsonResponse({
+            'currentStep': 2,
+            'completed': false,
+            'pet': {'petName': 'Мурзик', 'furOptionId': 'FUR_GRAY'},
+          }, 200);
         }
         registerCalls++;
         return _jsonResponse({'userId': 'u1', 'token': 'tok'}, 201);
@@ -91,7 +141,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(OnboardingStep1Screen), findsOneWidget);
+      expect(find.byType(OnboardingStep1Screen), findsNothing);
+      expect(find.byType(OnboardingStep2Screen), findsOneWidget);
       // The account already exists (we had a token) — onboarding must not
       // silently create a second, orphaned account on top of it.
       expect(registerCalls, 0);
@@ -99,7 +150,7 @@ void main() {
   );
 
   testWidgets(
-    'saved token + GET /pet 401 -> drops the dead token and re-registers',
+    'saved token + onboarding status 401 -> drops token and re-registers',
     (tester) async {
       final authStorage = FakeAuthStorage(initialToken: 'revoked-token');
       final sentAuthHeaders = <String, String?>{};
@@ -107,8 +158,9 @@ void main() {
 
       final client = MockClient((request) async {
         final auth = request.headers['Authorization'];
-        if (request.url.path == '/pet' && request.method == 'GET') {
-          sentAuthHeaders['GET /pet'] = auth;
+        if (request.url.path == '/onboarding/status' &&
+            request.method == 'GET') {
+          sentAuthHeaders['GET /onboarding/status'] = auth;
           return _jsonResponse({'error': 'unauthorized'}, 401);
         }
         if (request.url.path == '/auth/child/register') {
@@ -137,7 +189,7 @@ void main() {
       // token, so the child can never recover.
       expect(registerCalls, 1);
       expect(await authStorage.readToken(), 'fresh-token');
-      expect(sentAuthHeaders['GET /pet'], 'Bearer revoked-token');
+      expect(sentAuthHeaders['GET /onboarding/status'], 'Bearer revoked-token');
     },
   );
 
@@ -147,7 +199,11 @@ void main() {
     final client = MockClient((request) async {
       calls++;
       if (calls == 1) return http.Response('', 500);
-      return _jsonResponse({'id': 'p1'}, 200);
+      return _jsonResponse({
+        'currentStep': 4,
+        'completed': true,
+        'pet': {'petName': 'Грошик', 'furOptionId': 'FUR_GRAY'},
+      }, 200);
     });
 
     await tester.pumpWidget(

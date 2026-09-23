@@ -9,6 +9,7 @@ Follow the existing Material/Dart style and change the minimum surface needed fo
 
 ## Design before coding
 
+- For visual direction, typography, spacing, color, component shape, responsive composition, or visual QA, apply `andromeda-mobile-visual-design`. Until the user approves a direction, the current screens and theme values are drafts rather than visual requirements.
 - Inspect the surrounding widgets, theme tokens, navigation pattern, and existing tests.
 - Keep presentation, user interaction, domain state, and transport concerns separable.
 - Introduce state-management, routing, code-generation, or networking packages only when the current architecture cannot express the requirement cleanly.

@@ -1,9 +1,8 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Persists the child's opaque bearer token on-device (see backend/README.md
-/// — the server never stores the raw token, only its hash). Presence of a
-/// saved token is what decides whether the app opens onboarding or the pet
-/// home screen at startup.
+/// — the server never stores the raw token, only its hash). The token lets the
+/// startup gate request the authoritative onboarding progress from the server.
 class AuthStorage {
   AuthStorage({FlutterSecureStorage? storage})
     : _storage = storage ?? const FlutterSecureStorage();

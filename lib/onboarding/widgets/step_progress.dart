@@ -14,40 +14,50 @@ class StepProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(totalSteps, (index) {
-            final stepNo = index + 1;
-            final Color color;
-            final Color borderColor;
-            if (stepNo == currentStep) {
-              color = AppColors.crimson;
-              borderColor = AppColors.crimson;
-            } else if (stepNo < currentStep) {
-              color = AppColors.crimsonFaded;
-              borderColor = AppColors.crimsonFaded;
-            } else {
-              color = Colors.transparent;
-              borderColor = AppColors.fieldBorder;
-            }
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: 9,
-              height: 9,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: color,
-                border: Border.all(color: borderColor, width: 1.4),
-              ),
-            );
-          }),
+    return Semantics(
+      label: 'Шаг $currentStep из $totalSteps',
+      child: ExcludeSemantics(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(totalSteps, (index) {
+                final stepNo = index + 1;
+                final Color color;
+                final Color borderColor;
+                if (stepNo == currentStep) {
+                  color = AppColors.crimson;
+                  borderColor = AppColors.crimson;
+                } else if (stepNo < currentStep) {
+                  color = AppColors.crimsonFaded;
+                  borderColor = AppColors.crimsonFaded;
+                } else {
+                  color = Colors.transparent;
+                  borderColor = AppColors.fieldBorder;
+                }
+                return Container(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xxs,
+                  ),
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color,
+                    border: Border.all(color: borderColor, width: 1.4),
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Шаг $currentStep из $totalSteps',
+              style: AppTextStyles.stepCounter,
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text('$currentStep из $totalSteps', style: AppTextStyles.stepCounter),
-      ],
+      ),
     );
   }
 }

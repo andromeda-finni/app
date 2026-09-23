@@ -91,6 +91,12 @@ class ApiClient {
     bool auth = true,
   }) => _send('POST', path, body: body, auth: auth);
 
+  Future<Map<String, dynamic>> put(
+    String path, {
+    Map<String, dynamic>? body,
+    bool auth = true,
+  }) => _send('PUT', path, body: body, auth: auth);
+
   Future<Map<String, dynamic>> get(String path, {bool auth = true}) =>
       _send('GET', path, auth: auth);
 

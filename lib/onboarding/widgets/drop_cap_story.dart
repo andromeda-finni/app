@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
-import 'drop_cap_ornament.dart';
 
-/// A purely narrative paragraph: big red drop cap + small ornament on the
-/// left, first line of text beside it, remaining lines flowing full-width
-/// below. Used by the story-only onboarding steps (no inputs).
+/// A readable narrative paragraph with one decorative initial. Decorative
+/// typography is deliberately limited to the first letter.
 class DropCapStory extends StatelessWidget {
   const DropCapStory({
     super.key,
@@ -20,22 +18,54 @@ class DropCapStory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+    final story = rest.isEmpty ? firstLine : '$firstLine $rest';
+    return Semantics(
+      label: '$dropCap$story',
+      child: ExcludeSemantics(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(dropCap, style: AppTextStyles.dropCap),
-            const SizedBox(width: 4),
-            const DropCapOrnament(),
-            const SizedBox(width: 6),
-            Expanded(child: Text(firstLine, style: AppTextStyles.story)),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                StoryDropCap(letter: dropCap),
+                Expanded(child: Text(firstLine, style: AppTextStyles.story)),
+              ],
+            ),
+            if (rest.isNotEmpty) Text(rest, style: AppTextStyles.story),
           ],
         ),
-        const SizedBox(height: 6),
-        Text(rest, style: AppTextStyles.story),
-      ],
+      ),
+    );
+  }
+}
+
+/// Decorative initial kept intentionally simple: the display face and crimson
+/// colour already provide enough emphasis without competing ornament.
+class StoryDropCap extends StatelessWidget {
+  const StoryDropCap({super.key, required this.letter, this.size = 66});
+
+  final String letter;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    // The accent font has generous right-side bearings. A deliberately tight
+    // box makes the following letters read as one word with the initial. The
+    // box follows the system text scale as well, otherwise wide letters such
+    // as «П» can paint over the continuation at accessibility sizes.
+    final effectiveSize = MediaQuery.textScalerOf(context).scale(size);
+    final visualWidth = effectiveSize * 0.70;
+    return SizedBox(
+      width: visualWidth,
+      height: effectiveSize * 0.92,
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: Text(
+          letter,
+          style: AppTextStyles.dropCap.copyWith(fontSize: size - 4),
+        ),
+      ),
     );
   }
 }

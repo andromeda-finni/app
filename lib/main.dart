@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'core/api_client.dart';
 import 'core/auth_storage.dart';
+import 'onboarding/onboarding_data.dart';
 import 'onboarding/onboarding_flow.dart';
 import 'theme/app_theme.dart';
 
@@ -24,13 +25,7 @@ class GroshikApp extends StatelessWidget {
     return MaterialApp(
       title: 'Грошик',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.crimson),
-        scaffoldBackgroundColor: AppColors.parchment,
-        // App-wide default so any Text without an explicit style still picks
-        // up the storybook face instead of falling back to Roboto.
-        fontFamily: AppFonts.family,
-      ),
+      theme: AppTheme.light,
       home: _StartupGate(authStorage: authStorage, apiClient: apiClient),
     );
   }
@@ -38,11 +33,10 @@ class GroshikApp extends StatelessWidget {
 
 enum _StartupState { checking, needsOnboarding, hasPet, error }
 
-/// Decides whether to show onboarding or the pet home screen. A saved
-/// bearer token alone doesn't prove a pet exists (registration and pet
-/// creation are now two separate calls — see onboarding/onboarding_flow.dart)
-/// so this actually asks the server via `GET /pet`: 404 means the account
-/// exists but onboarding was interrupted before the pet was created.
+/// Decides whether to show onboarding or the pet home screen. A saved bearer
+/// token or an already-created pet does not prove that all four onboarding
+/// steps were completed, so the server returns the first unfinished step via
+/// `GET /onboarding/status`.
 class _StartupGate extends StatefulWidget {
   const _StartupGate({this.authStorage, this.apiClient});
 
@@ -57,6 +51,7 @@ class _StartupGateState extends State<_StartupGate> {
   late final AuthStorage _authStorage = widget.authStorage ?? AuthStorage();
   late final ApiClient _api = widget.apiClient ?? ApiClient();
   _StartupState _state = _StartupState.checking;
+  OnboardingResumeState _onboarding = OnboardingResumeState.fresh();
 
   @override
   void initState() {
@@ -70,31 +65,44 @@ class _StartupGateState extends State<_StartupGate> {
     final token = await _authStorage.readToken();
     if (token == null) {
       if (!mounted) return;
-      setState(() => _state = _StartupState.needsOnboarding);
+      setState(() {
+        _onboarding = OnboardingResumeState.fresh();
+        _state = _StartupState.needsOnboarding;
+      });
       return;
     }
 
     try {
-      await _api.get('/pet');
+      final response = await _api.get('/onboarding/status');
+      final onboarding = OnboardingResumeState.fromJson(response);
       if (!mounted) return;
-      setState(() => _state = _StartupState.hasPet);
+      setState(() {
+        _onboarding = onboarding;
+        _state = onboarding.completed
+            ? _StartupState.hasPet
+            : _StartupState.needsOnboarding;
+      });
     } on ApiException catch (e) {
       // 401 means the saved token is dead server-side (revoked or expired).
       // It has to be *deleted*, not merely ignored: onboarding reuses any
       // token it finds rather than registering again, so leaving it behind
-      // sends the revoked token straight back out on POST /pet and traps the
+      // sends the revoked token straight back out on PUT /pet and traps the
       // child in a loop no retry can escape.
       if (e.statusCode == 401) {
         await _authStorage.clearToken();
       }
       if (!mounted) return;
-      // 404 = account exists, pet doesn't yet (onboarding was interrupted);
-      // the token is still good, so onboarding will skip re-registering.
-      if (e.statusCode == 404 || e.statusCode == 401) {
-        setState(() => _state = _StartupState.needsOnboarding);
+      if (e.statusCode == 401) {
+        setState(() {
+          _onboarding = OnboardingResumeState.fresh();
+          _state = _StartupState.needsOnboarding;
+        });
       } else {
         setState(() => _state = _StartupState.error);
       }
+    } on FormatException {
+      if (!mounted) return;
+      setState(() => _state = _StartupState.error);
     }
   }
 
@@ -113,6 +121,8 @@ class _StartupGateState extends State<_StartupGate> {
           onFinished: () => setState(() => _state = _StartupState.hasPet),
           apiClient: _api,
           authStorage: _authStorage,
+          initialStep: _onboarding.currentStep,
+          initialData: _onboarding.data,
         );
       case _StartupState.hasPet:
         // TODO: replace with the real pet home screen once it exists.
@@ -132,7 +142,7 @@ class _StartupGateState extends State<_StartupGate> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Не получилось проверить питомца — проверьте подключение к интернету.',
+                    'Не получилось загрузить прогресс — проверьте подключение к интернету.',
                     textAlign: TextAlign.center,
                     style: AppTextStyles.story,
                   ),

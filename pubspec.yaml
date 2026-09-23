@@ -67,6 +67,9 @@ flutter:
     - assets/backgrounds/town.png
     - assets/backgrounds/shop.png
     - assets/backgrounds/paper.png
+    - assets/backgrounds/meadow_foreground.png
+    - assets/backgrounds/scene_transition.png
+    - assets/icons/arrow_left.png
     - assets/icons/sweet.png
     - assets/icons/ball.png
     - assets/icons/pig.png
@@ -75,16 +78,21 @@ flutter:
     - assets/Cat/Red_collar/base/striped.png
     - assets/Cat/Red_collar/base/red.png
     - assets/Cat/Red_collar/base/white.png
+    - assets/Cat/Red_collar/happy/striped.png
+    - assets/Cat/Red_collar/happy/red.png
+    - assets/Cat/Red_collar/happy/white.png
 
-  # Bundled locally (not via google_fonts' runtime download) — on a device
-  # with no network on first launch (offline, restricted Wi-Fi, an emulator
-  # with no internet like the one this was caught on) the runtime fetch from
-  # fonts.gstatic.com fails and silently falls back to the system font,
-  # which would have quietly broken this app's entire storybook look.
+  # Bundled locally so typography is stable offline. PT Serif carries all
+  # functional copy; Barocco Initial is reserved for decorative drop caps.
   fonts:
-    - family: Monomakh
+    - family: PTSerif
       fonts:
-        - asset: assets/fonts/ofont.ru_Monomakh Unicode.ttf
+        - asset: assets/fonts/PTSerif-Regular.ttf
+        - asset: assets/fonts/PTSerif-Bold.ttf
+          weight: 700
+    - family: BaroccoInitial
+      fonts:
+        - asset: assets/fonts/barocco-initial.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

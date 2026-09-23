@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_theme.dart';
+
 /// Painted backdrop with the cat standing in it, used as the top half of each
 /// onboarding step.
 ///
@@ -11,14 +13,18 @@ class OnboardingScene extends StatelessWidget {
     super.key,
     required this.background,
     this.cat,
+    this.foreground,
     this.catAlignment = const Alignment(0, 0.72),
     this.catHeightFraction = 0.58,
     this.backgroundAlignment = const Alignment(0, 0.45),
+    this.foregroundAlignment = Alignment.bottomCenter,
   });
 
   final String background;
   final String? cat;
+  final String? foreground;
   final Alignment catAlignment;
+  final Alignment foregroundAlignment;
 
   /// The backdrops are tall portraits shown in a short landscape band, so
   /// `cover` throws most of them away. Framing just below centre keeps the
@@ -32,24 +38,51 @@ class OnboardingScene extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRect(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            background,
-            fit: BoxFit.cover,
-            alignment: backgroundAlignment,
-          ),
-          if (cat != null)
-            Align(
-              alignment: catAlignment,
-              child: FractionallySizedBox(
-                heightFactor: catHeightFraction,
-                child: Image.asset(cat!, fit: BoxFit.contain),
+    return ColoredBox(
+      color: AppColors.canvas,
+      child: ClipRect(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              background,
+              fit: BoxFit.cover,
+              alignment: backgroundAlignment,
+            ),
+            if (cat != null)
+              Align(
+                alignment: catAlignment,
+                child: FractionallySizedBox(
+                  heightFactor: catHeightFraction,
+                  child: Image.asset(cat!, fit: BoxFit.contain),
+                ),
+              ),
+            if (foreground != null)
+              IgnorePointer(
+                child: Image.asset(
+                  foreground!,
+                  fit: BoxFit.cover,
+                  alignment: foregroundAlignment,
+                  excludeFromSemantics: true,
+                ),
+              ),
+            const Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 44,
+              child: IgnorePointer(
+                child: Image(
+                  image: AssetImage(
+                    'assets/backgrounds/scene_transition.png',
+                  ),
+                  fit: BoxFit.fill,
+                  excludeFromSemantics: true,
+                ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

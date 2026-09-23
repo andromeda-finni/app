@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../onboarding_data.dart';
 
-/// The "help Groshik split 10 coins" card on onboarding step 3 — a hands-on
-/// stand-in for real budget planning (candy = WANT, other things = NEED,
-/// piggy bank = SAVINGS; see onboarding_data.dart). Coins move between rows,
-/// never appear or disappear: a row's "+" is disabled once every coin is
-/// already assigned somewhere, and "-" is disabled once a row hits zero.
+/// The interactive budget itself. Every category explains its purpose before
+/// presenting the counter, and all values start at zero so the child performs
+/// the allocation rather than merely approving a hard-coded answer.
 class TutorialBudgetCard extends StatelessWidget {
   const TutorialBudgetCard({
     super.key,
@@ -20,91 +18,83 @@ class TutorialBudgetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.passthrough,
-      children: [
-        // The scroll art carries a dark vignette right up to its edges, so it
-        // is drawn slightly oversized behind a clip — that pushes the vignette
-        // out of frame and leaves just the parchment and its curls.
-        Positioned.fill(
-          child: ClipRect(
-            child: Transform.scale(
-              scale: 1.24,
-              // Anchored above centre: the art's darkest corner is the
-              // bottom-right one behind the coins, so biasing upward pushes
-              // it out of frame while keeping the top curl visible.
-              alignment: const Alignment(0, -0.2),
-              child: Image.asset(
-                'assets/backgrounds/paper.png',
-                fit: BoxFit.fill,
-              ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.parchment,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        image: const DecorationImage(
+          image: AssetImage('assets/backgrounds/paper.png'),
+          fit: BoxFit.cover,
+          opacity: 0.24,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Твои 10 монет',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.cardTitle,
             ),
-          ),
+            const SizedBox(height: AppSpacing.sm),
+            _BudgetCategory(
+              icon: 'assets/icons/sweet.png',
+              label: 'Конфеты',
+              explanation: 'То, чего хочется прямо сейчас',
+              value: data.candyAmount,
+              canIncrement: data.unallocated > 0,
+              canDecrement: data.candyAmount > 0,
+              onIncrement: () =>
+                  onChanged(data.copyWith(candyAmount: data.candyAmount + 1)),
+              onDecrement: () =>
+                  onChanged(data.copyWith(candyAmount: data.candyAmount - 1)),
+            ),
+            Divider(
+              height: AppSpacing.xl,
+              color: AppColors.fieldBorder.withValues(alpha: 0.55),
+            ),
+            _BudgetCategory(
+              icon: 'assets/icons/ball.png',
+              label: 'Нужные вещи',
+              explanation: 'То, что пригодится питомцу',
+              value: data.otherAmount,
+              canIncrement: data.unallocated > 0,
+              canDecrement: data.otherAmount > 0,
+              onIncrement: () =>
+                  onChanged(data.copyWith(otherAmount: data.otherAmount + 1)),
+              onDecrement: () =>
+                  onChanged(data.copyWith(otherAmount: data.otherAmount - 1)),
+            ),
+            Divider(
+              height: AppSpacing.xl,
+              color: AppColors.fieldBorder.withValues(alpha: 0.55),
+            ),
+            _BudgetCategory(
+              icon: 'assets/icons/pig.png',
+              label: 'Копилка',
+              explanation: 'Монеты на будущую мечту',
+              value: data.piggyAmount,
+              canIncrement: data.unallocated > 0,
+              canDecrement: data.piggyAmount > 0,
+              onIncrement: () =>
+                  onChanged(data.copyWith(piggyAmount: data.piggyAmount + 1)),
+              onDecrement: () =>
+                  onChanged(data.copyWith(piggyAmount: data.piggyAmount - 1)),
+            ),
+          ],
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(34, 30, 34, 34),
-          child: _rows(),
-        ),
-      ],
-    );
-  }
-
-  Widget _rows() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Center(
-          child: Text(
-            '$kTutorialBudgetTotal монет',
-            style: AppTextStyles.cardTitle,
-          ),
-        ),
-        const SizedBox(height: 14),
-        _CounterRow(
-          icon: 'assets/icons/sweet.png',
-          label: 'Конфеты',
-          value: data.candyAmount,
-          canIncrement: data.unallocated > 0,
-          canDecrement: data.candyAmount > 0,
-          onIncrement: () =>
-              onChanged(data.copyWith(candyAmount: data.candyAmount + 1)),
-          onDecrement: () =>
-              onChanged(data.copyWith(candyAmount: data.candyAmount - 1)),
-        ),
-        const SizedBox(height: 10),
-        _CounterRow(
-          icon: 'assets/icons/ball.png',
-          label: 'Другие вещи',
-          value: data.otherAmount,
-          canIncrement: data.unallocated > 0,
-          canDecrement: data.otherAmount > 0,
-          onIncrement: () =>
-              onChanged(data.copyWith(otherAmount: data.otherAmount + 1)),
-          onDecrement: () =>
-              onChanged(data.copyWith(otherAmount: data.otherAmount - 1)),
-        ),
-        const SizedBox(height: 10),
-        _CounterRow(
-          icon: 'assets/icons/pig.png',
-          label: 'Копилка',
-          value: data.piggyAmount,
-          canIncrement: data.unallocated > 0,
-          canDecrement: data.piggyAmount > 0,
-          onIncrement: () =>
-              onChanged(data.copyWith(piggyAmount: data.piggyAmount + 1)),
-          onDecrement: () =>
-              onChanged(data.copyWith(piggyAmount: data.piggyAmount - 1)),
-        ),
-      ],
+      ),
     );
   }
 }
 
-class _CounterRow extends StatelessWidget {
-  const _CounterRow({
+class _BudgetCategory extends StatelessWidget {
+  const _BudgetCategory({
     required this.icon,
     required this.label,
+    required this.explanation,
     required this.value,
     required this.canIncrement,
     required this.canDecrement,
@@ -114,6 +104,7 @@ class _CounterRow extends StatelessWidget {
 
   final String icon;
   final String label;
+  final String explanation;
   final int value;
   final bool canIncrement;
   final bool canDecrement;
@@ -122,64 +113,65 @@ class _CounterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Two lines instead of one cramped row: the 48x48 accessible tap targets
-    // plus icon + coin count leave a single-line layout with almost no room
-    // for the label at narrow widths (e.g. 320px), which forced "Другие
-    // вещи" to text-wrap across dozens of lines and blew the row's height
-    // out by hundreds of pixels. Stacking guarantees each line always has
-    // the row's full width to itself, at any screen width.
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.parchment,
-        borderRadius: BorderRadius.circular(14),
-      ),
+    return Semantics(
+      container: true,
+      label: '$label, $value монет. $explanation',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Image.asset(icon, width: 24, height: 24, fit: BoxFit.contain),
-              const SizedBox(width: 8),
-              Flexible(child: Text(label, style: AppTextStyles.cardRowLabel)),
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: Image.asset(icon, fit: BoxFit.contain),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: AppTextStyles.cardRowLabel),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(explanation, style: AppTextStyles.supporting),
+                  ],
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 4),
-          // Minus at one edge, plus at the other and the count between them,
-          // as the reference draws it — the controls read as a single dial
-          // rather than a cluster pushed against the right margin.
+          const SizedBox(height: AppSpacing.sm),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _RoundIconButton(
+              _CounterButton(
                 icon: Icons.remove,
-                color: AppColors.crimson,
                 onPressed: canDecrement ? onDecrement : null,
                 semanticLabel: 'Убрать монету из категории «$label»',
+                color: AppColors.crimson,
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Image.asset(
-                    'assets/icons/coin.png',
-                    width: 24,
-                    height: 24,
-                    fit: BoxFit.contain,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$value',
-                    style: AppTextStyles.counterValue,
-                    semanticsLabel: '$value монет в категории $label',
-                  ),
-                ],
+              const SizedBox(width: AppSpacing.lg),
+              SizedBox(
+                width: 84,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset('assets/icons/coin.png', width: 24, height: 24),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      '$value',
+                      style: AppTextStyles.counterValue,
+                      semanticsLabel: '$value монет',
+                    ),
+                  ],
+                ),
               ),
-              _RoundIconButton(
+              const SizedBox(width: AppSpacing.lg),
+              _CounterButton(
                 icon: Icons.add,
-                color: AppColors.leafGreen,
                 onPressed: canIncrement ? onIncrement : null,
                 semanticLabel: 'Добавить монету в категорию «$label»',
+                color: AppColors.leafGreen,
               ),
             ],
           ),
@@ -189,23 +181,18 @@ class _CounterRow extends StatelessWidget {
   }
 }
 
-class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({
+class _CounterButton extends StatelessWidget {
+  const _CounterButton({
     required this.icon,
-    required this.color,
     required this.onPressed,
     required this.semanticLabel,
+    required this.color,
   });
 
   final IconData icon;
-  final Color color;
   final VoidCallback? onPressed;
   final String semanticLabel;
-
-  // Visible circle stays small (28) to match the card's proportions; the
-  // actual tappable area is padded out to Android's ~48dp minimum target.
-  static const _visibleSize = 28.0;
-  static const _tapTargetSize = 48.0;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -214,27 +201,18 @@ class _RoundIconButton extends StatelessWidget {
       button: true,
       enabled: enabled,
       label: semanticLabel,
-      child: SizedBox(
-        width: _tapTargetSize,
-        height: _tapTargetSize,
-        child: Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onPressed,
-            child: ExcludeSemantics(
-              child: Center(
-                child: Container(
-                  width: _visibleSize,
-                  height: _visibleSize,
-                  decoration: BoxDecoration(
-                    color: enabled ? color : color.withValues(alpha: 0.3),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 16),
-                ),
-              ),
+      onTap: onPressed,
+      child: ExcludeSemantics(
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Material(
+            color: enabled ? color : AppColors.fieldBorder,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onPressed,
+              child: Icon(icon, color: Colors.white, size: 24),
             ),
           ),
         ),
