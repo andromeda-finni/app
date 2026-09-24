@@ -61,11 +61,13 @@ class _OnboardingStep3ScreenState extends State<OnboardingStep3Screen> {
                       _TutorialHeading(petName: _data.petName),
                       const SizedBox(height: AppSpacing.lg),
                       _BudgetProgress(data: _data),
-                      const SizedBox(height: AppSpacing.md),
-                      TutorialBudgetCard(data: _data, onChanged: _updateBudget),
-                      const SizedBox(height: AppSpacing.sm),
-                      _BudgetHint(data: _data),
-                      const SizedBox(height: AppSpacing.md),
+                      Transform.translate(
+                        offset: const Offset(0, -AppSpacing.xs),
+                        child: TutorialBudgetCard(
+                          data: _data,
+                          onChanged: _updateBudget,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -111,7 +113,7 @@ class _TutorialHeading extends StatelessWidget {
         const Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            StoryDropCap(letter: 'П', size: 70),
+            StoryDropCap(letter: 'П', size: 64, widthFactor: 0.92),
             Expanded(
               child: Text(
                 'омоги распределить 10 монет',
@@ -123,8 +125,9 @@ class _TutorialHeading extends StatelessWidget {
         const SizedBox(height: AppSpacing.xs),
         Text(
           '$displayName получил 10 монет. '
-          'Нажимай +, чтобы разложить их по трём корзинам. '
-          'Здесь нет одного правильного ответа — важен твой выбор.',
+          'Попробуй составить план: на радость сейчас, на нужное '
+          'и на будущую мечту. '
+          'Решение остаётся за тобой.',
           style: AppTextStyles.supporting,
         ),
       ],
@@ -140,16 +143,21 @@ class _BudgetProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final complete = data.unallocated == 0;
+    final guidance = _budgetGuidanceFor(data);
     final message = complete
         ? 'Все 10 монет распределены'
         : 'Осталось распределить: ${data.unallocated}';
     return Semantics(
       liveRegion: true,
-      label: message,
+      label: '$message. ${guidance.text}',
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: complete ? const Color(0xFFEAF1E4) : AppColors.infoBg,
+          color: switch (guidance.tone) {
+            _BudgetGuidanceTone.success => const Color(0xFFEAF1E4),
+            _BudgetGuidanceTone.caution => AppColors.infoBg,
+            _BudgetGuidanceTone.neutral => AppColors.canvasWarm,
+          },
           borderRadius: BorderRadius.circular(AppRadii.lg),
         ),
         child: Column(
@@ -157,12 +165,20 @@ class _BudgetProgress extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(
-                  complete ? Icons.check_circle : Icons.toll_outlined,
-                  size: 22,
-                  color: complete ? AppColors.leafGreen : AppColors.coinGold,
-                ),
-                const SizedBox(width: AppSpacing.xs),
+                if (complete)
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    size: 30,
+                    color: AppColors.leafGreen,
+                  )
+                else
+                  Image.asset(
+                    'assets/icons/coin.png',
+                    width: 30,
+                    height: 30,
+                    excludeFromSemantics: true,
+                  ),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(message, style: AppTextStyles.sectionTitle),
                 ),
@@ -178,6 +194,39 @@ class _BudgetProgress extends StatelessWidget {
                 valueColor: const AlwaysStoppedAnimation(AppColors.crimson),
               ),
             ),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  switch (guidance.tone) {
+                    _BudgetGuidanceTone.success =>
+                      Icons.check_circle_outline_rounded,
+                    _BudgetGuidanceTone.caution =>
+                      Icons.lightbulb_outline_rounded,
+                    _BudgetGuidanceTone.neutral => Icons.explore_outlined,
+                  },
+                  size: 22,
+                  color: switch (guidance.tone) {
+                    _BudgetGuidanceTone.success => AppColors.leafGreen,
+                    _BudgetGuidanceTone.caution => AppColors.crimsonDark,
+                    _BudgetGuidanceTone.neutral => AppColors.inkMuted,
+                  },
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: Text(
+                    guidance.text,
+                    style: AppTextStyles.supporting.copyWith(
+                      color: guidance.tone == _BudgetGuidanceTone.success
+                          ? AppColors.leafGreen
+                          : AppColors.ink,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -185,31 +234,86 @@ class _BudgetProgress extends StatelessWidget {
   }
 }
 
-class _BudgetHint extends StatelessWidget {
-  const _BudgetHint({required this.data});
+enum _BudgetGuidanceTone { neutral, caution, success }
 
-  final OnboardingData data;
+class _BudgetGuidance {
+  const _BudgetGuidance(this.text, this.tone);
 
-  @override
-  Widget build(BuildContext context) {
-    final String text;
-    if (!data.budgetPracticed) {
-      text = 'Начни с любой корзины: нажми зелёный плюс.';
-    } else if (data.unallocated > 0) {
-      text =
-          'Хорошо! Разложи ещё ${data.unallocated} ${_coinWord(data.unallocated)}.';
-    } else {
-      text = 'Готово! Проверь свой выбор. Его можно изменить кнопками − и +.';
-    }
-    return Text(
-      text,
-      textAlign: TextAlign.center,
-      style: AppTextStyles.supporting.copyWith(
-        color: data.unallocated == 0 ? AppColors.leafGreen : AppColors.inkMuted,
-        fontWeight: FontWeight.w600,
-      ),
+  final String text;
+  final _BudgetGuidanceTone tone;
+}
+
+_BudgetGuidance _budgetGuidanceFor(OnboardingData data) {
+  if (data.allocated == 0) {
+    return const _BudgetGuidance(
+      'Сначала подумай: что нужно сейчас, а что стоит сохранить на мечту?',
+      _BudgetGuidanceTone.neutral,
     );
   }
+
+  if (data.unallocated > 0) {
+    if (data.candyAmount >= 8) {
+      return const _BudgetGuidance(
+        'Почти все монеты уходят на конфеты. Что останется на нужное '
+        'и на мечту?',
+        _BudgetGuidanceTone.caution,
+      );
+    }
+    if (data.otherAmount >= 8) {
+      return const _BudgetGuidance(
+        'Почти все монеты уходят на нужное. Хочешь оставить немного '
+        'на радость или мечту?',
+        _BudgetGuidanceTone.caution,
+      );
+    }
+    if (data.piggyAmount >= 8) {
+      return const _BudgetGuidance(
+        'Почти всё отправилось в копилку. Это бережно — но, может быть, '
+        'что-то нужно сегодня?',
+        _BudgetGuidanceTone.caution,
+      );
+    }
+    return _BudgetGuidance(
+      'Осталось ${data.unallocated} ${_coinWord(data.unallocated)}. '
+      'Проверь, учёл ли ты нужное и будущую мечту.',
+      _BudgetGuidanceTone.neutral,
+    );
+  }
+
+  if (data.candyAmount == kTutorialBudgetTotal ||
+      data.otherAmount == kTutorialBudgetTotal ||
+      data.piggyAmount == kTutorialBudgetTotal) {
+    return const _BudgetGuidance(
+      'Все монеты в одной корзине. Так можно, но для других целей ничего '
+      'не осталось. Проверь свой выбор.',
+      _BudgetGuidanceTone.caution,
+    );
+  }
+  if (data.piggyAmount == 0) {
+    return const _BudgetGuidance(
+      'Копилка пуста — на мечту ничего не осталось. Можно продолжить или '
+      'отложить хотя бы одну монету.',
+      _BudgetGuidanceTone.caution,
+    );
+  }
+  if (data.otherAmount == 0) {
+    return const _BudgetGuidance(
+      'На нужные вещи ничего не осталось. Можно продолжить или пересмотреть '
+      'план.',
+      _BudgetGuidanceTone.caution,
+    );
+  }
+  if (data.candyAmount == 0) {
+    return const _BudgetGuidance(
+      'Разумный план: нужное и мечта учтены. Без конфет сейчас — тоже твой '
+      'выбор.',
+      _BudgetGuidanceTone.success,
+    );
+  }
+  return const _BudgetGuidance(
+    'Отличный план: ты учёл радость сейчас, нужное и будущую мечту.',
+    _BudgetGuidanceTone.success,
+  );
 }
 
 String _coinWord(int value) {

@@ -93,6 +93,10 @@ void main() {
       expect(nextButton().onPressed, isNull);
       expect(find.text('Осталось распределить: 10'), findsOneWidget);
       expect(find.text('0'), findsNWidgets(3));
+      expect(
+        find.textContaining('Сначала подумай: что нужно сейчас'),
+        findsOneWidget,
+      );
 
       final addCoin = find.bySemanticsLabel(
         'Добавить монету в категорию «Конфеты»',
@@ -103,10 +107,15 @@ void main() {
         await tester.pump();
       }
       expect(nextButton().onPressed, isNull);
+      expect(
+        find.textContaining('Почти все монеты уходят на конфеты'),
+        findsOneWidget,
+      );
 
       await tester.tap(addCoin);
       await tester.pump();
       expect(nextButton().onPressed, isNotNull);
+      expect(find.textContaining('Все монеты в одной корзине'), findsOneWidget);
 
       final removeCandy = find.bySemanticsLabel(
         'Убрать монету из категории «Конфеты»',

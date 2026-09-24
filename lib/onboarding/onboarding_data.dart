@@ -19,9 +19,10 @@ class FurColorOption {
   final String catAsset;
 }
 
-/// Shown on step 1 until a fur colour has been chosen — the cat is still
-/// "any cat", so the art is the uncoloured base pose.
-const kBaseCatAsset = 'assets/Cat/Base/playful.png';
+/// Shown on step 1 until a fur colour has been chosen. This is the exact same
+/// artwork as the grey option, so choosing grey causes no visual jump. The
+/// option itself still remains unselected until the child taps it.
+const kBaseCatAsset = 'assets/Cat/Red_collar/base/striped.png';
 
 /// Total coins the tutorial budget on step 3 distributes between the three
 /// categories. Maps to budget_plans.need_amount/want_amount/savings_amount

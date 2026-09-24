@@ -18,74 +18,120 @@ class TutorialBudgetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.parchment,
-        borderRadius: BorderRadius.circular(AppRadii.lg),
-        image: const DecorationImage(
-          image: AssetImage('assets/backgrounds/paper.png'),
-          fit: BoxFit.cover,
-          opacity: 0.24,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final parchmentInset = (constraints.maxWidth * 0.125).clamp(34.0, 52.0);
+        return Stack(
+          alignment: Alignment.topCenter,
+          clipBehavior: Clip.none,
           children: [
-            const Text(
-              'Твои 10 монет',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.cardTitle,
+            const Positioned(
+              top: -28,
+              left: -12,
+              right: -12,
+              bottom: 0,
+              child: Image(
+                image: AssetImage('assets/backgrounds/paper.png'),
+                fit: BoxFit.fill,
+                excludeFromSemantics: true,
+              ),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            _BudgetCategory(
-              icon: 'assets/icons/sweet.png',
-              label: 'Конфеты',
-              explanation: 'То, чего хочется прямо сейчас',
-              value: data.candyAmount,
-              canIncrement: data.unallocated > 0,
-              canDecrement: data.candyAmount > 0,
-              onIncrement: () =>
-                  onChanged(data.copyWith(candyAmount: data.candyAmount + 1)),
-              onDecrement: () =>
-                  onChanged(data.copyWith(candyAmount: data.candyAmount - 1)),
-            ),
-            Divider(
-              height: AppSpacing.xl,
-              color: AppColors.fieldBorder.withValues(alpha: 0.55),
-            ),
-            _BudgetCategory(
-              icon: 'assets/icons/ball.png',
-              label: 'Нужные вещи',
-              explanation: 'То, что пригодится питомцу',
-              value: data.otherAmount,
-              canIncrement: data.unallocated > 0,
-              canDecrement: data.otherAmount > 0,
-              onIncrement: () =>
-                  onChanged(data.copyWith(otherAmount: data.otherAmount + 1)),
-              onDecrement: () =>
-                  onChanged(data.copyWith(otherAmount: data.otherAmount - 1)),
-            ),
-            Divider(
-              height: AppSpacing.xl,
-              color: AppColors.fieldBorder.withValues(alpha: 0.55),
-            ),
-            _BudgetCategory(
-              icon: 'assets/icons/pig.png',
-              label: 'Копилка',
-              explanation: 'Монеты на будущую мечту',
-              value: data.piggyAmount,
-              canIncrement: data.unallocated > 0,
-              canDecrement: data.piggyAmount > 0,
-              onIncrement: () =>
-                  onChanged(data.copyWith(piggyAmount: data.piggyAmount + 1)),
-              onDecrement: () =>
-                  onChanged(data.copyWith(piggyAmount: data.piggyAmount - 1)),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxWidth * 1.42,
+              ),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  parchmentInset,
+                  AppSpacing.xxl + AppSpacing.lg,
+                  parchmentInset,
+                  96,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Твои 10 монет',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.cardTitle,
+                    ),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      'Разложи их по трём целям',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.supporting.copyWith(
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Padding(
+                      padding: const EdgeInsets.only(left: AppSpacing.md),
+                      child: _BudgetCategory(
+                        icon: 'assets/icons/sweet.png',
+                        label: 'Конфеты',
+                        explanation: 'Хочется сейчас',
+                        value: data.candyAmount,
+                        canIncrement: data.unallocated > 0,
+                        canDecrement: data.candyAmount > 0,
+                        onIncrement: () => onChanged(
+                          data.copyWith(candyAmount: data.candyAmount + 1),
+                        ),
+                        onDecrement: () => onChanged(
+                          data.copyWith(candyAmount: data.candyAmount - 1),
+                        ),
+                      ),
+                    ),
+                    Divider(
+                      height: AppSpacing.xl,
+                      indent: AppSpacing.md,
+                      color: AppColors.fieldBorder.withValues(alpha: 0.55),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: AppSpacing.md),
+                      child: _BudgetCategory(
+                        icon: 'assets/icons/ball.png',
+                        label: 'Нужные вещи',
+                        explanation: 'Пригодятся питомцу',
+                        value: data.otherAmount,
+                        canIncrement: data.unallocated > 0,
+                        canDecrement: data.otherAmount > 0,
+                        onIncrement: () => onChanged(
+                          data.copyWith(otherAmount: data.otherAmount + 1),
+                        ),
+                        onDecrement: () => onChanged(
+                          data.copyWith(otherAmount: data.otherAmount - 1),
+                        ),
+                      ),
+                    ),
+                    Divider(
+                      height: AppSpacing.xl,
+                      indent: AppSpacing.md,
+                      color: AppColors.fieldBorder.withValues(alpha: 0.55),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: AppSpacing.md),
+                      child: _BudgetCategory(
+                        icon: 'assets/icons/pig.png',
+                        label: 'Копилка',
+                        explanation: 'На будущую мечту',
+                        value: data.piggyAmount,
+                        canIncrement: data.unallocated > 0,
+                        canDecrement: data.piggyAmount > 0,
+                        onIncrement: () => onChanged(
+                          data.copyWith(piggyAmount: data.piggyAmount + 1),
+                        ),
+                        onDecrement: () => onChanged(
+                          data.copyWith(piggyAmount: data.piggyAmount - 1),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -116,15 +162,18 @@ class _BudgetCategory extends StatelessWidget {
     return Semantics(
       container: true,
       label: '$label, $value монет. $explanation',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final textScale = MediaQuery.textScalerOf(context).scale(1);
+          final useStackedLayout =
+              constraints.maxWidth < 230 || textScale > 1.4;
+          final iconSize = useStackedLayout ? 52.0 : 58.0;
+          final heading = Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(
-                width: 48,
-                height: 48,
+                width: iconSize,
+                height: iconSize,
                 child: Image.asset(icon, fit: BoxFit.contain),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -139,44 +188,109 @@ class _BudgetCategory extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          );
+          final controls = _CounterControls(
+            label: label,
+            value: value,
+            canIncrement: canIncrement,
+            canDecrement: canDecrement,
+            onIncrement: onIncrement,
+            onDecrement: onDecrement,
+          );
+
+          if (useStackedLayout) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                heading,
+                const SizedBox(height: AppSpacing.sm),
+                controls,
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _CounterButton(
-                icon: Icons.remove,
-                onPressed: canDecrement ? onDecrement : null,
-                semanticLabel: 'Убрать монету из категории «$label»',
-                color: AppColors.crimson,
-              ),
-              const SizedBox(width: AppSpacing.lg),
               SizedBox(
-                width: 84,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                width: iconSize,
+                height: iconSize,
+                child: Image.asset(icon, fit: BoxFit.contain),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Image.asset('assets/icons/coin.png', width: 24, height: 24),
-                    const SizedBox(width: AppSpacing.xs),
-                    Text(
-                      '$value',
-                      style: AppTextStyles.counterValue,
-                      semanticsLabel: '$value монет',
-                    ),
+                    Text(label, style: AppTextStyles.cardRowLabel),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(explanation, style: AppTextStyles.supporting),
+                    const SizedBox(height: AppSpacing.sm),
+                    controls,
                   ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.lg),
-              _CounterButton(
-                icon: Icons.add,
-                onPressed: canIncrement ? onIncrement : null,
-                semanticLabel: 'Добавить монету в категорию «$label»',
-                color: AppColors.leafGreen,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CounterControls extends StatelessWidget {
+  const _CounterControls({
+    required this.label,
+    required this.value,
+    required this.canIncrement,
+    required this.canDecrement,
+    required this.onIncrement,
+    required this.onDecrement,
+  });
+
+  final String label;
+  final int value;
+  final bool canIncrement;
+  final bool canDecrement;
+  final VoidCallback onIncrement;
+  final VoidCallback onDecrement;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _CounterButton(
+          icon: Icons.remove,
+          onPressed: canDecrement ? onDecrement : null,
+          semanticLabel: 'Убрать монету из категории «$label»',
+          color: AppColors.crimson,
+        ),
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/icons/coin.png',
+                width: 30,
+                height: 30,
+                excludeFromSemantics: true,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                '$value',
+                style: AppTextStyles.counterValue,
+                semanticsLabel: '$value монет',
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        _CounterButton(
+          icon: Icons.add,
+          onPressed: canIncrement ? onIncrement : null,
+          semanticLabel: 'Добавить монету в категорию «$label»',
+          color: AppColors.leafGreen,
+        ),
+      ],
     );
   }
 }
@@ -206,13 +320,19 @@ class _CounterButton extends StatelessWidget {
         child: SizedBox(
           width: 48,
           height: 48,
-          child: Material(
-            color: enabled ? color : AppColors.fieldBorder,
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: onPressed,
-              child: Icon(icon, color: Colors.white, size: 24),
+          child: Center(
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Material(
+                color: enabled ? color : AppColors.fieldBorder,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: onPressed,
+                  child: Icon(icon, color: Colors.white, size: 24),
+                ),
+              ),
             ),
           ),
         ),

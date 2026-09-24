@@ -43,10 +43,16 @@ class DropCapStory extends StatelessWidget {
 /// Decorative initial kept intentionally simple: the display face and crimson
 /// colour already provide enough emphasis without competing ornament.
 class StoryDropCap extends StatelessWidget {
-  const StoryDropCap({super.key, required this.letter, this.size = 66});
+  const StoryDropCap({
+    super.key,
+    required this.letter,
+    this.size = 66,
+    this.widthFactor = 0.70,
+  });
 
   final String letter;
   final double size;
+  final double widthFactor;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +61,7 @@ class StoryDropCap extends StatelessWidget {
     // box follows the system text scale as well, otherwise wide letters such
     // as «П» can paint over the continuation at accessibility sizes.
     final effectiveSize = MediaQuery.textScalerOf(context).scale(size);
-    final visualWidth = effectiveSize * 0.70;
+    final visualWidth = effectiveSize * widthFactor;
     return SizedBox(
       width: visualWidth,
       height: effectiveSize * 0.92,
