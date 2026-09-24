@@ -4,11 +4,11 @@ import 'package:flutter/services.dart';
 import '../onboarding/widgets/back_circle_button.dart';
 import '../theme/app_theme.dart';
 
-enum ChildDifficulty { low, medium, high }
+enum ChildDifficulty { beginner, advanced }
 
 class ChildSettingsSnapshot {
   const ChildSettingsSnapshot({
-    this.difficulty = ChildDifficulty.medium,
+    this.difficulty = ChildDifficulty.beginner,
     this.sound = true,
     this.music = true,
     this.largeText = false,
@@ -145,16 +145,12 @@ class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
                     ),
                     items: const [
                       DropdownMenuItem(
-                        value: ChildDifficulty.low,
-                        child: Text('Низкая · больше подсказок'),
+                        value: ChildDifficulty.beginner,
+                        child: Text('Начинающий · больше подсказок'),
                       ),
                       DropdownMenuItem(
-                        value: ChildDifficulty.medium,
-                        child: Text('Средняя'),
-                      ),
-                      DropdownMenuItem(
-                        value: ChildDifficulty.high,
-                        child: Text('Высокая · больше условий'),
+                        value: ChildDifficulty.advanced,
+                        child: Text('Продвинутый · больше условий'),
                       ),
                     ],
                     onChanged: (value) {
