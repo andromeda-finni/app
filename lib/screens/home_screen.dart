@@ -7,6 +7,7 @@ import '../minigames/mole/mole_game_screen.dart';
 import '../minigames/tugriki/tugriki_game_data.dart';
 import '../minigames/tugriki/tugriki_game_screen.dart';
 import '../profile/child_access_code.dart';
+import '../quest_map/quest_map_screen.dart';
 import '../settings/child_settings_screen.dart';
 import '../theme/app_theme.dart';
 
@@ -92,6 +93,14 @@ class _HomeScreenState extends State<HomeScreen> {
         .then((_) => _fetchPetData());
   }
 
+  void _openQuestMap() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => QuestMapScreen(apiClient: widget.apiClient),
+      ),
+    );
+  }
+
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -132,6 +141,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       // Карточка питомца
                       _buildPetCard(),
+                      const SizedBox(height: 18),
+
+                      _buildQuestMapCard(),
                       const SizedBox(height: 18),
 
                       // Заголовок доступных заданий
@@ -468,6 +480,79 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuestMapCard() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: const Key('open-quest-map'),
+        onTap: _openQuestMap,
+        borderRadius: BorderRadius.circular(24),
+        child: Ink(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFE8F4DB), Color(0xFFFFF0CF)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.leafGreen, width: 1.5),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: const BoxDecoration(
+                  color: AppColors.leafGreen,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.map_rounded,
+                  color: Colors.white,
+                  size: 31,
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Карта приключений',
+                      style: TextStyle(
+                        fontFamily: AppFonts.family,
+                        fontSize: 21,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      '8 сказочных мест · следующее задание у Крота',
+                      style: TextStyle(
+                        fontFamily: AppFonts.family,
+                        fontSize: 14,
+                        height: 1.25,
+                        color: AppColors.inkMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: AppColors.crimson,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
