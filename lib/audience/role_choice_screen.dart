@@ -35,11 +35,10 @@ class RoleChoiceScreen extends StatelessWidget {
                         width: 2,
                       ),
                     ),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/Cat/Base/playful.png',
-                        fit: BoxFit.cover,
-                      ),
+                    child: const Icon(
+                      Icons.pets_rounded,
+                      size: 58,
+                      color: AppColors.crimson,
                     ),
                   ),
                   const SizedBox(height: 20),
