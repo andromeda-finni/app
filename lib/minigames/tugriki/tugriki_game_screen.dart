@@ -46,11 +46,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
   // Интерактивный бюджет (Уровень 3)
   static const int kTotalBudget = 20;
   final Set<String> _selectedGoodIds = {'soup', 'juice'}; // по умолчанию Суп (8м) + Сок (4м) = 12м
-  int _spentCoins = 0;
-  int _changeCoins = 0;
-
   String? _assignmentId;
-  String? _syncNote;
 
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
@@ -67,9 +63,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    if (widget.apiClient == null) {
-      _syncNote = 'Тренировка: монетки начисляются в игре.';
-    } else {
+    if (widget.apiClient != null) {
       _startServerQuest();
     }
   }
@@ -86,14 +80,8 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
       if (!mounted) return;
       setState(() {
         _assignmentId = res['assignmentId'] as String?;
-        _syncNote = 'Квест начат! Награда: $kTugrikiReward монет.';
       });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _syncNote = 'Автономный режим: играем локально.';
-      });
-    }
+    } catch (_) {}
   }
 
   Future<void> _completeServerQuest() async {
@@ -316,7 +304,6 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = constraints.maxHeight;
-        final width = constraints.maxWidth;
         final charHeight = height * 0.72; // Высота персонажей пропорциональна сцене
 
         return GestureDetector(
@@ -1024,15 +1011,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
             label: _budgetCanBuy
                 ? 'Купить за $_budgetTotalCoins монет (сдача: $_budgetRemainingCoins)'
                 : (_budgetIsOver ? 'Превышен бюджет (нужно < 20)' : 'Выбери товары'),
-            onPressed: _budgetCanBuy
-                ? () {
-                    setState(() {
-                      _spentCoins = _budgetTotalCoins;
-                      _changeCoins = _budgetRemainingCoins;
-                    });
-                    _nextStep();
-                  }
-                : null,
+            onPressed: _budgetCanBuy ? _nextStep : null,
           ),
         ],
       ),

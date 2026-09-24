@@ -13,13 +13,15 @@ INSERT INTO education_topics (id, title, skill_description, sort_order) VALUES
   ('BUDGETING', 'Бюджет', 'Учимся планировать траты', 1),
   ('SAVING', 'Накопления', 'Учимся копить на цель', 2),
   ('SCAMS', 'Осторожно, обман', 'Учимся распознавать нечестные предложения', 3),
-  ('CURRENCY', 'Иностранная валюта', 'Учимся переводить цены по курсу', 4)
+  ('CURRENCY', 'Иностранная валюта', 'Учимся переводить цены по курсу', 4),
+  ('CONSUMER_RIGHTS', 'Проверяем покупки', 'Учимся замечать условия и ошибки в чеках', 5)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO quest_definitions (id, topic_id, title, location_code, difficulty, reward_amount) VALUES
   ('Q_FIRST_BUDGET', 'BUDGETING', 'Первый бюджет', 'FOREST', 'SIMPLE', 20),
   ('Q_SAVING_JAR', 'SAVING', 'Копилка мечты', 'FOREST', 'SIMPLE', 20),
-  ('Q_TUGRIKI_CURRENCY', 'CURRENCY', 'Ярмарка тугриков', 'MARKET', 'SIMPLE', 20)
+  ('Q_TUGRIKI_CURRENCY', 'CURRENCY', 'Ярмарка тугриков', 'MARKET', 'SIMPLE', 20),
+  ('Q_MOLE_FINE_PRINT', 'CONSUMER_RIGHTS', 'Осторожно, мелкий шрифт', 'MARKET', 'SIMPLE', 20)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO quest_steps (quest_id, step_no, instruction, expected_action_code, success_feedback, recovery_feedback, ui_spec) VALUES

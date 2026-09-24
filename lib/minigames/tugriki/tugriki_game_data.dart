@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 const kTugrikiQuestId = 'Q_TUGRIKI_CURRENCY';
 const kTugrikiReward = 20;
 const int kExchangeRate = 2; // 1 тугрик = 2 монетки

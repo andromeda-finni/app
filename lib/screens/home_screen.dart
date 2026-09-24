@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/auth_storage.dart';
+import '../minigames/mole/mole_game_data.dart';
 import '../minigames/mole/mole_game_screen.dart';
 import '../minigames/tugriki/tugriki_game_data.dart';
 import '../minigames/tugriki/tugriki_game_screen.dart';
@@ -40,15 +41,14 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isLoading = true);
     try {
       final petRes = await widget.apiClient!.get('/pet');
-      final pet = petRes['pet'] as Map<String, dynamic>?;
-      if (pet != null && mounted) {
+      if (mounted) {
         setState(() {
-          _petName = (pet['name'] as String?) ?? 'Грошик';
+          _petName = (petRes['pet_name'] as String?) ?? 'Грошик';
         });
       }
 
       final walletRes = await widget.apiClient!.get('/wallet');
-      if (walletRes != null && mounted) {
+      if (mounted) {
         setState(() {
           _balance = (walletRes['balance'] as num?)?.toInt() ?? 100;
           _savings = (walletRes['savings'] as num?)?.toInt() ?? 30;
@@ -76,13 +76,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openMoleGame() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => MoleGameScreen(
-          apiClient: widget.apiClient,
-        ),
-      ),
-    );
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (context) => MoleGameScreen(apiClient: widget.apiClient),
+          ),
+        )
+        .then((_) => _fetchPetData());
   }
 
   @override
@@ -100,7 +100,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -111,15 +114,21 @@ class _HomeScreenState extends State<HomeScreen> {
                       // Заголовок доступных заданий
                       const Row(
                         children: [
-                          Icon(Icons.sports_esports_outlined, color: AppColors.crimson, size: 24),
+                          Icon(
+                            Icons.sports_esports_outlined,
+                            color: AppColors.crimson,
+                            size: 24,
+                          ),
                           SizedBox(width: 8),
-                          Text(
-                            'Игры и уроки финансовой грамотности',
-                            style: TextStyle(
-                              fontFamily: AppFonts.family,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.ink,
+                          Expanded(
+                            child: Text(
+                              'Игры и уроки финансовой грамотности',
+                              style: TextStyle(
+                                fontFamily: AppFonts.family,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.ink,
+                              ),
                             ),
                           ),
                         ],
@@ -129,8 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       // Карточка новой игры «Тугрики»
                       _buildGameCard(
                         title: '«Тугрики» — Иностранная валюта',
-                        description:
-                            'Отправляйся с другом Воробьем на ярмарку соседнего государства! Узнай, что такое курс валют, научись пересчитывать цены и распределять бюджет покупок.',
+                        description: 'Отправляйся с другом Воробьем на ярмарку соседнего государства! Узнай, что такое курс валют, научись пересчитывать цены и распределять бюджет покупок.',
                         badgeText: 'НОВАЯ ИГРА',
                         badgeColor: AppColors.crimson,
                         imageAsset: TugrikiAssets.foreignMoneyBag,
@@ -142,13 +150,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       // Карточка игры «Крот Земелик»
                       _buildGameCard(
                         title: '«Осторожно, мелкий шрифт»',
-                        description:
-                            'Помоги Кроту Земелику разобраться в чеках и объявлениях. Учись находить скрытые условия и защищать свои монетки!',
+                        description: 'Помоги Кроту Земелику разобраться в чеках и объявлениях. Учись находить скрытые условия и защищать свои монетки!',
                         badgeText: 'ВНИМАНИЕ',
                         badgeColor: AppColors.leafGreen,
-                        imageAsset: 'assets/icons/clew.png',
+                        imageAsset: MoleAssets.zemelik,
                         onPlay: _openMoleGame,
-                        tags: const ['Чеки и договоры', '7-11 лет', '+20 монет'],
+                        tags: const [
+                          'Чеки и договоры',
+                          '7-11 лет',
+                          '+20 монет',
+                        ],
                       ),
                     ],
                   ),
@@ -204,7 +215,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.crimson),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.crimson,
+                    ),
                   )
                 : const Icon(Icons.refresh_rounded, color: AppColors.crimson),
             onPressed: _isLoading ? null : _fetchPetData,
@@ -323,7 +337,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: badgeColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
@@ -369,7 +386,13 @@ class _HomeScreenState extends State<HomeScreen> {
             children: tags
                 .map(
                   (tag) => Chip(
-                    label: Text(tag, style: const TextStyle(fontSize: 12, color: AppColors.ink)),
+                    label: Text(
+                      tag,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.ink,
+                      ),
+                    ),
                     backgroundColor: AppColors.parchment,
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,

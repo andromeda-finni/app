@@ -36,8 +36,8 @@ class _MoleInspectionBoardState extends State<MoleInspectionBoard> {
 
   void _moveLens(Offset localPosition, Size size) {
     final center = Offset(
-      localPosition.dx.clamp(48, size.width - 48),
-      localPosition.dy.clamp(48, size.height - 48),
+      localPosition.dx.clamp(48.0, size.width - 48.0).toDouble(),
+      localPosition.dy.clamp(48.0, size.height - 48.0).toDouble(),
     );
 
     int? nearest;
@@ -89,8 +89,14 @@ class _MoleInspectionBoardState extends State<MoleInspectionBoard> {
                     for (var i = 0; i < widget.episode.hotspots.length; i++)
                       if (widget.foundHotspots.contains(i))
                         _FoundMarker(
-                          left: widget.episode.hotspots[i].position.dx * size.width - 12,
-                          top: widget.episode.hotspots[i].position.dy * size.height - 12,
+                          left:
+                              widget.episode.hotspots[i].position.dx *
+                                  size.width -
+                              12,
+                          top:
+                              widget.episode.hotspots[i].position.dy *
+                                  size.height -
+                              12,
                           label: widget.episode.hotspots[i].label,
                         ),
                     Positioned(
@@ -184,7 +190,9 @@ class _Document extends StatelessWidget {
                     child: Text(
                       episode.receiptLines[i].label,
                       style: AppTextStyles.cardRowLabel.copyWith(
-                        fontSize: i == episode.receiptLines.length - 1 ? 17 : 14,
+                        fontSize: i == episode.receiptLines.length - 1
+                            ? 17
+                            : 14,
                         fontWeight: i == episode.receiptLines.length - 1
                             ? FontWeight.bold
                             : FontWeight.normal,
@@ -236,7 +244,11 @@ class _Lens extends StatelessWidget {
               color: const Color(0xFFFFFCED),
               border: Border.all(color: const Color(0xFFB78122), width: 4),
               boxShadow: const [
-                BoxShadow(color: Colors.black26, blurRadius: 9, offset: Offset(0, 4)),
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 9,
+                  offset: Offset(0, 4),
+                ),
               ],
             ),
             child: Center(
@@ -249,7 +261,9 @@ class _Lens extends StatelessWidget {
                   color: detail == null ? AppColors.inkMuted : AppColors.ink,
                   fontSize: detail == null ? 11 : 9,
                   height: 1.05,
-                  fontWeight: detail == null ? FontWeight.normal : FontWeight.bold,
+                  fontWeight: detail == null
+                      ? FontWeight.normal
+                      : FontWeight.bold,
                 ),
               ),
             ),
@@ -264,7 +278,11 @@ class _Lens extends StatelessWidget {
 }
 
 class _FoundMarker extends StatelessWidget {
-  const _FoundMarker({required this.left, required this.top, required this.label});
+  const _FoundMarker({
+    required this.left,
+    required this.top,
+    required this.label,
+  });
 
   final double left;
   final double top;

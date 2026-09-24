@@ -100,8 +100,7 @@ const moleEpisodes = <MoleEpisode>[
   MoleEpisode(
     id: 'grain_delivery',
     title: 'Скрытая доставка',
-    intro:
-        'Я нашёл мешок зерна по отличной цене. Проверь мелкий текст: вдруг там спрятаны дополнительные расходы?',
+    intro: 'Я нашёл мешок зерна по отличной цене. Проверь мелкий текст: вдруг там спрятаны дополнительные расходы?',
     boardKind: MoleBoardKind.advertisement,
     boardTitle: 'Мешок зерна',
     boardSubtitle: '8 монет',
@@ -127,14 +126,12 @@ const moleEpisodes = <MoleEpisode>[
             'Сложи цену мешка и стоимость доставки, которую нашли через лупу.',
       ),
     ],
-    successText:
-        'Теперь я знаю полную стоимость и могу решить, подходит ли мне покупка.',
+    successText: 'Теперь я знаю полную стоимость и могу решить, подходит ли мне покупка.',
   ),
   MoleEpisode(
     id: 'lantern_offer',
     title: 'Фонарь по акции',
-    intro:
-        'Волшебный фонарь обещают всего за 6 монет. Но мне нужен только один. Давай проверим условия акции.',
+    intro: 'Волшебный фонарь обещают всего за 6 монет. Но мне нужен только один. Давай проверим условия акции.',
     boardKind: MoleBoardKind.advertisement,
     boardTitle: 'Волшебный фонарь',
     boardSubtitle: '6 монет по акции',
@@ -161,18 +158,15 @@ const moleEpisodes = <MoleEpisode>[
         ],
         correctCode: '9',
         successFeedback: 'Точно! Один фонарь стоит 9 монет.',
-        recoveryFeedback:
-            'Цена 6 монет работает только при покупке двух фонарей. Найди обычную цену.',
+        recoveryFeedback: 'Цена 6 монет работает только при покупке двух фонарей. Найди обычную цену.',
       ),
     ],
-    successText:
-        'Хорошо, что мы прочитали условия. Два дешёвых товара могут стоить дороже одного нужного.',
+    successText: 'Хорошо, что мы прочитали условия. Два дешёвых товара могут стоить дороже одного нужного.',
   ),
   MoleEpisode(
     id: 'extra_receipt_item',
     title: 'Лишняя строка в чеке',
-    intro:
-        'Я купил зерно, фонарь и верёвку. Проверь чек и найди то, чего среди покупок не было.',
+    intro: 'Я купил зерно, фонарь и верёвку. Проверь чек и найди то, чего среди покупок не было.',
     boardKind: MoleBoardKind.receipt,
     boardTitle: 'Чек из лавки',
     boardSubtitle: 'Покупки для дома',
@@ -219,8 +213,7 @@ const moleEpisodes = <MoleEpisode>[
         correctCode: 'ask',
         successFeedback:
             'Верно. Ошибку должен проверить продавец и выдать правильный чек.',
-        recoveryFeedback:
-            'Чек лучше сохранить и спокойно попросить продавца проверить ошибку.',
+        recoveryFeedback: 'Чек лучше сохранить и спокойно попросить продавца проверить ошибку.',
       ),
     ],
     successText: 'Продавец убрал лишний леденец. Теперь сумма верная.',
@@ -228,17 +221,12 @@ const moleEpisodes = <MoleEpisode>[
   MoleEpisode(
     id: 'wrong_total',
     title: 'Две ошибки',
-    intro:
-        'В длинном чеке может быть несколько ошибок. Найди лишнюю услугу и проверь сложение.',
+    intro: 'В длинном чеке может быть несколько ошибок. Найди лишнюю услугу и проверь сложение.',
     boardKind: MoleBoardKind.receipt,
     boardTitle: 'Длинный чек',
     boardSubtitle: 'Фонарь, свечка и зерно',
     itemAsset: MoleAssets.giftWrap,
-    supportAssets: [
-      MoleAssets.lantern,
-      MoleAssets.grain,
-      MoleAssets.giftWrap,
-    ],
+    supportAssets: [MoleAssets.lantern, MoleAssets.grain, MoleAssets.giftWrap],
     receiptLines: [
       MoleReceiptLine(label: 'Фонарь', amount: 6),
       MoleReceiptLine(label: 'Свечка', amount: 2),
@@ -288,8 +276,7 @@ const moleEpisodes = <MoleEpisode>[
   MoleEpisode(
     id: 'two_error_challenge',
     title: 'Проверка для следопыта',
-    intro:
-        'Последний чек сложнее. Найди две ошибки и выбери безопасный способ их исправить.',
+    intro: 'Последний чек сложнее. Найди две ошибки и выбери безопасный способ их исправить.',
     boardKind: MoleBoardKind.receipt,
     boardTitle: 'Чек перед дорогой',
     boardSubtitle: 'Плед, верёвка и ключ',
@@ -345,7 +332,6 @@ const moleEpisodes = <MoleEpisode>[
             'Не меняй чек сам. Покажи обе ошибки продавцу и попроси новый чек.',
       ),
     ],
-    successText:
-        'Отличная проверка! Без упаковки Крот заплатит 13 монет и получит правильный чек.',
+    successText: 'Отличная проверка! Без упаковки Крот заплатит 13 монет и получит правильный чек.',
   ),
 ];

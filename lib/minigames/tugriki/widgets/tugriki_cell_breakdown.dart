@@ -167,7 +167,7 @@ class _TugrikiCellBreakdownState extends State<TugrikiCellBreakdown> {
               onPressed: _fillNext,
               icon: const Icon(Icons.add_circle_outline, color: AppColors.crimson),
               label: Text(
-                'Положить 2 монетки в ячейку (${_filledCount}/6)',
+                'Положить 2 монетки в ячейку ($_filledCount/6)',
                 style: const TextStyle(
                   fontFamily: AppFonts.family,
                   fontSize: 16,

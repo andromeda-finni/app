@@ -49,11 +49,14 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
   Future<void> _startServerQuest() async {
     setState(() => _isStarting = true);
     try {
-      final result = await widget.apiClient!.post('/quests/$kMoleQuestId/start');
+      final result = await widget.apiClient!.post(
+        '/quests/$kMoleQuestId/start',
+      );
       if (!mounted) return;
       setState(() {
         _assignmentId = result['assignmentId'] as String?;
-        _syncNote = 'Задание начато. За все пять проверок — $kMoleReward монет.';
+        _syncNote =
+            'Задание начато. За все пять проверок — $kMoleReward монет.';
       });
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -125,7 +128,9 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
         );
         if (!mounted) return;
         if (result['outcome'] != 'SUCCESS') {
-          setState(() => _syncNote = 'Сервер не принял результат. Попробуй ещё раз.');
+          setState(
+            () => _syncNote = 'Сервер не принял результат. Попробуй ещё раз.',
+          );
           return;
         }
         if (result['questCompleted'] == true) {
@@ -172,7 +177,9 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
               children: [
                 _buildTopBar(),
                 Expanded(
-                  child: _showFinal ? _buildFinal(context) : _buildEpisode(context),
+                  child: _showFinal
+                      ? _buildFinal(context)
+                      : _buildEpisode(context),
                 ),
               ],
             ),
@@ -187,21 +194,30 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: const BoxDecoration(
         color: AppColors.cardBg,
-        border: Border(bottom: BorderSide(color: AppColors.fieldBorder, width: 1.5)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.fieldBorder, width: 1.5),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           BackCircleButton(onPressed: () => Navigator.of(context).maybePop()),
-          const Text(
-            '«Осторожно, мелкий шрифт»',
-            style: TextStyle(
-              fontFamily: AppFonts.family,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: AppColors.ink,
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'Осторожно, мелкий шрифт',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppFonts.family,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: AppColors.ink,
+              ),
             ),
           ),
+          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -422,7 +438,10 @@ class _ProgressHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('ПРОВЕРКА $current ИЗ $total', style: AppTextStyles.stepCounter),
+              Text(
+                'ПРОВЕРКА $current ИЗ $total',
+                style: AppTextStyles.stepCounter,
+              ),
               const SizedBox(height: 2),
               Text(title, style: AppTextStyles.cardTitle),
             ],
@@ -499,7 +518,10 @@ class _StoryScene extends StatelessWidget {
                         text,
                         maxLines: 7,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.story.copyWith(fontSize: 13, height: 1.25),
+                        style: AppTextStyles.story.copyWith(
+                          fontSize: 13,
+                          height: 1.25,
+                        ),
                       ),
                     ),
                   ),
@@ -566,12 +588,17 @@ class _QuestionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(question.prompt, style: AppTextStyles.cardTitle.copyWith(fontSize: 20)),
+          Text(
+            question.prompt,
+            style: AppTextStyles.cardTitle.copyWith(fontSize: 20),
+          ),
           if (showExtraHint) ...[
             const SizedBox(height: 8),
             Text(
               'Подсказка: используй только найденные через лупу условия.',
-              style: AppTextStyles.swatchLabel.copyWith(color: AppColors.crimson),
+              style: AppTextStyles.swatchLabel.copyWith(
+                color: AppColors.crimson,
+              ),
             ),
           ],
           const SizedBox(height: 12),
@@ -582,11 +609,19 @@ class _QuestionCard extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.ink,
                 side: const BorderSide(color: AppColors.fieldBorder),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 14,
+                ),
                 alignment: Alignment.centerLeft,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
-              child: Text(answer.label, style: AppTextStyles.story.copyWith(fontSize: 15)),
+              child: Text(
+                answer.label,
+                style: AppTextStyles.story.copyWith(fontSize: 15),
+              ),
             ),
             const SizedBox(height: 8),
           ],
@@ -620,7 +655,12 @@ class _FeedbackCard extends StatelessWidget {
               color: positive ? AppColors.leafGreen : AppColors.crimson,
             ),
             const SizedBox(width: 10),
-            Expanded(child: Text(text, style: AppTextStyles.story.copyWith(fontSize: 14))),
+            Expanded(
+              child: Text(
+                text,
+                style: AppTextStyles.story.copyWith(fontSize: 14),
+              ),
+            ),
           ],
         ),
       ),
@@ -646,7 +686,12 @@ class _SolvedCard extends StatelessWidget {
         children: [
           const Icon(Icons.verified, color: AppColors.leafGreen, size: 30),
           const SizedBox(width: 12),
-          Expanded(child: Text(text, style: AppTextStyles.story.copyWith(fontSize: 15))),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTextStyles.story.copyWith(fontSize: 15),
+            ),
+          ),
         ],
       ),
     );
@@ -668,10 +713,17 @@ class _SyncNote extends StatelessWidget {
           const SizedBox(
             width: 16,
             height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.crimson),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.crimson,
+            ),
           )
         else
-          const Icon(Icons.cloud_done_outlined, size: 18, color: AppColors.inkMuted),
+          const Icon(
+            Icons.cloud_done_outlined,
+            size: 18,
+            color: AppColors.inkMuted,
+          ),
         const SizedBox(width: 8),
         Expanded(child: Text(text, style: AppTextStyles.swatchLabel)),
       ],
