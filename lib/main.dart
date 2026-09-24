@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'audience/role_choice_screen.dart';
 import 'core/api_client.dart';
 import 'core/auth_storage.dart';
 import 'onboarding/onboarding_flow.dart';
+import 'parent/parent_connect_screen.dart';
 import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
 
@@ -15,10 +17,12 @@ class GroshikApp extends StatelessWidget {
     super.key,
     @visibleForTesting this.authStorage,
     @visibleForTesting this.apiClient,
+    @visibleForTesting this.initialAudience,
   });
 
   final AuthStorage? authStorage;
   final ApiClient? apiClient;
+  final AppAudience? initialAudience;
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +36,51 @@ class GroshikApp extends StatelessWidget {
         // up the storybook face instead of falling back to Roboto.
         fontFamily: AppFonts.family,
       ),
-      home: _StartupGate(authStorage: authStorage, apiClient: apiClient),
+      home: _AudienceGate(
+        authStorage: authStorage,
+        apiClient: apiClient,
+        initialAudience: initialAudience,
+      ),
     );
+  }
+}
+
+enum AppAudience { child, parent }
+
+class _AudienceGate extends StatefulWidget {
+  const _AudienceGate({this.authStorage, this.apiClient, this.initialAudience});
+
+  final AuthStorage? authStorage;
+  final ApiClient? apiClient;
+  final AppAudience? initialAudience;
+
+  @override
+  State<_AudienceGate> createState() => _AudienceGateState();
+}
+
+class _AudienceGateState extends State<_AudienceGate> {
+  late AppAudience? _audience = widget.initialAudience;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (_audience) {
+      case AppAudience.child:
+        return _StartupGate(
+          authStorage: widget.authStorage,
+          apiClient: widget.apiClient,
+          onSwitchAudience: () => setState(() => _audience = null),
+        );
+      case AppAudience.parent:
+        return ParentConnectScreen(
+          onBack: () => setState(() => _audience = null),
+        );
+      case null:
+        return RoleChoiceScreen(
+          onChildSelected: () => setState(() => _audience = AppAudience.child),
+          onParentSelected: () =>
+              setState(() => _audience = AppAudience.parent),
+        );
+    }
   }
 }
 
@@ -45,10 +92,15 @@ enum _StartupState { checking, needsOnboarding, hasPet, error }
 /// so this actually asks the server via `GET /pet`: 404 means the account
 /// exists but onboarding was interrupted before the pet was created.
 class _StartupGate extends StatefulWidget {
-  const _StartupGate({this.authStorage, this.apiClient});
+  const _StartupGate({
+    this.authStorage,
+    this.apiClient,
+    required this.onSwitchAudience,
+  });
 
   final AuthStorage? authStorage;
   final ApiClient? apiClient;
+  final VoidCallback onSwitchAudience;
 
   @override
   State<_StartupGate> createState() => _StartupGateState();
@@ -119,7 +171,9 @@ class _StartupGateState extends State<_StartupGate> {
         return HomeScreen(
           apiClient: _api,
           authStorage: _authStorage,
-          onResetProfile: () => setState(() => _state = _StartupState.needsOnboarding),
+          onResetProfile: () =>
+              setState(() => _state = _StartupState.needsOnboarding),
+          onSwitchAudience: widget.onSwitchAudience,
         );
       case _StartupState.error:
         return Scaffold(

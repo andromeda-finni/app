@@ -6,6 +6,8 @@ import '../minigames/mole/mole_game_data.dart';
 import '../minigames/mole/mole_game_screen.dart';
 import '../minigames/tugriki/tugriki_game_data.dart';
 import '../minigames/tugriki/tugriki_game_screen.dart';
+import '../profile/child_access_code.dart';
+import '../settings/child_settings_screen.dart';
 import '../theme/app_theme.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -14,11 +16,13 @@ class HomeScreen extends StatefulWidget {
     this.apiClient,
     this.authStorage,
     this.onResetProfile,
+    this.onSwitchAudience,
   });
 
   final ApiClient? apiClient;
   final AuthStorage? authStorage;
   final VoidCallback? onResetProfile;
+  final VoidCallback? onSwitchAudience;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -28,6 +32,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _balance = 100;
   int _savings = 30;
   String _petName = 'Грошик';
+  String _childCode = childAccessCodeFrom(null);
+  ChildSettingsSnapshot _settings = const ChildSettingsSnapshot();
   bool _isLoading = false;
 
   @override
@@ -44,6 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         setState(() {
           _petName = (petRes['pet_name'] as String?) ?? 'Грошик';
+          _childCode = childAccessCodeFrom(petRes['id'] as String?);
         });
       }
 
@@ -83,6 +90,22 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         )
         .then((_) => _fetchPetData());
+  }
+
+  void _openSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (screenContext) => ChildSettingsScreen(
+          childCode: _childCode,
+          initialSettings: _settings,
+          onSettingsChanged: (next) => setState(() => _settings = next),
+          onSwitchAudience: () {
+            Navigator.of(screenContext).pop();
+            widget.onSwitchAudience?.call();
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -209,19 +232,33 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          IconButton(
-            tooltip: 'Обновить баланс',
-            icon: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.crimson,
-                    ),
-                  )
-                : const Icon(Icons.refresh_rounded, color: AppColors.crimson),
-            onPressed: _isLoading ? null : _fetchPetData,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: 'Обновить баланс',
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.crimson,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.refresh_rounded,
+                        color: AppColors.crimson,
+                      ),
+                onPressed: _isLoading ? null : _fetchPetData,
+              ),
+              IconButton(
+                key: const Key('open-child-settings'),
+                tooltip: 'Настройки и ID ребёнка',
+                icon: const Icon(Icons.settings_outlined, color: AppColors.ink),
+                onPressed: _openSettings,
+              ),
+            ],
           ),
         ],
       ),
@@ -290,6 +327,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(
                     fontFamily: AppFonts.family,
                     fontSize: 13,
+                    color: AppColors.inkMuted,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'ID для родителя: $_childCode',
+                  style: const TextStyle(
+                    fontFamily: AppFonts.family,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
                     color: AppColors.inkMuted,
                   ),
                 ),
