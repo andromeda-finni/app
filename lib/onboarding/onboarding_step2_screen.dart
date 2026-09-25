@@ -14,10 +14,12 @@ class OnboardingStep2Screen extends StatelessWidget {
     required this.onBack,
     required this.onNext,
     this.data,
+    this.isSubmitting = false,
   });
 
   final VoidCallback onBack;
-  final VoidCallback onNext;
+  final VoidCallback? onNext;
+  final bool isSubmitting;
 
   /// Carries the fur colour picked on step 1 so the story keeps showing the
   /// child's own cat rather than reverting to the generic one.
@@ -25,23 +27,28 @@ class OnboardingStep2Screen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final savedName = data?.petName.trim();
+    final petName = savedName == null || savedName.isEmpty
+        ? 'котёнок'
+        : savedName;
     return OnboardingStepScaffold(
       stepNumber: 2,
       top: OnboardingScene(
         background: 'assets/backgrounds/shop.png',
+        foreground: 'assets/backgrounds/meadow_foreground.png',
         cat: catAssetForFur(data?.furColorId),
         catAlignment: const Alignment(-0.35, 0.85),
         catHeightFraction: 0.5,
       ),
       onBack: onBack,
       onNext: onNext,
+      nextLoading: isSubmitting,
       nextLabel: 'Далее',
-      content: const DropCapStory(
+      content: DropCapStory(
         dropCap: 'О',
-        firstLine: 'н жил в избушке неподалёку',
+        firstLine: 'н жил рядом с Чудо-лавкой и очень любил конфеты.',
         rest:
-            'от Чудо-лавки, где часто скупал все конфеты, что там были. '
-            'Грошик любил конфеты. Немного монеток он тратил на другие вещи.',
+            'Иногда $petName тратил все монеты сразу — и на нужные вещи уже ничего не оставалось.',
       ),
     );
   }

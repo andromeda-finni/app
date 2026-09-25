@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 
-/// The red pill button used to advance onboarding. Step 1 uses a full-width
-/// version with leaf flourishes; steps 2-4 sit next to a back button and
-/// hug their label instead (flourishes only on the very first/last step,
-/// matching the reference designs).
+/// The primary onboarding action. Its label uses the readable body family;
+/// decoration never competes with the action text.
 class StoryButton extends StatelessWidget {
   const StoryButton({
     super.key,
@@ -33,12 +31,10 @@ class StoryButton extends StatelessWidget {
         backgroundColor: AppColors.crimson,
         disabledBackgroundColor: AppColors.crimson.withValues(alpha: 0.4),
         foregroundColor: Colors.white,
-        padding: EdgeInsets.symmetric(
-          horizontal: expand ? 24 : 28,
-          vertical: 16,
-        ),
+        minimumSize: const Size(0, 54),
+        padding: EdgeInsets.symmetric(horizontal: expand ? 14 : 22),
         shape: const StadiumBorder(),
-        elevation: enabled ? 3 : 0,
+        elevation: enabled ? 1 : 0,
       ),
       child: isLoading
           ? const SizedBox(
@@ -54,35 +50,20 @@ class StoryButton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (showFlourish) ...[
-                  const Icon(
-                    Icons.eco_outlined,
-                    color: Colors.white70,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 12),
+                  const _ButtonFlourish(),
+                  const SizedBox(width: 6),
                 ],
-                // Flexible + ellipsis: at large text-scale factors or on very
-                // narrow screens, a long label (e.g. "Начать игру") shrinks
-                // to fit whatever width the parent Row gives this button
-                // instead of forcing a RenderFlex overflow.
                 Flexible(
                   child: Text(
                     label,
                     style: AppTextStyles.button,
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                   ),
                 ),
                 if (showFlourish) ...[
-                  const SizedBox(width: 12),
-                  Transform.flip(
-                    flipX: true,
-                    child: const Icon(
-                      Icons.eco_outlined,
-                      color: Colors.white70,
-                      size: 18,
-                    ),
-                  ),
+                  const SizedBox(width: 6),
+                  Transform.flip(flipX: true, child: const _ButtonFlourish()),
                 ],
               ],
             ),
@@ -100,6 +81,33 @@ class StoryButton extends StatelessWidget {
     );
 
     if (!expand) return semantics;
-    return SizedBox(width: double.infinity, height: 56, child: semantics);
+    return SizedBox(width: double.infinity, child: semantics);
+  }
+}
+
+/// `arrow_left.png` has generous transparent export margins. The overflow box
+/// enlarges the source inside a small fixed slot so the painted branch reads
+/// at button scale without altering or duplicating the asset.
+class _ButtonFlourish extends StatelessWidget {
+  const _ButtonFlourish();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 24,
+      height: 18,
+      child: ClipRect(
+        child: OverflowBox(
+          maxWidth: 48,
+          maxHeight: 32,
+          child: Image.asset(
+            'assets/icons/arrow_left.png',
+            width: 48,
+            height: 32,
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
+    );
   }
 }

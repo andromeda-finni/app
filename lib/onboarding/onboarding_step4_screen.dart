@@ -14,30 +14,38 @@ class OnboardingStep4Screen extends StatelessWidget {
     required this.onBack,
     required this.onFinish,
     this.data,
+    this.isSubmitting = false,
   });
 
   final VoidCallback onBack;
-  final VoidCallback onFinish;
+  final VoidCallback? onFinish;
   final OnboardingData? data;
+  final bool isSubmitting;
 
   @override
   Widget build(BuildContext context) {
+    final savedName = data?.petName.trim();
+    final petName = savedName == null || savedName.isEmpty
+        ? 'котёнок'
+        : savedName;
     return OnboardingStepScaffold(
       stepNumber: 4,
       top: OnboardingScene(
         background: 'assets/backgrounds/town.png',
-        cat: catAssetForFur(data?.furColorId),
+        foreground: 'assets/backgrounds/meadow_foreground.png',
+        cat: catAssetForFur(data?.furColorId, happy: true),
         catAlignment: const Alignment(0.1, 0.9),
         catHeightFraction: 0.46,
       ),
       onBack: onBack,
       onNext: onFinish,
+      nextLoading: isSubmitting,
       nextLabel: 'Начать игру',
       nextShowFlourish: true,
-      content: const DropCapStory(
-        dropCap: 'В',
-        firstLine: 'этом городе жило множество',
-        rest: 'других сказочных персонажей, к которым Грошик часто захаживал в гости.',
+      content: DropCapStory(
+        dropCap: 'Т',
+        firstLine: 'еперь $petName знает: монеты можно распределять заранее.',
+        rest: 'Часть — на желания, часть — на нужные вещи, а часть — на большую мечту. В городе его ждут новые истории!',
       ),
     );
   }

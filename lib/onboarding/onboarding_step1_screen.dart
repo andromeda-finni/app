@@ -2,21 +2,21 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import 'onboarding_data.dart';
+import 'widgets/drop_cap_story.dart';
 import 'widgets/fur_color_picker.dart';
 import 'widgets/inline_name_field.dart';
-import 'widgets/onboarding_fixed_layout.dart';
+import 'widgets/onboarding_paper_background.dart';
 import 'widgets/onboarding_scene.dart';
 import 'widgets/step_progress.dart';
 import 'widgets/story_button.dart';
 
 const _totalOnboardingSteps = 4;
 
-/// Onboarding step 1 of 4 — shown when no pet exists yet for this account
-/// (see main.dart's startup gate). The child names their pet and picks a
-/// fur color, told as a fairy-tale sentence. Tapping "Далее" awaits
-/// [onNext], which creates the account/pet server-side (see
-/// onboarding_flow.dart) — this screen owns the loading/error UI for that
-/// call so a network failure never silently eats the tap.
+/// Onboarding step 1 of 4. The child names their pet and picks a fur color,
+/// told as a fairy-tale sentence. Tapping "Далее" awaits [onNext], which
+/// creates or updates the pet server-side (see onboarding_flow.dart) — this
+/// screen owns the loading/error UI so a network failure never silently eats
+/// the tap.
 class OnboardingStep1Screen extends StatefulWidget {
   const OnboardingStep1Screen({
     super.key,
@@ -77,66 +77,101 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.parchment,
-      body: OnboardingFixedLayout(
-        topMinFraction: 0.44,
-        top: OnboardingScene(
-          background: 'assets/backgrounds/town.png',
-          // Base pose until a colour is chosen, then the cat in that coat —
-          // the child sees the pet they are describing take shape as they
-          // fill the sentence in.
-          cat: catAssetForFur(_data.furColorId),
-        ),
-        bottom: Container(
-          decoration: const BoxDecoration(
-            color: AppColors.parchment,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(28),
-              topRight: Radius.circular(28),
-            ),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _StoryParagraph(
-                    data: _data,
-                    nameController: _nameController,
-                    onNameChanged: (value) =>
-                        setState(() => _data = _data.copyWith(petName: value)),
-                    onFurSelected: (id) =>
-                        setState(() => _data = _data.copyWith(furColorId: id)),
-                  ),
-                  const SizedBox(height: 14),
-                  const StepProgress(
-                    currentStep: 1,
-                    totalSteps: _totalOnboardingSteps,
-                  ),
-                  const SizedBox(height: 12),
-                  if (_errorMessage != null) ...[
-                    Text(
-                      _errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.swatchLabel.copyWith(
-                        color: AppColors.crimson,
-                      ),
+      backgroundColor: AppColors.canvas,
+      body: OnboardingPaperBackground(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final sceneHeight = (constraints.maxHeight * 0.42).clamp(
+              240.0,
+              410.0,
+            );
+            return Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          height: sceneHeight,
+                          child: OnboardingScene(
+                            background: 'assets/backgrounds/town.png',
+                            foreground:
+                                'assets/backgrounds/meadow_foreground.png',
+                            // Base pose until a colour is chosen, then the cat
+                            // in that coat so the choice is reflected at once.
+                            cat: catAssetForFur(_data.furColorId),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg,
+                            AppSpacing.md,
+                            AppSpacing.lg,
+                            AppSpacing.xl,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _StoryParagraph(
+                                data: _data,
+                                nameController: _nameController,
+                                onNameChanged: (value) => setState(
+                                  () => _data = _data.copyWith(petName: value),
+                                ),
+                                onFurSelected: (id) => setState(
+                                  () => _data = _data.copyWith(furColorId: id),
+                                ),
+                              ),
+                              if (_errorMessage != null) ...[
+                                const SizedBox(height: AppSpacing.md),
+                                Text(
+                                  _errorMessage!,
+                                  textAlign: TextAlign.center,
+                                  style: AppTextStyles.swatchLabel.copyWith(
+                                    color: AppColors.crimson,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                  ],
-                  StoryButton(
-                    label: 'Далее',
-                    showFlourish: true,
-                    isLoading: _submitting,
-                    onPressed: _canContinue ? _handleNext : null,
                   ),
-                ],
-              ),
-            ),
-          ),
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg,
+                      AppSpacing.sm,
+                      AppSpacing.lg,
+                      AppSpacing.md,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const StepProgress(
+                          currentStep: 1,
+                          totalSteps: _totalOnboardingSteps,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        StoryButton(
+                          label: 'Далее',
+                          showFlourish: true,
+                          isLoading: _submitting,
+                          onPressed: _canContinue ? _handleNext : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -161,47 +196,24 @@ class _StoryParagraph extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text('В', style: AppTextStyles.dropCap),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'одном государстве жил котёнок по имени',
-                style: AppTextStyles.story,
-              ),
-            ),
-          ],
+        const DropCapStory(
+          dropCap: 'В',
+          firstLine: 'одном сказочном городе жил добрый и любопытный котёнок.',
+          rest: '',
         ),
-        const SizedBox(height: 10),
-        Text.rich(
-          TextSpan(
-            style: AppTextStyles.story,
-            children: [
-              WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
-                child: InlineNameField(
-                  controller: nameController,
-                  onChanged: onNameChanged,
-                ),
-              ),
-              const TextSpan(text: '. Он был '),
-              WidgetSpan(
-                alignment: PlaceholderAlignment.middle,
-                child: FurColorPicker(
-                  selectedId: data.furColorId,
-                  onSelected: onFurSelected,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.lg),
+        Text('Как его зовут?', style: AppTextStyles.sectionTitle),
+        const SizedBox(height: AppSpacing.xs),
+        InlineNameField(controller: nameController, onChanged: onNameChanged),
+        const SizedBox(height: AppSpacing.lg),
+        Text('Выбери цвет шёрстки', style: AppTextStyles.sectionTitle),
+        const SizedBox(height: AppSpacing.xs),
         Text(
-          'и был очень-очень любопытен, игрив и добр.',
-          style: AppTextStyles.story,
+          'Питомец сразу появится в выбранном образе.',
+          style: AppTextStyles.supporting,
         ),
+        const SizedBox(height: AppSpacing.sm),
+        FurColorPicker(selectedId: data.furColorId, onSelected: onFurSelected),
       ],
     );
   }

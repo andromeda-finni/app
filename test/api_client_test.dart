@@ -40,4 +40,25 @@ void main() {
 
     expect(captured.body, isEmpty);
   });
+
+  test('PUT sends the replacement body with the expected method', () async {
+    late http.Request captured;
+    final client = MockClient((request) async {
+      captured = request;
+      return http.Response(jsonEncode({'ok': true}), 200);
+    });
+
+    final api = ApiClient(httpClient: client, baseUrl: 'http://test');
+    await api.put(
+      '/pet',
+      auth: false,
+      body: {'petName': 'Мурзик', 'furOptionId': 'FUR_GRAY'},
+    );
+
+    expect(captured.method, 'PUT');
+    expect(jsonDecode(captured.body), {
+      'petName': 'Мурзик',
+      'furOptionId': 'FUR_GRAY',
+    });
+  });
 }

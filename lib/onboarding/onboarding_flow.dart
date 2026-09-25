@@ -10,16 +10,18 @@ import 'onboarding_step3_screen.dart';
 import 'onboarding_step4_screen.dart';
 import 'widgets/story_button.dart';
 
-/// Hosts the 4-step onboarding as a simple push/pop navigation stack, so
-/// "back" always returns to the same still-alive previous step (nothing
-/// entered is lost).
+/// Hosts the 4-step onboarding and keeps the current step explicit so it can
+/// be restored after the app is closed.
 ///
 /// Two real backend calls happen along the way:
 /// - Before step 1 is shown: `POST /auth/child/register` (standalone, no
 ///   parent/invite required — that's an optional later step from
 ///   settings), token saved locally.
-/// - Right after step 1 (name + fur color collected): `POST /pet`. Steps
-///   2-4 are narrative/tutorial only and touch no backend endpoint.
+/// - Right after step 1 (name + fur color collected): `PUT /pet`. Repeating
+///   this after navigating back updates the same pet instead of attempting to
+///   create a second one.
+/// - After steps 2-4: `PUT /onboarding/progress`. The server advances only
+///   one step at a time, so a restart resumes at the first unfinished step.
 ///
 /// [onFinished] fires once the child taps "Начать игру" on step 4 — by then
 /// the account and pet already exist server-side.
@@ -29,10 +31,14 @@ class OnboardingFlow extends StatefulWidget {
     required this.onFinished,
     this.apiClient,
     this.authStorage,
+    this.initialStep = 1,
+    this.initialData,
   });
 
   final VoidCallback onFinished;
   final ApiClient? apiClient;
+  final int initialStep;
+  final OnboardingData? initialData;
 
   /// Test-only injection point — `AuthStorage`'s default backend is a real
   /// platform-channel secure-storage plugin, which hangs forever in a plain
@@ -49,12 +55,16 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   late final ApiClient _api = widget.apiClient ?? ApiClient();
   late final AuthStorage _authStorage = widget.authStorage ?? AuthStorage();
 
-  OnboardingData _data = OnboardingData();
+  late OnboardingData _data;
+  late int _currentStep;
   _RegistrationState _registrationState = _RegistrationState.loading;
+  bool _advancing = false;
 
   @override
   void initState() {
     super.initState();
+    _data = widget.initialData ?? OnboardingData();
+    _currentStep = widget.initialStep;
     _register();
   }
 
@@ -79,13 +89,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   /// Awaited by step 1's own submit handler — throwing here keeps the child
   /// on step 1 with an inline error instead of silently losing the tap.
-  Future<void> _createPet(OnboardingData data) async {
-    await _api.post(
+  Future<void> _savePet(OnboardingData data) async {
+    await _api.put(
       '/pet',
       body: {'petName': data.petName.trim(), 'furOptionId': data.furColorId},
     );
-    if (!mounted) return;
-    setState(() => _data = data);
   }
 
   @override
@@ -124,51 +132,95 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           ),
         );
       case _RegistrationState.ready:
+        return _buildCurrentStep();
+    }
+  }
+
+  Widget _buildCurrentStep() {
+    switch (_currentStep) {
+      case 1:
         return OnboardingStep1Screen(
           initialData: _data,
           onNext: _goToStep2AfterCreatingPet,
         );
+      case 2:
+        return OnboardingStep2Screen(
+          data: _data,
+          onBack: () => setState(() => _currentStep = 1),
+          onNext: _advancing ? null : _completeStep2,
+          isSubmitting: _advancing,
+        );
+      case 3:
+        return OnboardingStep3Screen(
+          initialData: _data,
+          onBack: (data) => setState(() {
+            _data = data;
+            _currentStep = 2;
+          }),
+          onNext: _advancing ? null : _completeStep3,
+          isSubmitting: _advancing,
+        );
+      case 4:
+        return OnboardingStep4Screen(
+          data: _data,
+          onBack: () => setState(() => _currentStep = 3),
+          onFinish: _advancing ? null : _finishOnboarding,
+          isSubmitting: _advancing,
+        );
+      default:
+        throw StateError('Unsupported onboarding step: $_currentStep');
     }
   }
 
   Future<void> _goToStep2AfterCreatingPet(OnboardingData data) async {
-    await _createPet(data);
+    await _savePet(data);
     if (!mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(builder: _buildStep2));
+    setState(() {
+      _data = data;
+      _currentStep = 2;
+    });
   }
 
-  Widget _buildStep2(BuildContext context) {
-    return OnboardingStep2Screen(
-      data: _data,
-      onBack: () => Navigator.of(context).pop(),
-      onNext: () =>
-          Navigator.of(context).push(MaterialPageRoute(builder: _buildStep3)),
-    );
+  Future<bool> _persistCompletedStep(int completedStep) async {
+    if (_advancing) return false;
+    setState(() => _advancing = true);
+    try {
+      await _api.put(
+        '/onboarding/progress',
+        body: {'completedStep': completedStep},
+      );
+      return true;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Не получилось сохранить прогресс. Попробуй ещё раз.',
+            ),
+          ),
+        );
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _advancing = false);
+    }
   }
 
-  Widget _buildStep3(BuildContext context) {
-    return OnboardingStep3Screen(
-      initialData: _data,
-      onBack: () => Navigator.of(context).pop(),
-      onNext: (data) {
-        setState(() => _data = data);
-        Navigator.of(context).push(MaterialPageRoute(builder: _buildStep4));
-      },
-    );
+  Future<void> _completeStep2() async {
+    if (!await _persistCompletedStep(2) || !mounted) return;
+    setState(() => _currentStep = 3);
   }
 
-  Widget _buildStep4(BuildContext context) {
-    return OnboardingStep4Screen(
-      data: _data,
-      onBack: () => Navigator.of(context).pop(),
-      // Steps 2-4 are pushed routes sitting on top of this flow, and the
-      // home screen replaces the route *underneath* them. Without tearing
-      // the stack down first, finishing onboarding swaps the screen nobody
-      // can see and leaves the child looking at step 4 forever.
-      onFinish: () {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-        widget.onFinished();
-      },
-    );
+  Future<void> _completeStep3(OnboardingData data) async {
+    if (!await _persistCompletedStep(3) || !mounted) return;
+    setState(() {
+      _data = data;
+      _currentStep = 4;
+    });
+  }
+
+  Future<void> _finishOnboarding() async {
+    if (!await _persistCompletedStep(4) || !mounted) return;
+    widget.onFinished();
   }
 }
