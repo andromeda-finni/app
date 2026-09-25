@@ -4,6 +4,7 @@ import '../core/api_client.dart';
 import '../economy/economy_action_ui.dart';
 import '../economy/economy_actions.dart';
 import '../economy/economy_state.dart';
+import '../economy/item_artwork.dart';
 import '../theme/app_theme.dart';
 
 enum StoreMode { normal, selectGoal, browseGoals }
@@ -454,9 +455,10 @@ class _GoalRow extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: 6),
     child: Row(
       children: [
-        const CircleAvatar(
-          backgroundColor: AppColors.parchment,
-          child: Icon(Icons.auto_awesome, color: AppColors.coinGold),
+        ItemArtwork(
+          imageAsset: item.imageAsset,
+          size: 48,
+          borderRadius: AppRadii.md,
         ),
         const SizedBox(width: 12),
         Expanded(

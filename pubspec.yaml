@@ -76,6 +76,7 @@ flutter:
     - assets/icons/coin.png
     - assets/icons/leaf.png
     - assets/icons/chest.png
+    - assets/images/morozko_chest.png
     - assets/Cat/Base/playful.png
     - assets/Cat/Red_collar/base/striped.png
     - assets/Cat/Red_collar/base/red.png

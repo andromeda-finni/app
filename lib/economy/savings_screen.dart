@@ -5,6 +5,16 @@ import '../theme/app_theme.dart';
 import 'economy_action_ui.dart';
 import 'economy_actions.dart';
 import 'economy_state.dart';
+import 'item_artwork.dart';
+
+String _gameDaysLabel(int value) {
+  final mod100 = value % 100;
+  final mod10 = value % 10;
+  if (mod100 >= 11 && mod100 <= 14) return '$value игровых дней';
+  if (mod10 == 1) return '$value игровой день';
+  if (mod10 >= 2 && mod10 <= 4) return '$value игровых дня';
+  return '$value игровых дней';
+}
 
 class SavingsScreen extends StatefulWidget {
   const SavingsScreen({
@@ -203,29 +213,16 @@ class _SavingsScreenState extends State<SavingsScreen> {
                     onRedeem: _redeem,
                   ),
                   const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MainAction(
-                          label: 'Пополнить\nкопилку',
-                          icon: Icons.add,
-                          primary: true,
-                          onTap: _dayReady && economy.goal != null
-                              ? () => _moveSavings(true)
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _MainAction(
-                          label: 'Вернуть\nиз копилки',
-                          icon: Icons.remove,
-                          onTap: _dayReady && economy.savings > 0
-                              ? () => _moveSavings(false)
-                              : null,
-                        ),
-                      ),
-                    ],
+                  _SavingsPrimaryAction(
+                    onTap: _dayReady && economy.goal != null
+                        ? () => _moveSavings(true)
+                        : null,
+                  ),
+                  const SizedBox(height: 10),
+                  _SavingsReturnAction(
+                    onTap: _dayReady && economy.savings > 0
+                        ? () => _moveSavings(false)
+                        : null,
                   ),
                   if (!_dayReady) ...[
                     const SizedBox(height: 8),
@@ -323,100 +320,171 @@ class _GoalSection extends StatelessWidget {
     final goal = economy.goal;
     final target = (goal?['target_amount'] as num?)?.toInt() ?? 0;
     final complete = target > 0 && economy.savings >= target;
-    return _SectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text('Моя цель', style: AppTextStyles.screenTitle),
-              ),
-              TextButton.icon(
-                onPressed: busy ? null : onChoose,
-                label: Text(goal == null ? 'Выбрать' : 'Все цели'),
-                icon: const Icon(Icons.chevron_right),
-                iconAlignment: IconAlignment.end,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (goal == null)
-            InkWell(
-              onTap: busy ? null : onChoose,
-              borderRadius: BorderRadius.circular(AppRadii.lg),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.auto_awesome,
-                      size: 48,
-                      color: AppColors.coinGold,
-                    ),
-                    SizedBox(height: 8),
-                    Text('Сначала выбери мечту для Копилки.'),
-                  ],
-                ),
-              ),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.canvasWarm,
-                borderRadius: BorderRadius.circular(AppRadii.lg),
-                border: Border.all(color: AppColors.fieldBorder),
-              ),
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    radius: 38,
-                    backgroundColor: AppColors.parchment,
-                    child: Icon(
-                      Icons.auto_awesome,
-                      size: 36,
-                      color: AppColors.coinGold,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          goal['name'] as String,
-                          style: AppTextStyles.sectionTitle,
-                        ),
-                        const SizedBox(height: 12),
-                        LinearProgressIndicator(
-                          value: (economy.savings / target)
-                              .clamp(0, 1)
-                              .toDouble(),
-                          minHeight: 12,
-                          borderRadius: BorderRadius.circular(999),
-                          color: AppColors.leafGreen,
-                          backgroundColor: AppColors.parchmentDark,
-                        ),
-                        const SizedBox(height: 8),
-                        Text('${economy.savings} / $target монет'),
-                        if (complete) ...[
-                          const SizedBox(height: 8),
-                          FilledButton(
-                            onPressed:
-                                busy || economy.day?.planConfirmed != true
-                                ? null
-                                : onRedeem,
-                            child: const Text('Получить артефакт'),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+    final goalImage = _goalImageAsset(goal, economy.artifacts);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text('Моя цель', style: AppTextStyles.screenTitle)),
+            TextButton.icon(
+              onPressed: busy ? null : onChoose,
+              label: Text(goal == null ? 'Выбрать' : 'Все цели'),
+              icon: const Icon(Icons.chevron_right),
+              iconAlignment: IconAlignment.end,
             ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (goal == null)
+          _EmptyGoalCard(onChoose: busy ? null : onChoose)
+        else
+          _ActiveGoalCard(
+            goal: goal,
+            savings: economy.savings,
+            target: target,
+            complete: complete,
+            imageAsset: goalImage,
+            onRedeem: busy || economy.day?.planConfirmed != true
+                ? null
+                : onRedeem,
+          ),
+      ],
+    );
+  }
+}
+
+String? _goalImageAsset(
+  Map<String, dynamic>? goal,
+  List<EconomyItem> artifacts,
+) {
+  final direct = goal?['image_asset'] ?? goal?['imageAsset'];
+  if (direct is String && direct.trim().isNotEmpty) return direct;
+  final targetId = goal?['target_item_id'];
+  for (final artifact in artifacts) {
+    if (artifact.id == targetId && artifact.imageAsset != null) {
+      return artifact.imageAsset;
+    }
+  }
+  return null;
+}
+
+class _EmptyGoalCard extends StatelessWidget {
+  const _EmptyGoalCard({this.onChoose});
+
+  final VoidCallback? onChoose;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: const Color(0xFFFFF0D2),
+    borderRadius: BorderRadius.circular(AppRadii.lg),
+    child: InkWell(
+      onTap: onChoose,
+      borderRadius: BorderRadius.circular(AppRadii.lg),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            const ItemArtwork(size: 92),
+            const SizedBox(height: 12),
+            Text(
+              'Сначала выбери мечту для Копилки',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.sectionTitle,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _ActiveGoalCard extends StatelessWidget {
+  const _ActiveGoalCard({
+    required this.goal,
+    required this.savings,
+    required this.target,
+    required this.complete,
+    required this.imageAsset,
+    this.onRedeem,
+  });
+
+  final Map<String, dynamic> goal;
+  final int savings;
+  final int target;
+  final bool complete;
+  final String? imageAsset;
+  final VoidCallback? onRedeem;
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = target > savings ? target - savings : 0;
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          goal['name'] as String? ?? 'Моя мечта',
+          style: AppTextStyles.cardTitle,
+        ),
+        const SizedBox(height: 14),
+        LinearProgressIndicator(
+          value: target <= 0 ? 0 : (savings / target).clamp(0, 1).toDouble(),
+          minHeight: 12,
+          borderRadius: BorderRadius.circular(999),
+          color: AppColors.leafGreen,
+          backgroundColor: const Color(0xFFEAD7B5),
+        ),
+        const SizedBox(height: 8),
+        Text('$savings / $target монет', style: AppTextStyles.counterValue),
+        const SizedBox(height: 4),
+        Text(
+          complete ? 'Цель накоплена!' : 'Осталось накопить $remaining монет',
+          style: AppTextStyles.supporting,
+        ),
+        if (complete) ...[
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: onRedeem,
+            child: const Text('Получить артефакт'),
+          ),
         ],
+      ],
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFF4DC), Color(0xFFFFE9BD)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        border: Border.all(color: const Color(0xFFEBCB91)),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stack =
+              constraints.maxWidth < 330 ||
+              MediaQuery.textScalerOf(context).scale(1) > 1.2;
+          if (stack) {
+            return Column(
+              children: [
+                ItemArtwork(imageAsset: imageAsset, size: 128),
+                const SizedBox(height: 16),
+                details,
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              ItemArtwork(imageAsset: imageAsset, size: 132),
+              const SizedBox(width: 18),
+              Expanded(child: details),
+            ],
+          );
+        },
       ),
     );
   }
@@ -440,7 +508,17 @@ class _FrostSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chest = economy.frost;
-    return _SectionCard(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF4FBFF), Color(0xFFDDEFF9)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        border: Border.all(color: const Color(0xFFC8E0EC)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -466,86 +544,192 @@ class _FrostSection extends StatelessWidget {
               const Icon(Icons.chevron_right),
             ],
           ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE7F3F8),
-              borderRadius: BorderRadius.circular(AppRadii.lg),
-            ),
-            child: chest == null
-                ? Column(
-                    children: [
-                      const Row(
-                        children: [
-                          Expanded(
-                            child: _FrostFact(label: 'Вклад', value: '10–50'),
-                          ),
-                          Expanded(
-                            child: _FrostFact(label: 'Срок', value: '5 дней'),
-                          ),
-                          Expanded(
-                            child: _FrostFact(label: 'Бонус', value: '+10%'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      FilledButton.icon(
-                        onPressed: busy || !dayReady ? null : onOpen,
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                          backgroundColor: const Color(0xFF3D8CC4),
-                        ),
-                        icon: const Icon(Icons.ac_unit),
-                        label: const Text('Открыть сундук'),
-                      ),
-                    ],
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _FrostFact(
-                              label: 'Вложено',
-                              value: '${chest['principal_amount']}',
-                            ),
-                          ),
-                          Expanded(
-                            child: _FrostFact(
-                              label: 'Осталось',
-                              value: '${chest['days_remaining']} дн.',
-                            ),
-                          ),
-                          Expanded(
-                            child: _FrostFact(
-                              label: 'Бонус',
-                              value: '+${chest['bonus_amount']}',
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      if (chest['matured'] == true)
-                        FilledButton(
-                          onPressed: busy ? null : () => onFinish(false),
-                          child: Text(
-                            'Забрать ${chest['principal_amount'] + chest['bonus_amount']} монет',
-                          ),
-                        )
-                      else
-                        OutlinedButton(
-                          onPressed: busy ? null : () => onFinish(true),
-                          child: const Text('Вернуть сейчас без бонуса'),
-                        ),
-                    ],
-                  ),
+          const SizedBox(height: 10),
+          _FrostBody(
+            chest: chest,
+            busy: busy,
+            dayReady: dayReady,
+            onOpen: onOpen,
+            onFinish: onFinish,
           ),
         ],
       ),
     );
   }
+}
+
+class _FrostBody extends StatelessWidget {
+  const _FrostBody({
+    required this.chest,
+    required this.busy,
+    required this.dayReady,
+    required this.onOpen,
+    required this.onFinish,
+  });
+
+  final Map<String, dynamic>? chest;
+  final bool busy;
+  final bool dayReady;
+  final VoidCallback onOpen;
+  final Future<void> Function(bool early) onFinish;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = chest;
+    final details = data == null
+        ? _ClosedFrostDetails(enabled: !busy && dayReady, onOpen: onOpen)
+        : _OpenFrostDetails(chest: data, busy: busy, onFinish: onFinish);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stack =
+            constraints.maxWidth < 330 ||
+            MediaQuery.textScalerOf(context).scale(1) > 1.2;
+        final art = Image.asset(
+          'assets/images/morozko_chest.png',
+          fit: BoxFit.contain,
+          semanticLabel: 'Синий зимний сундук Морозко',
+        );
+        if (stack) {
+          return Column(
+            children: [
+              SizedBox(height: 180, child: art),
+              const SizedBox(height: 8),
+              details,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(flex: 5, child: art),
+            const SizedBox(width: 12),
+            Expanded(flex: 6, child: details),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ClosedFrostDetails extends StatelessWidget {
+  const _ClosedFrostDetails({required this.enabled, required this.onOpen});
+
+  final bool enabled;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        runSpacing: 12,
+        children: [
+          _FrostFact(label: 'Вклад', value: '10–50'),
+          _FrostFact(label: 'Срок', value: '5 дней'),
+          _FrostFact(label: 'Бонус', value: '+10%'),
+        ],
+      ),
+      const SizedBox(height: 16),
+      FilledButton.icon(
+        onPressed: enabled ? onOpen : null,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(50),
+          backgroundColor: const Color(0xFF337FB4),
+        ),
+        icon: const Icon(Icons.ac_unit),
+        label: const Text('Открыть сундук'),
+      ),
+    ],
+  );
+}
+
+class _OpenFrostDetails extends StatelessWidget {
+  const _OpenFrostDetails({
+    required this.chest,
+    required this.busy,
+    required this.onFinish,
+  });
+
+  final Map<String, dynamic> chest;
+  final bool busy;
+  final Future<void> Function(bool early) onFinish;
+
+  @override
+  Widget build(BuildContext context) {
+    final principal = (chest['principal_amount'] as num?)?.toInt() ?? 0;
+    final bonus = (chest['bonus_amount'] as num?)?.toInt() ?? 0;
+    final completed = (chest['completed_days'] as num?)?.toInt() ?? 0;
+    final remaining = (chest['days_remaining'] as num?)?.toInt() ?? 0;
+    final matured = chest['matured'] == true;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          matured ? 'Сундук готов!' : 'Сундук закрыт',
+          style: AppTextStyles.cardTitle,
+        ),
+        Text('$principal монет внутри', style: AppTextStyles.supporting),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            for (var day = 0; day < 5; day++) _FrostDay(done: day < completed),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          matured
+              ? 'Можно забрать с бонусом'
+              : 'Осталось ${_gameDaysLabel(remaining)}',
+          style: AppTextStyles.supporting,
+        ),
+        const Divider(height: 22),
+        Text(
+          'Получишь в конце: ${principal + bonus} монет',
+          style: AppTextStyles.cardRowLabel.copyWith(
+            color: AppColors.leafGreen,
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (matured)
+          FilledButton(
+            onPressed: busy ? null : () => onFinish(false),
+            child: Text('Забрать ${principal + bonus} монет'),
+          )
+        else
+          OutlinedButton(
+            onPressed: busy ? null : () => onFinish(true),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.crimson,
+              minimumSize: const Size.fromHeight(48),
+            ),
+            child: const Text('Вернуть сейчас без бонуса'),
+          ),
+      ],
+    );
+  }
+}
+
+class _FrostDay extends StatelessWidget {
+  const _FrostDay({required this.done});
+
+  final bool done;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 34,
+    height: 34,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: done ? const Color(0xFF4A9BCB) : const Color(0xFFD1E3EE),
+    ),
+    child: Icon(
+      Icons.ac_unit,
+      size: 19,
+      color: done ? Colors.white : const Color(0xFF9AB8C9),
+    ),
+  );
 }
 
 class _FrostFact extends StatelessWidget {
@@ -556,6 +740,7 @@ class _FrostFact extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
     children: [
       Text(label, style: AppTextStyles.supporting),
       const SizedBox(height: 4),
@@ -564,47 +749,36 @@ class _FrostFact extends StatelessWidget {
   );
 }
 
-class _MainAction extends StatelessWidget {
-  const _MainAction({
-    required this.label,
-    required this.icon,
-    this.primary = false,
-    this.onTap,
-  });
+class _SavingsPrimaryAction extends StatelessWidget {
+  const _SavingsPrimaryAction({this.onTap});
 
-  final String label;
-  final IconData icon;
-  final bool primary;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => Material(
     color: onTap == null
-        ? AppColors.parchment.withValues(alpha: 0.5)
-        : primary
-        ? AppColors.leafGreen
-        : AppColors.parchment,
+        ? AppColors.leafGreen.withValues(alpha: 0.42)
+        : AppColors.leafGreen,
     borderRadius: BorderRadius.circular(AppRadii.lg),
     child: InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadii.lg),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 22),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircleAvatar(
-              backgroundColor: AppColors.cardBg,
-              foregroundColor: primary ? AppColors.leafGreen : AppColors.ink,
-              child: Icon(icon),
+            const CircleAvatar(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.leafGreen,
+              child: Icon(Icons.add),
             ),
             const SizedBox(width: 12),
             Flexible(
               child: Text(
-                label,
-                style: AppTextStyles.sectionTitle.copyWith(
-                  color: primary ? Colors.white : AppColors.ink,
-                ),
+                'Пополнить копилку',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.cardTitle.copyWith(color: Colors.white),
               ),
             ),
           ],
@@ -614,20 +788,24 @@ class _MainAction extends StatelessWidget {
   );
 }
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.child});
+class _SavingsReturnAction extends StatelessWidget {
+  const _SavingsReturnAction({this.onTap});
 
-  final Widget child;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      color: AppColors.cardBg,
-      borderRadius: BorderRadius.circular(AppRadii.lg),
-      border: Border.all(color: AppColors.fieldBorder.withValues(alpha: 0.65)),
+  Widget build(BuildContext context) => OutlinedButton.icon(
+    onPressed: onTap,
+    style: OutlinedButton.styleFrom(
+      minimumSize: const Size.fromHeight(52),
+      foregroundColor: AppColors.inkMuted,
+      side: const BorderSide(color: AppColors.fieldBorder),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+      ),
     ),
-    child: child,
+    icon: const Icon(Icons.undo),
+    label: const Text('Вернуть монеты из копилки'),
   );
 }
 

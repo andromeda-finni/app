@@ -64,6 +64,7 @@ final class EconomyItem {
     required this.price,
     this.kind,
     this.rarity,
+    this.imageAsset,
   });
 
   final String id;
@@ -71,6 +72,7 @@ final class EconomyItem {
   final int price;
   final String? kind;
   final String? rarity;
+  final String? imageAsset;
 
   factory EconomyItem.fromJson(Map<String, dynamic> json) => EconomyItem(
     id: json['id'] as String,
@@ -78,6 +80,10 @@ final class EconomyItem {
     price: _asInt(json['price']),
     kind: json['kind'] as String?,
     rarity: json['rarity'] as String?,
+    imageAsset: switch (json['image_asset'] ?? json['imageAsset']) {
+      final String value => value,
+      _ => null,
+    },
   );
 }
 

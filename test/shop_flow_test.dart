@@ -98,6 +98,48 @@ void main() {
     expect(find.text('Надо'), findsOneWidget);
   });
 
+  testWidgets('savings art and Frost status fit a narrow phone', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final data = _state(withGoal: true);
+    (data['artifacts'] as List<dynamic>).first['image_asset'] =
+        'assets/images/morozko_chest.png';
+    data['activeFrostChest'] = {
+      'id': 'frost-1',
+      'principal_amount': 10,
+      'bonus_amount': 1,
+      'completed_days': 1,
+      'days_remaining': 4,
+      'matured': false,
+    };
+    await _pumpShell(
+      tester,
+      MockClient((request) async => _jsonResponse(data)),
+    );
+
+    await tester.tap(find.text('Копилка'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Сапоги-скороходы'), findsOneWidget);
+    expect(find.text('Сундук закрыт'), findsOneWidget);
+    expect(find.text('Осталось 4 игровых дня'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/images/morozko_chest.png',
+      ),
+      findsNWidgets(2),
+    );
+  });
+
   testWidgets('starting the first day routes to goal selection in the store', (
     tester,
   ) async {
