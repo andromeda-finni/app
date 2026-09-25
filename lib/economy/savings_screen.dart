@@ -23,12 +23,14 @@ class SavingsScreen extends StatefulWidget {
     required this.onBack,
     required this.onChooseGoal,
     required this.onBrowseGoals,
+    this.onOpenSettings,
   });
 
   final ApiClient apiClient;
   final VoidCallback onBack;
   final VoidCallback onChooseGoal;
   final VoidCallback onBrowseGoals;
+  final VoidCallback? onOpenSettings;
 
   @override
   State<SavingsScreen> createState() => _SavingsScreenState();
@@ -202,7 +204,11 @@ class _SavingsScreenState extends State<SavingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _Header(wallet: economy.wallet, onBack: widget.onBack),
+                  _Header(
+                    wallet: economy.wallet,
+                    onBack: widget.onBack,
+                    onOpenSettings: widget.onOpenSettings,
+                  ),
                   const SizedBox(height: 18),
                   _GoalSection(
                     economy: economy,
@@ -261,7 +267,13 @@ class _SavingsScreenState extends State<SavingsScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.wallet, required this.onBack});
+  const _Header({
+    required this.wallet,
+    required this.onBack,
+    this.onOpenSettings,
+  });
+
+  final VoidCallback? onOpenSettings;
 
   final int wallet;
   final VoidCallback onBack;
@@ -293,9 +305,7 @@ class _Header extends StatelessWidget {
       ),
       IconButton(
         tooltip: 'Настройки',
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Настройки появятся позднее.')),
-        ),
+        onPressed: onOpenSettings,
         icon: const Icon(Icons.settings_outlined, size: 30),
       ),
     ],

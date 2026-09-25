@@ -37,11 +37,22 @@ class _MainShellState extends State<MainShell> {
   StoreMode _storeMode = StoreMode.normal;
   ChildSettingsSnapshot _settings = const ChildSettingsSnapshot();
 
-  void _openSettings(String? petId) {
+  Future<void> _openSettings(String? petId) async {
+    // Only the home tab already holds the pet; from elsewhere ask the server,
+    // so the access code shown is always the child's real one.
+    var id = petId;
+    if (id == null) {
+      try {
+        id = (await widget.apiClient.get('/pet'))['id'] as String?;
+      } on ApiException {
+        id = null;
+      }
+    }
+    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (screenContext) => ChildSettingsScreen(
-          childCode: childAccessCodeFrom(petId),
+          childCode: childAccessCodeFrom(id),
           initialSettings: _settings,
           onSettingsChanged: (next) => setState(() => _settings = next),
           onSwitchAudience: () {
@@ -121,6 +132,7 @@ class _MainShellState extends State<MainShell> {
               onBack: () => setState(() => _index = 0),
               onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
               onBrowseGoals: () => _openGoalStore(StoreMode.browseGoals),
+              onOpenSettings: () => _openSettings(null),
             ),
           ],
         ),

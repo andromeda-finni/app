@@ -139,6 +139,9 @@ class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
                   title: 'Обучение',
                   child: DropdownButtonFormField<ChildDifficulty>(
                     initialValue: _settings.difficulty,
+                    // Without isExpanded the field sizes to its longest label
+                    // and overflows the card instead of wrapping inside it.
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Сложность заданий',
                       border: OutlineInputBorder(),
@@ -146,11 +149,17 @@ class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
                     items: const [
                       DropdownMenuItem(
                         value: ChildDifficulty.beginner,
-                        child: Text('Начинающий · больше подсказок'),
+                        child: Text(
+                          'Начинающий · больше подсказок',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       DropdownMenuItem(
                         value: ChildDifficulty.advanced,
-                        child: Text('Продвинутый · больше условий'),
+                        child: Text(
+                          'Продвинутый · больше условий',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                     onChanged: (value) {
@@ -220,20 +229,25 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
+    // The card colour lives on a Material rather than a DecoratedBox: the
+    // switches and tiles inside paint their ink on the nearest Material, and a
+    // coloured box in between would hide every tap highlight.
+    return Material(
+      color: AppColors.cardBg,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.fieldBorder),
+        side: const BorderSide(color: AppColors.fieldBorder),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(title, style: AppTextStyles.cardTitle.copyWith(fontSize: 20)),
-          const SizedBox(height: 14),
-          child,
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(title, style: AppTextStyles.cardTitle.copyWith(fontSize: 20)),
+            const SizedBox(height: 14),
+            child,
+          ],
+        ),
       ),
     );
   }

@@ -20,13 +20,14 @@ import 'support/fake_auth_storage.dart';
 
 /// The home tab makes real calls, so every shell in these tests gets a stub
 /// backend — the nav bar itself is what is under test.
-Widget _shell() {
+Widget _shell({VoidCallback? onSwitchAudience}) {
   final client = MockClient((request) async {
     // Every tab now reads the single economy read model; serving it keeps the
     // tabs in their real loaded state instead of silently erroring.
     final body = switch (request.url.path) {
       '/economy/state' => {
         'pet': {
+          'id': '11111111-2222-3333-4444-555566667777',
           'pet_name': 'Мурзик',
           'fur_option_id': 'FUR_GRAY',
           'energy_level': 60,
@@ -58,6 +59,7 @@ Widget _shell() {
         authStorage: FakeAuthStorage(initialToken: 'tok'),
         baseUrl: 'http://test',
       ),
+      onSwitchAudience: onSwitchAudience,
     ),
   );
 }
@@ -207,5 +209,29 @@ void main() {
     );
 
     handle.dispose();
+  });
+
+  testWidgets('settings open from home and can switch the user', (
+    tester,
+  ) async {
+    var switched = false;
+    await tester.pumpWidget(_shell(onSwitchAudience: () => switched = true));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Настройки').first);
+    await tester.pumpAndSettle();
+
+    // The code is derived from the real pet id, never the demo fallback.
+    expect(find.textContaining('GR-DEMO'), findsNothing);
+    expect(find.textContaining('GR-6666-7777'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Сменить пользователя'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('Сменить пользователя'));
+    await tester.pumpAndSettle();
+    expect(switched, isTrue);
   });
 }

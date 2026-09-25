@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/pet_assets.dart';
 import '../minigames/mole/mole_game_screen.dart';
 import '../minigames/tugriki/tugriki_game_screen.dart';
 import '../theme/app_theme.dart';
@@ -45,6 +46,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   late int _unlockedIndex;
   // Neutral until the server answers: the child names the pet themselves.
   String _petName = 'Питомец';
+  String? _furOptionId;
   bool _motionStarted = false;
   bool _revealComplete = false;
 
@@ -67,11 +69,14 @@ class _QuestMapScreenState extends State<QuestMapScreen>
           if (quest is Map && quest['assignment_status'] == 'COMPLETED')
             quest['id'] as String,
       };
-      final name = (economy['pet'] as Map?)?['pet_name'];
+      final pet = economy['pet'] as Map?;
+      final name = pet?['pet_name'];
+      final fur = pet?['fur_option_id'];
       if (!mounted) return;
       setState(() {
         _unlockedIndex = unlockedIndexFor(completed);
         if (name is String && name.trim().isNotEmpty) _petName = name;
+        if (fur is String) _furOptionId = fur;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToCurrent());
     } on ApiException {
@@ -267,6 +272,9 @@ class _QuestMapScreenState extends State<QuestMapScreen>
                             width: mapWidth,
                             unlockedIndex: _unlockedIndex,
                             petName: _petName,
+                            // The walker on the path is the child's own pet,
+                            // in the coat they picked during onboarding.
+                            heroAsset: catAsset(furOptionId: _furOptionId),
                             journeyValue: journeyValue,
                             revealValue: revealValue,
                             revealComplete: _revealComplete,
@@ -311,6 +319,7 @@ class _QuestMapCanvas extends StatelessWidget {
     required this.width,
     required this.unlockedIndex,
     required this.petName,
+    required this.heroAsset,
     required this.journeyValue,
     required this.revealValue,
     required this.revealComplete,
@@ -320,6 +329,7 @@ class _QuestMapCanvas extends StatelessWidget {
   final double width;
   final int unlockedIndex;
   final String petName;
+  final String heroAsset;
   final double journeyValue;
   final double revealValue;
   final bool revealComplete;
@@ -377,10 +387,7 @@ class _QuestMapCanvas extends StatelessWidget {
                   ],
                 ),
                 child: ClipOval(
-                  child: Image.asset(
-                    'assets/Cat/Red_collar/base/striped.png',
-                    fit: BoxFit.cover,
-                  ),
+                  child: Image.asset(heroAsset, fit: BoxFit.cover),
                 ),
               ),
             ),
