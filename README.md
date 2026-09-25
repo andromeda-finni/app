@@ -36,6 +36,10 @@ cp .env.example .env
 
 ## Разработка
 
+### Прототип анимации питомца
+
+Интерактивная проба смены эмоций и перехода «Малыш → Исследователь» находится в [`prototype/pet-motion/`](prototype/pet-motion/README.md). Она сделана на HTML, CSS и JavaScript из существующих иллюстраций Грошика и не меняет состояние Flutter-приложения.
+
 ### Установка окружения
 
 1. Установить Flutter SDK: `brew install --cask flutter` (macOS) или см. [flutter.dev/get-started](https://docs.flutter.dev/get-started/install)
