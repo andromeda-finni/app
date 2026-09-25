@@ -57,7 +57,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: OnboardingFlow(
-          onFinished: () => finished = true,
+          onFinished: (_) => finished = true,
           authStorage: authStorage,
           apiClient: ApiClient(
             httpClient: client,
@@ -101,7 +101,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: OnboardingFlow(
-          onFinished: () {},
+          onFinished: (_) {},
           initialStep: 2,
           initialData: OnboardingData(
             petName: 'Мурзик',
@@ -139,7 +139,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: OnboardingFlow(
-            onFinished: () {},
+            onFinished: (_) {},
             apiClient: ApiClient(httpClient: client, baseUrl: 'http://test'),
             authStorage: FakeAuthStorage(),
           ),
@@ -166,7 +166,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: OnboardingFlow(
-          onFinished: () {},
+          onFinished: (_) {},
           apiClient: ApiClient(httpClient: client, baseUrl: 'http://test'),
           authStorage: FakeAuthStorage(),
         ),
@@ -199,7 +199,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: OnboardingFlow(
-          onFinished: () {},
+          onFinished: (_) {},
           apiClient: ApiClient(httpClient: client, baseUrl: 'http://test'),
           authStorage: FakeAuthStorage(initialToken: 'already-have-one'),
         ),
@@ -227,7 +227,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: OnboardingFlow(
-            onFinished: () {},
+            onFinished: (_) {},
             authStorage: authStorage,
             apiClient: ApiClient(
               httpClient: client,

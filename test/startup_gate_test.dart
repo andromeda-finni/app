@@ -52,14 +52,14 @@ void main() {
     final client = MockClient((request) async {
       if (request.url.path == '/economy/state') {
         return _jsonResponse({
-          'pet': {'pet_name': 'Грошик'},
+          'pet': {'pet_name': 'Рыжик'},
         }, 200);
       }
       expect(request.url.path, '/onboarding/status');
       return _jsonResponse({
         'currentStep': 4,
         'completed': true,
-        'pet': {'petName': 'Грошик', 'furOptionId': 'FUR_GRAY'},
+        'pet': {'petName': 'Рыжик', 'furOptionId': 'FUR_GRAY'},
       }, 200);
     });
 
@@ -77,6 +77,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(OnboardingStep1Screen), findsNothing);
+    expect(find.byType(MainShell), findsOneWidget);
     expect(find.text('Дом'), findsOneWidget);
     expect(find.text('Копилка'), findsOneWidget);
 

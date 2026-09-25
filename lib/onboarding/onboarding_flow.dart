@@ -35,7 +35,7 @@ class OnboardingFlow extends StatefulWidget {
     this.initialData,
   });
 
-  final VoidCallback onFinished;
+  final ValueChanged<OnboardingData> onFinished;
   final ApiClient? apiClient;
   final int initialStep;
   final OnboardingData? initialData;
@@ -221,6 +221,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Future<void> _finishOnboarding() async {
     if (!await _persistCompletedStep(4) || !mounted) return;
-    widget.onFinished();
+    widget.onFinished(_data);
   }
 }

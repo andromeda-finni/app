@@ -89,6 +89,8 @@ flutter:
     - assets/Cat/Base/playful.png
     - assets/minigames/tugriki/
     - assets/minigames/mole/
+    - assets/Fox/fox_friendly.png
+    - assets/Fox/fox_sly.png
 
   # Bundled locally so typography is stable offline. PT Serif carries all
   # functional copy; Barocco Initial is reserved for decorative drop caps.
@@ -101,6 +103,9 @@ flutter:
     - family: BaroccoInitial
       fonts:
         - asset: assets/fonts/barocco-initial.ttf
+    - family: Monomakh
+      fonts:
+        - asset: assets/fonts/ofont.ru_Monomakh Unicode.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
