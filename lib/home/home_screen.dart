@@ -14,9 +14,14 @@ enum _LoadState { loading, ready, error }
 /// The pet's home: who they are, how they are doing, what money there is and
 /// what the plan for it is.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.apiClient});
+  const HomeScreen({
+    super.key,
+    required this.apiClient,
+    required this.onChooseGoal,
+  });
 
   final ApiClient apiClient;
+  final VoidCallback onChooseGoal;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -27,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Pet? _pet;
   ActivePeriod? _period;
   Map<String, int> _wallets = const {};
+  bool _hasGoal = false;
 
   @override
   void initState() {
@@ -62,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _pet = pet;
         _wallets = wallets;
         _period = periodJson == null ? null : ActivePeriod.fromJson(periodJson);
+        _hasGoal = economy['activeGoal'] is Map;
         _state = _LoadState.ready;
       });
     } catch (_) {
@@ -71,6 +78,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _startPeriod() async {
+    if (!_hasGoal) {
+      widget.onChooseGoal();
+      return;
+    }
     await widget.apiClient.post('/periods');
     await _load();
   }

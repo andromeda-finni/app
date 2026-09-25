@@ -11,10 +11,14 @@ class SavingsScreen extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.onBack,
+    required this.onChooseGoal,
+    required this.onBrowseGoals,
   });
 
   final ApiClient apiClient;
   final VoidCallback onBack;
+  final VoidCallback onChooseGoal;
+  final VoidCallback onBrowseGoals;
 
   @override
   State<SavingsScreen> createState() => _SavingsScreenState();
@@ -78,68 +82,6 @@ class _SavingsScreenState extends State<SavingsScreen> {
   }
 
   bool get _dayReady => _economy?.day?.planConfirmed == true;
-
-  Future<void> _chooseGoal() async {
-    final economy = _economy;
-    if (economy == null || _busy) return;
-    if (economy.goal != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Текущая цель закреплена до получения артефакта.'),
-        ),
-      );
-      return;
-    }
-    final selected = await showModalBottomSheet<EconomyItem>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (context) => SafeArea(
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.72,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('Выбери новую мечту', style: AppTextStyles.screenTitle),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: economy.artifacts.isEmpty
-                      ? const Align(
-                          alignment: Alignment.topLeft,
-                          child: Text('Все доступные артефакты уже получены.'),
-                        )
-                      : ListView(
-                          children: [
-                            for (final item in economy.artifacts)
-                              ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                leading: const CircleAvatar(
-                                  backgroundColor: AppColors.parchment,
-                                  child: Icon(
-                                    Icons.auto_awesome,
-                                    color: AppColors.coinGold,
-                                  ),
-                                ),
-                                title: Text(item.name),
-                                subtitle: Text('${item.price} монет'),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () => Navigator.pop(context, item),
-                              ),
-                          ],
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    if (selected != null && mounted) {
-      await _execute(EconomyActions.goal(economy, selected));
-    }
-  }
 
   Future<void> _moveSavings(bool deposit) async {
     final economy = _economy;
@@ -214,7 +156,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
     final economy = _economy;
     if (economy?.goal == null) return;
     await _execute(EconomyActions.redeem(economy!));
-    if (mounted) await _chooseGoal();
+    if (mounted && _economy?.goal == null) widget.onChooseGoal();
   }
 
   Future<void> _finishFrost(bool early) async {
@@ -255,7 +197,9 @@ class _SavingsScreenState extends State<SavingsScreen> {
                   _GoalSection(
                     economy: economy,
                     busy: _busy,
-                    onChoose: _chooseGoal,
+                    onChoose: economy.goal == null
+                        ? widget.onChooseGoal
+                        : widget.onBrowseGoals,
                     onRedeem: _redeem,
                   ),
                   const SizedBox(height: 14),
