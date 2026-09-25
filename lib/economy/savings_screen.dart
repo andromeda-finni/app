@@ -299,18 +299,6 @@ class _SavingsScreenState extends State<SavingsScreen> {
                     onOpen: _openFrost,
                     onFinish: _finishFrost,
                   ),
-                  const SizedBox(height: 18),
-                  _QuickActions(
-                    onDeposit: _dayReady && economy.goal != null
-                        ? () => _moveSavings(true)
-                        : null,
-                    onWithdraw: _dayReady && economy.savings > 0
-                        ? () => _moveSavings(false)
-                        : null,
-                    onFrost: _dayReady && economy.frost == null
-                        ? _openFrost
-                        : null,
-                  ),
                   if (_error != null) ...[
                     const SizedBox(height: 14),
                     Text(
@@ -674,113 +662,6 @@ class _MainAction extends StatelessWidget {
                   color: primary ? Colors.white : AppColors.ink,
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({this.onDeposit, this.onWithdraw, this.onFrost});
-
-  final VoidCallback? onDeposit;
-  final VoidCallback? onWithdraw;
-  final VoidCallback? onFrost;
-
-  @override
-  Widget build(BuildContext context) => _SectionCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Быстрые действия', style: AppTextStyles.screenTitle),
-        const SizedBox(height: 14),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 420;
-            final actions = [
-              _QuickAction(
-                icon: Icons.add,
-                title: 'Пополнить',
-                caption: 'Из кошелька',
-                onTap: onDeposit,
-              ),
-              _QuickAction(
-                icon: Icons.remove,
-                title: 'Вернуть',
-                caption: 'В кошелёк',
-                onTap: onWithdraw,
-              ),
-              _QuickAction(
-                icon: Icons.ac_unit,
-                title: 'Сундук',
-                caption: 'Бонус +10%',
-                onTap: onFrost,
-              ),
-            ];
-            if (compact) {
-              return Column(
-                children: [
-                  for (final action in actions) ...[
-                    action,
-                    if (action != actions.last) const SizedBox(height: 8),
-                  ],
-                ],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var i = 0; i < actions.length; i++) ...[
-                  Expanded(child: actions[i]),
-                  if (i < actions.length - 1) const SizedBox(width: 8),
-                ],
-              ],
-            );
-          },
-        ),
-      ],
-    ),
-  );
-}
-
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({
-    required this.icon,
-    required this.title,
-    required this.caption,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String caption;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: AppColors.canvasWarm,
-    borderRadius: BorderRadius.circular(AppRadii.md),
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadii.md),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          children: [
-            CircleAvatar(
-              backgroundColor: icon == Icons.ac_unit
-                  ? const Color(0xFFDCEFF8)
-                  : AppColors.parchment,
-              child: Icon(icon),
-            ),
-            const SizedBox(height: 8),
-            Text(title, textAlign: TextAlign.center),
-            Text(
-              caption,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.supporting,
             ),
           ],
         ),
