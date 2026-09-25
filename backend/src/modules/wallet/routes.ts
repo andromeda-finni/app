@@ -9,6 +9,22 @@ import { lockGoalOwner, requireGoal } from "../economy/goals.js";
 
 export async function walletRoutes(app: FastifyInstance): Promise<void> {
   app.get(
+    "/wallet",
+    { preHandler: [requireAuth, requireRole("CHILD")] },
+    async (req) => {
+      const res = await pool.query<{ kind: "SPENDABLE" | "SAVINGS"; balance: number }>(
+        `SELECT kind, balance FROM wallets WHERE child_user_id = $1`,
+        [req.authUser!.id],
+      );
+      const balances = Object.fromEntries(res.rows.map((row) => [row.kind, row.balance]));
+      return {
+        balance: balances.SPENDABLE ?? 0,
+        savings: balances.SAVINGS ?? 0,
+      };
+    },
+  );
+
+  app.get(
     "/wallets",
     { preHandler: [requireAuth, requireRole("CHILD")] },
     async (req) => {

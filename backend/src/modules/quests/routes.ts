@@ -45,7 +45,7 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
       const childUserId = req.authUser!.id;
       const { questId } = req.params;
 
-      const assignmentId = await withTransaction(async (client) => {
+      const result = await withTransaction(async (client) => {
         const questRes = await client.query<{ reward_amount: number }>(
           `SELECT reward_amount FROM quest_definitions WHERE id = $1 AND active`,
           [questId],
@@ -53,26 +53,41 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         const quest = questRes.rows[0];
         if (!quest) throw new HttpError(404, "quest_not_found");
 
+        // An unfinished run is resumed rather than refused: a child who left a
+        // game halfway must still be able to finish it and earn the reward.
+        // Only a completed quest is closed for good.
+        const existingRes = await client.query<{ id: string; status: string; reward_amount: number }>(
+          `SELECT id, status, reward_amount FROM assignments
+            WHERE child_user_id = $1 AND quest_id = $2 AND origin = 'SYSTEM'
+              AND status IN ('IN_PROGRESS', 'COMPLETED')
+            ORDER BY created_at DESC LIMIT 1`,
+          [childUserId, questId],
+        );
+        const existing = existingRes.rows[0];
+        if (existing?.status === "COMPLETED") {
+          throw new HttpError(409, "quest_already_completed");
+        }
+        if (existing) {
+          return { assignmentId: existing.id, rewardAmount: existing.reward_amount, resumed: true };
+        }
+
         const periodRes = await client.query<{ id: string }>(
           `SELECT id FROM game_periods WHERE child_user_id = $1 AND status = 'ACTIVE'`,
           [childUserId],
         );
 
-        // A quest already IN_PROGRESS or COMPLETED for this child can't be
-        // started again — otherwise the reward could be farmed repeatedly.
-        // The guard is the partial unique index from migration 0019 rather
-        // than a preceding SELECT: two parallel starts both pass any check
-        // written in application code, and only the database can serialize
-        // them. 23505 here therefore means "someone already started it".
+        // The partial unique index from migration 0019 is still the real
+        // guard: two parallel starts can both miss the SELECT above, and only
+        // the database serialises them. 23505 means the other one won.
         try {
           const res = await client.query<{ id: string }>(
             `INSERT INTO assignments (child_user_id, period_id, origin, quest_id, reward_amount, status)
              VALUES ($1, $2, 'SYSTEM', $3, $4, 'IN_PROGRESS') RETURNING id`,
             [childUserId, periodRes.rows[0]?.id ?? null, questId, quest.reward_amount],
           );
-          return res.rows[0]!.id;
+          return { assignmentId: res.rows[0]!.id, rewardAmount: quest.reward_amount, resumed: false };
         } catch (err) {
-          const pgErr = err as { code?: string; constraint?: string };
+          const pgErr = err as { code?: string };
           if (pgErr.code === "23505") {
             throw new HttpError(409, "quest_already_started_or_completed");
           }
@@ -80,7 +95,7 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         }
       });
 
-      reply.code(201).send({ assignmentId });
+      reply.code(result.resumed ? 200 : 201).send(result);
     },
   );
 

@@ -3,6 +3,7 @@ import '../../core/pet_assets.dart';
 /// The pet as `GET /pet` returns it.
 class Pet {
   const Pet({
+    this.id,
     required this.name,
     required this.furOptionId,
     required this.satiety,
@@ -11,6 +12,7 @@ class Pet {
     required this.evolutionStage,
   });
 
+  final String? id;
   final String name;
   final String? furOptionId;
 
@@ -29,6 +31,7 @@ class Pet {
       throw const FormatException('pet_name must be a non-empty string');
     }
     return Pet(
+      id: json['id'] as String?,
       name: name,
       furOptionId: json['fur_option_id'] as String?,
       satiety: _int(json['energy_level'], 100),

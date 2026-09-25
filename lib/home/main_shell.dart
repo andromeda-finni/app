@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../economy/savings_screen.dart';
+import '../profile/child_access_code.dart';
+import '../quest_map/quest_map_screen.dart';
+import '../settings/child_settings_screen.dart';
 import '../shop/shop_screen.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
@@ -13,9 +16,12 @@ import 'widgets/app_nav_bar.dart';
 /// switch, so each keeps its scroll position and any in-progress input while
 /// the child moves between them.
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, required this.apiClient});
+  const MainShell({super.key, required this.apiClient, this.onSwitchAudience});
 
   final ApiClient apiClient;
+
+  /// Returns to the child/parent role choice; wired from the settings screen.
+  final VoidCallback? onSwitchAudience;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -27,7 +33,25 @@ class _MainShellState extends State<MainShell> {
   int _homeRevision = 0;
   int _storeRevision = 0;
   int _savingsRevision = 0;
+  int _mapRevision = 0;
   StoreMode _storeMode = StoreMode.normal;
+  ChildSettingsSnapshot _settings = const ChildSettingsSnapshot();
+
+  void _openSettings(String? petId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (screenContext) => ChildSettingsScreen(
+          childCode: childAccessCodeFrom(petId),
+          initialSettings: _settings,
+          onSettingsChanged: (next) => setState(() => _settings = next),
+          onSwitchAudience: () {
+            Navigator.of(screenContext).pop();
+            widget.onSwitchAudience?.call();
+          },
+        ),
+      ),
+    );
+  }
 
   void _openGoalStore(StoreMode mode) {
     setState(() {
@@ -50,6 +74,8 @@ class _MainShellState extends State<MainShell> {
   void _selectTab(int index) {
     setState(() {
       if (index == 0) _homeRevision++;
+      // Re-read quest progress so a game finished elsewhere opens the next node.
+      if (index == 1) _mapRevision++;
       if (index == 2) {
         _storeMode = StoreMode.normal;
         _storeReturnIndex = _index;
@@ -73,8 +99,15 @@ class _MainShellState extends State<MainShell> {
               key: ValueKey('home-$_homeRevision'),
               apiClient: widget.apiClient,
               onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
+              onOpenSettings: _openSettings,
             ),
-            _TabPlaceholder(destination: kNavDestinations[1]),
+            QuestMapScreen(
+              key: ValueKey('map-$_mapRevision'),
+              apiClient: widget.apiClient,
+              // A tab root has nothing to go back to; the header hides the
+              // arrow instead of offering a button that does nothing.
+              showBack: false,
+            ),
             ShopScreen(
               key: ValueKey('store-$_storeRevision'),
               apiClient: widget.apiClient,
@@ -95,41 +128,6 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: AppNavBar(
         currentIndex: _index,
         onSelected: _selectTab,
-      ),
-    );
-  }
-}
-
-/// Stand-in body for a tab whose real screen has not been built yet. Each tab
-/// names itself so switching is visibly doing something.
-class _TabPlaceholder extends StatelessWidget {
-  const _TabPlaceholder({required this.destination});
-
-  final NavDestination destination;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              destination.activeIcon,
-              size: 64,
-              color: AppColors.crimsonFaded,
-            ),
-            const SizedBox(height: 16),
-            Text(destination.label, style: AppTextStyles.cardTitle),
-            const SizedBox(height: 8),
-            Text(
-              'Этот экран ещё в разработке.',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.swatchLabel,
-            ),
-          ],
-        ),
       ),
     );
   }

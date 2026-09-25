@@ -12,13 +12,19 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO education_topics (id, title, skill_description, sort_order) VALUES
   ('BUDGETING', 'Бюджет', 'Учимся планировать траты', 1),
   ('SAVING', 'Накопления', 'Учимся копить на цель', 2),
-  ('SCAMS', 'Осторожно, обман', 'Учимся распознавать нечестные предложения', 3)
+  ('SCAMS', 'Осторожно, обман', 'Учимся распознавать нечестные предложения', 3),
+  ('CURRENCY', 'Иностранная валюта', 'Учимся переводить цены по курсу', 4),
+  ('CONSUMER_RIGHTS', 'Проверяем покупки', 'Учимся замечать условия и ошибки в чеках', 5)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO quest_definitions (id, topic_id, title, location_code, difficulty, reward_amount) VALUES
   ('Q_FIRST_BUDGET', 'BUDGETING', 'Первый бюджет', 'FOREST', 'SIMPLE', 10),
   ('Q_SAVING_JAR', 'SAVING', 'Копилка мечты', 'FOREST', 'SIMPLE', 12),
-  ('Q_SAFE_CHOICE', 'SCAMS', 'Разговор с хитрым Лисом', 'TOWN', 'SIMPLE', 15)
+  ('Q_SAFE_CHOICE', 'SCAMS', 'Разговор с хитрым Лисом', 'TOWN', 'SIMPLE', 15),
+  -- Five-stage mini-games take the top step of the economy's 10/12/15 scale;
+  -- any other value is refused when the reward is paid out.
+  ('Q_TUGRIKI_CURRENCY', 'CURRENCY', 'Ярмарка тугриков', 'MARKET', 'SIMPLE', 15),
+  ('Q_MOLE_FINE_PRINT', 'CONSUMER_RIGHTS', 'Осторожно, мелкий шрифт', 'MARKET', 'SIMPLE', 15)
 ON CONFLICT (id) DO UPDATE SET
   reward_amount = EXCLUDED.reward_amount,
   title = EXCLUDED.title,
@@ -36,7 +42,15 @@ INSERT INTO quest_steps (quest_id, step_no, instruction, expected_action_code, s
   ('Q_SAFE_CHOICE', 1,
    'Лис обещает удвоить монеты, если отдать их сейчас. Что выбрать?',
    'CHOOSE_OPTION', 'Верно! Слишком щедрое обещание лучше проверить.', 'Подумай, почему незнакомцу нельзя отдавать накопления.',
-   '{"options": [{"code": "A", "label": "Отдать монеты"}, {"code": "B", "label": "Отказаться"}], "correctOptionCode": "B"}')
+   '{"options": [{"code": "A", "label": "Отдать монеты"}, {"code": "B", "label": "Отказаться"}], "correctOptionCode": "B"}'),
+  -- The fair is one interactive story; the client checks the child's answers
+  -- locally and reports the whole run as a single verified step.
+  ('Q_TUGRIKI_CURRENCY', 1,
+   'Пересчитай цены ярмарки из тугриков в монеты и уложись в бюджет.',
+   'COMPLETE_STORY',
+   'Ярмарка пройдена: ты умеешь пересчитывать цены по курсу.',
+   'Вспомни курс: за 1 тугрик отдают 2 монетки.',
+   '{"correctOptionCode": "VERIFIED"}')
 ON CONFLICT (quest_id, step_no) DO NOTHING;
 
 INSERT INTO shop_items (id, kind, name, price, rarity) VALUES

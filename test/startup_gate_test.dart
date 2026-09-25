@@ -31,6 +31,7 @@ void main() {
 
     await tester.pumpWidget(
       GroshikApp(
+        initialAudience: AppAudience.child,
         authStorage: authStorage,
         apiClient: ApiClient(
           httpClient: client,
@@ -64,6 +65,7 @@ void main() {
 
     await tester.pumpWidget(
       GroshikApp(
+        initialAudience: AppAudience.child,
         authStorage: authStorage,
         apiClient: ApiClient(
           httpClient: client,
@@ -108,6 +110,7 @@ void main() {
 
         await tester.pumpWidget(
           GroshikApp(
+            initialAudience: AppAudience.child,
             authStorage: authStorage,
             apiClient: ApiClient(
               httpClient: client,
@@ -143,6 +146,7 @@ void main() {
 
       await tester.pumpWidget(
         GroshikApp(
+          initialAudience: AppAudience.child,
           authStorage: authStorage,
           apiClient: ApiClient(
             httpClient: client,
@@ -185,6 +189,7 @@ void main() {
 
       await tester.pumpWidget(
         GroshikApp(
+          initialAudience: AppAudience.child,
           authStorage: authStorage,
           apiClient: ApiClient(
             httpClient: client,
@@ -225,6 +230,7 @@ void main() {
 
     await tester.pumpWidget(
       GroshikApp(
+        initialAudience: AppAudience.child,
         authStorage: authStorage,
         apiClient: ApiClient(
           httpClient: client,

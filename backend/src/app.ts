@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import sensible from "@fastify/sensible";
@@ -26,7 +27,31 @@ import { economyRoutes } from "./modules/economy/routes.js";
  * traffic and then 500ing on the first query that hits a missing column.
  * Bump this whenever a migration the code depends on is added.
  */
-const REQUIRED_SCHEMA_VERSION = "0022_generic_pet_copy.sql";
+const REQUIRED_SCHEMA_VERSION = "0023_mole_minigame_content.sql";
+
+const LOOPBACK_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * CORS_ORIGINS is a comma-separated allow-list for deployed web builds. When
+ * unset, only loopback origins are allowed, because `flutter run -d chrome`
+ * serves the app from localhost on a random port.
+ */
+export function corsOriginPolicy(configured: string | undefined) {
+  const allowList = (configured ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  return (origin: string | undefined, callback: (err: Error | null, allow: boolean) => void) => {
+    // Native apps and curl send no Origin header; CORS does not apply to them.
+    if (!origin) return callback(null, true);
+    if (allowList.length > 0) return callback(null, allowList.includes(origin));
+    try {
+      return callback(null, LOOPBACK_ORIGIN_HOSTS.has(new URL(origin).hostname));
+    } catch {
+      return callback(null, false);
+    }
+  };
+}
 
 export async function buildApp() {
   const app = Fastify({
@@ -43,6 +68,16 @@ export async function buildApp() {
     },
   });
 
+  // Only browsers enforce CORS, so this only matters for the Flutter web build.
+  // `origin: true` with credentials would let any site script this API; the
+  // app authenticates with a bearer header rather than cookies, so credentials
+  // stay off and origins come from an explicit allow-list.
+  await app.register(cors, {
+    origin: corsOriginPolicy(process.env["CORS_ORIGINS"]),
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: false,
+  });
   await app.register(helmet);
   await app.register(sensible);
   await app.register(rateLimit, {

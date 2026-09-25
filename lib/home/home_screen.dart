@@ -18,10 +18,14 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.onChooseGoal,
+    this.onOpenSettings,
   });
 
   final ApiClient apiClient;
   final VoidCallback onChooseGoal;
+
+  /// Opens the child's settings; receives the pet id the access code uses.
+  final void Function(String? petId)? onOpenSettings;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -125,6 +129,9 @@ class _HomeScreenState extends State<HomeScreen> {
       case _LoadState.ready:
         return _Content(
           pet: _pet!,
+          onOpenSettings: widget.onOpenSettings == null
+              ? null
+              : () => widget.onOpenSettings!(_pet!.id),
           period: _period,
           spendable: _wallets['SPENDABLE'] ?? 0,
           savings: _wallets['SAVINGS'] ?? 0,
@@ -139,6 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
 class _Content extends StatelessWidget {
   const _Content({
     required this.pet,
+    this.onOpenSettings,
     required this.period,
     required this.spendable,
     required this.savings,
@@ -148,6 +156,7 @@ class _Content extends StatelessWidget {
   });
 
   final Pet pet;
+  final VoidCallback? onOpenSettings;
   final ActivePeriod? period;
   final int spendable;
   final int savings;
@@ -163,7 +172,12 @@ class _Content extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          _Header(pet: pet, spendable: spendable, savings: savings),
+          _Header(
+            pet: pet,
+            spendable: spendable,
+            savings: savings,
+            onOpenSettings: onOpenSettings,
+          ),
           const SizedBox(height: 8),
           _PetPortrait(pet: pet),
           const SizedBox(height: 16),
@@ -206,11 +220,13 @@ class _Content extends StatelessWidget {
 class _Header extends StatelessWidget {
   const _Header({
     required this.pet,
+    this.onOpenSettings,
     required this.spendable,
     required this.savings,
   });
 
   final Pet pet;
+  final VoidCallback? onOpenSettings;
   final int spendable;
   final int savings;
 
@@ -221,6 +237,15 @@ class _Header extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Takes the slot the reference gives a back button: the home tab
+            // is a root, so the useful action here is the child's settings.
+            if (onOpenSettings != null)
+              IconButton(
+                tooltip: 'Настройки',
+                onPressed: onOpenSettings,
+                icon: const Icon(Icons.settings_outlined),
+                color: AppColors.ink,
+              ),
             const Spacer(),
             _CoinPill(spendable: spendable, savings: savings),
           ],

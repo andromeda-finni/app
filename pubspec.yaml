@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 0.3.0+3
 
 environment:
   sdk: ^3.13.3
@@ -76,6 +76,8 @@ flutter:
     - assets/icons/coin.png
     - assets/icons/leaf.png
     - assets/icons/chest.png
+    - assets/icons/bowl.png
+    - assets/icons/eat.png
     - assets/images/morozko_chest.png
     # Every mood folder is in use: the home screen swaps the pet's drawing to
     # match its stats (see lib/core/pet_assets.dart).
@@ -84,6 +86,9 @@ flutter:
     - assets/Cat/Red_collar/sad/
     - assets/Cat/Red_collar/sleep/
     - assets/Cat/Red_collar/fully/
+    - assets/Cat/Base/playful.png
+    - assets/minigames/tugriki/
+    - assets/minigames/mole/
 
   # Bundled locally so typography is stable offline. PT Serif carries all
   # functional copy; Barocco Initial is reserved for decorative drop caps.
