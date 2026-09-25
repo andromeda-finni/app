@@ -1,4 +1,4 @@
--- Sample content data — NOT a schema migration, run manually for local/demo use:
+-- Initial game catalogs — NOT a schema migration. Run after migrations:
 --   psql "$DATABASE_URL" -f db/seed.sql
 
 INSERT INTO cosmetic_options (id, kind, display_name, asset_code) VALUES
@@ -16,9 +16,13 @@ INSERT INTO education_topics (id, title, skill_description, sort_order) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO quest_definitions (id, topic_id, title, location_code, difficulty, reward_amount) VALUES
-  ('Q_FIRST_BUDGET', 'BUDGETING', 'Первый бюджет', 'FOREST', 'SIMPLE', 20),
-  ('Q_SAVING_JAR', 'SAVING', 'Копилка мечты', 'FOREST', 'SIMPLE', 20)
-ON CONFLICT (id) DO NOTHING;
+  ('Q_FIRST_BUDGET', 'BUDGETING', 'Первый бюджет', 'FOREST', 'SIMPLE', 10),
+  ('Q_SAVING_JAR', 'SAVING', 'Копилка мечты', 'FOREST', 'SIMPLE', 12),
+  ('Q_SAFE_CHOICE', 'SCAMS', 'Разговор с хитрым Лисом', 'TOWN', 'SIMPLE', 15)
+ON CONFLICT (id) DO UPDATE SET
+  reward_amount = EXCLUDED.reward_amount,
+  title = EXCLUDED.title,
+  location_code = EXCLUDED.location_code;
 
 INSERT INTO quest_steps (quest_id, step_no, instruction, expected_action_code, success_feedback, recovery_feedback, ui_spec) VALUES
   ('Q_FIRST_BUDGET', 1,
@@ -28,17 +32,36 @@ INSERT INTO quest_steps (quest_id, step_no, instruction, expected_action_code, s
   ('Q_SAVING_JAR', 1,
    'Что выгоднее: потратить все монеты сразу или отложить часть в копилку?',
    'CHOOSE_OPTION', 'Точно! Накопления помогают достичь большой цели.', 'Попробуй ещё раз, подумай про будущее.',
-   '{"options": [{"code": "A", "label": "Потратить всё"}, {"code": "B", "label": "Отложить часть"}], "correctOptionCode": "B"}')
+   '{"options": [{"code": "A", "label": "Потратить всё"}, {"code": "B", "label": "Отложить часть"}], "correctOptionCode": "B"}'),
+  ('Q_SAFE_CHOICE', 1,
+   'Лис обещает удвоить монеты, если отдать их сейчас. Что выбрать?',
+   'CHOOSE_OPTION', 'Верно! Слишком щедрое обещание лучше проверить.', 'Подумай, почему незнакомцу нельзя отдавать накопления.',
+   '{"options": [{"code": "A", "label": "Отдать монеты"}, {"code": "B", "label": "Отказаться"}], "correctOptionCode": "B"}')
 ON CONFLICT (quest_id, step_no) DO NOTHING;
 
 INSERT INTO shop_items (id, kind, name, price, rarity) VALUES
   ('FOOD_APPLE', 'NEED', 'Яблоко', 5, NULL),
   ('FOOD_CARROT', 'NEED', 'Морковка', 5, NULL),
+  ('PET_MEAL', 'NEED', 'Обед для Грошика', 10, NULL),
   ('TOY_BALL', 'WANT', 'Мячик', 8, NULL),
   ('CANDY', 'WANT', 'Конфета', 6, NULL),
-  ('HAT_GOLD', 'ARTIFACT', 'Золотая шляпа', 150, 'EPIC'),
-  ('CROWN_LEGEND', 'ARTIFACT', 'Легендарная корона', 300, 'LEGENDARY')
-ON CONFLICT (id) DO NOTHING;
+  ('saucer', 'ARTIFACT', 'Серебряное блюдечко и наливное яблочко', 80, 'RARE'),
+  ('vial', 'ARTIFACT', 'Склянка с живой водой', 90, 'RARE'),
+  ('tablecloth', 'ARTIFACT', 'Скатерть-самобранка', 105, 'EPIC'),
+  ('horseshoe', 'ARTIFACT', 'Золотая подкова', 120, 'EPIC'),
+  ('shield', 'ARTIFACT', 'Богатырский щит', 130, 'EPIC'),
+  ('purse', 'ARTIFACT', 'Кошель-самотряс', 140, 'LEGENDARY'),
+  ('boots', 'ARTIFACT', 'Сапоги-скороходы', 150, 'LEGENDARY')
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  price = EXCLUDED.price,
+  rarity = EXCLUDED.rarity,
+  active = true;
+
+UPDATE shop_items
+   SET active = false
+ WHERE kind = 'ARTIFACT'
+   AND id NOT IN ('saucer', 'vial', 'tablecloth', 'horseshoe', 'shield', 'purse', 'boots');
 
 INSERT INTO pet_event_definitions (id, title, description, cost_amount) VALUES
   ('SICK', 'Грошик заболел', 'Нужно купить лекарство', 15),

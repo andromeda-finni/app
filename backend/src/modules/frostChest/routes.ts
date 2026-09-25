@@ -1,77 +1,147 @@
 import type { FastifyInstance } from "fastify";
 import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
-import { postTransaction } from "../../lib/ledger.js";
+import { postTransaction, transferBetweenWallets } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
-import { bodySchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
+import { bodySchema, idempotencyKeySchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
+import { withIdempotency } from "../../lib/idempotency.js";
+import { assertFrostPrincipal, ECONOMY_RULES, frostBonus } from "../economy/rules.js";
 
-const MATURITY_DAYS = 3;
-
-// "Сундук Морозко" / time capsule: freeze SAVINGS coins for MATURITY_DAYS,
-// get back the principal + 10% bonus; withdraw early and keep only the
-// principal. NOTE: the brief's ideal version pays out a rare/epic pet item
-// on maturity rather than a coin bonus — that random-item-drop mechanic
-// isn't implemented yet, this is the coin-bonus version already in the DB
-// schema (see db/migrations/0006_purchases_and_frost_chest.sql).
+// "Сундук Морозко": freeze wallet coins for five completed game days, then
+// receive principal + 10% in SPENDABLE. The current schema stores an integer
+// exact-10% bonus, so deposits use steps of ten until a later schema version
+// can represent ceil(10%) for arbitrary principals.
 export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/frost-chests/active",
     { preHandler: [requireAuth, requireRole("CHILD")] },
     async (req) => {
       const res = await pool.query(
-        `SELECT id, principal_amount, bonus_amount, opened_at, available_at,
-                (available_at IS NOT NULL AND now() >= available_at) AS matured
-           FROM frost_chests WHERE child_user_id = $1 AND status = 'ACTIVE'`,
-        [req.authUser!.id],
+        `SELECT fc.id, fc.principal_amount, fc.bonus_amount, fc.opened_at,
+                COUNT(gp.id)::int AS completed_days,
+                COUNT(gp.id) >= $2 AS matured
+           FROM frost_chests fc
+           LEFT JOIN game_periods gp ON gp.child_user_id = fc.child_user_id
+            AND gp.status = 'COMPLETED' AND gp.closed_at >= fc.opened_at
+          WHERE fc.child_user_id = $1 AND fc.status = 'ACTIVE'
+          GROUP BY fc.id`,
+        [req.authUser!.id, ECONOMY_RULES.frostDays],
       );
       return res.rows[0] ?? null;
     },
   );
 
-  app.post<{ Body: { principalAmount: number } }>(
+  app.post<{ Body: { principalAmount: number; idempotencyKey: string } }>(
     "/frost-chests",
     {
       preHandler: [requireAuth, requireRole("CHILD")],
-      schema: bodySchema({ principalAmount: { type: "integer", minimum: 10 } }, ["principalAmount"]),
+      schema: bodySchema(
+        {
+          principalAmount: {
+            type: "integer",
+            minimum: ECONOMY_RULES.frostMinimum,
+            maximum: ECONOMY_RULES.frostMaximum,
+            multipleOf: ECONOMY_RULES.frostStep,
+          },
+          idempotencyKey: idempotencyKeySchema,
+        },
+        ["principalAmount", "idempotencyKey"],
+      ),
     },
     async (req, reply) => {
       const childUserId = req.authUser!.id;
       const principalAmount = req.body.principalAmount;
-      const bonusAmount = Math.floor(principalAmount / 10);
+      const bonusAmount = frostBonus(principalAmount);
+      try {
+        assertFrostPrincipal(principalAmount);
+      } catch {
+        throw new HttpError(400, "invalid_frost_principal");
+      }
 
-      const result = await withTransaction(async (client) => {
-        await postTransaction(client, {
-          childUserId,
-          walletKind: "SAVINGS",
-          eventType: "FROST_DEPOSIT",
-          deltaAmount: -principalAmount,
-          idempotencyKey: `frost-deposit-savings:${childUserId}:${Date.now()}`,
-        });
-        const frozenTxn = await postTransaction(client, {
-          childUserId,
-          walletKind: "FROZEN",
-          eventType: "FROST_DEPOSIT",
-          deltaAmount: principalAmount,
-          idempotencyKey: `frost-deposit-frozen:${childUserId}:${Date.now()}`,
-        });
+      const outcome = await withTransaction((client) =>
+        withIdempotency(
+          client,
+          {
+            childUserId,
+            scope: "frost-open",
+            key: req.body.idempotencyKey,
+            params: { principalAmount },
+          },
+          async () => {
+            const periodRes = await client.query<{
+              id: string;
+              opened_at: Date;
+              required_need_amount: number;
+            }>(
+              `SELECT gp.id, gp.opened_at, gp.required_need_amount FROM game_periods gp
+                JOIN budget_plans bp ON bp.period_id = gp.id AND bp.status = 'CONFIRMED'
+               WHERE gp.child_user_id = $1 AND gp.status = 'ACTIVE'`,
+              [childUserId],
+            );
+            if (!periodRes.rows[0]) {
+              throw new HttpError(409, "active_day_with_confirmed_plan_required");
+            }
+            const period = periodRes.rows[0];
+            const reserveRes = await client.query<{ balance: number; need_spent: string }>(
+              `SELECT w.balance,
+                      COALESCE((SELECT SUM(p.total_price)
+                                  FROM purchases p
+                                  JOIN transactions t ON t.id = p.transaction_id
+                                 WHERE p.child_user_id = $1 AND p.item_kind = 'NEED'
+                                   AND t.occurred_at >= $2), 0)
+                      + COALESCE((SELECT SUM(-t.delta_amount)
+                                    FROM transactions t
+                                   WHERE t.child_user_id = $1
+                                     AND t.event_type = 'PET_EVENT_PAYMENT'
+                                     AND t.occurred_at >= $2), 0) AS need_spent
+                 FROM wallets w
+                WHERE w.child_user_id = $1 AND w.kind = 'SPENDABLE' FOR UPDATE`,
+              [childUserId, period.opened_at],
+            );
+            const reserveState = reserveRes.rows[0];
+            const remainingReserve = Math.max(
+              period.required_need_amount - Number(reserveState?.need_spent ?? 0),
+              0,
+            );
+            if ((reserveState?.balance ?? 0) - principalAmount < remainingReserve) {
+              throw new HttpError(409, "food_reserve_is_unavailable_for_frost");
+            }
 
-        try {
-          const chestRes = await client.query<{ id: string; available_at: string }>(
-            `INSERT INTO frost_chests
-               (child_user_id, principal_amount, bonus_amount, deposit_transaction_id, available_at)
-             VALUES ($1, $2, $3, $4, now() + $5 * interval '1 day')
-             RETURNING id, available_at`,
-            [childUserId, principalAmount, bonusAmount, frozenTxn.id, MATURITY_DAYS],
-          );
-          return chestRes.rows[0]!;
-        } catch (err) {
-          const pgErr = err as { code?: string };
-          if (pgErr.code === "23505") throw new HttpError(409, "chest_already_active");
-          throw err;
-        }
+            const transfer = await transferBetweenWallets(client, {
+              childUserId,
+              fromWallet: "SPENDABLE",
+              toWallet: "FROZEN",
+              amount: principalAmount,
+              eventType: "FROST_DEPOSIT",
+              idempotencyKeyPrefix: `frost-open:${req.body.idempotencyKey}`,
+            });
+
+            try {
+              const chestRes = await client.query<{ id: string }>(
+                `INSERT INTO frost_chests
+                   (child_user_id, principal_amount, bonus_amount, deposit_transaction_id)
+                 VALUES ($1, $2, $3, $4) RETURNING id`,
+                [childUserId, principalAmount, bonusAmount, transfer.toTxnId],
+              );
+              return {
+                id: chestRes.rows[0]!.id,
+                principalAmount,
+                bonusAmount,
+                maturityDays: ECONOMY_RULES.frostDays,
+              };
+            } catch (err) {
+              const pgErr = err as { code?: string };
+              if (pgErr.code === "23505") throw new HttpError(409, "chest_already_active");
+              throw err;
+            }
+          },
+        ),
+      );
+
+      reply.code(outcome.replayed ? 200 : 201).send({
+        ...outcome.result,
+        replayed: outcome.replayed,
       });
-
-      reply.code(201).send(result);
     },
   );
 
@@ -86,35 +156,34 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
       const { chestId } = req.params;
 
       return withTransaction(async (client) => {
-        const res = await client.query<{ principal_amount: number; available_at: string }>(
-          `SELECT principal_amount, available_at FROM frost_chests
+        const res = await client.query<{ principal_amount: number; opened_at: Date }>(
+          `SELECT principal_amount, opened_at FROM frost_chests
             WHERE id = $1 AND child_user_id = $2 AND status = 'ACTIVE' FOR UPDATE`,
           [chestId, childUserId],
         );
         const chest = res.rows[0];
         if (!chest) throw new HttpError(404, "active_chest_not_found");
-        if (new Date(chest.available_at) <= new Date()) {
+        const daysRes = await client.query<{ completed_days: number }>(
+          `SELECT COUNT(*)::int AS completed_days FROM game_periods
+            WHERE child_user_id = $1 AND status = 'COMPLETED' AND closed_at >= $2`,
+          [childUserId, chest.opened_at],
+        );
+        if ((daysRes.rows[0]?.completed_days ?? 0) >= ECONOMY_RULES.frostDays) {
           throw new HttpError(400, "chest_already_matured_use_collect");
         }
 
-        const withdrawTxn = await postTransaction(client, {
+        const transfer = await transferBetweenWallets(client, {
           childUserId,
-          walletKind: "FROZEN",
+          fromWallet: "FROZEN",
+          toWallet: "SPENDABLE",
           eventType: "FROST_WITHDRAWAL",
-          deltaAmount: -chest.principal_amount,
-          idempotencyKey: `frost-withdraw-frozen:${chestId}`,
-        });
-        await postTransaction(client, {
-          childUserId,
-          walletKind: "SAVINGS",
-          eventType: "FROST_WITHDRAWAL",
-          deltaAmount: chest.principal_amount,
-          idempotencyKey: `frost-withdraw-savings:${chestId}`,
+          amount: chest.principal_amount,
+          idempotencyKeyPrefix: `frost-withdraw:${chestId}`,
         });
 
         await client.query(
           `UPDATE frost_chests SET status = 'WITHDRAWN_EARLY', withdrawal_transaction_id = $1, closed_at = now() WHERE id = $2`,
-          [withdrawTxn.id, chestId],
+          [transfer.fromTxnId, chestId],
         );
 
         return { ok: true, principalReturned: chest.principal_amount, bonusForfeited: true };
@@ -136,31 +205,30 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
         const res = await client.query<{
           principal_amount: number;
           bonus_amount: number;
-          available_at: string;
+          opened_at: Date;
         }>(
-          `SELECT principal_amount, bonus_amount, available_at FROM frost_chests
+          `SELECT principal_amount, bonus_amount, opened_at FROM frost_chests
             WHERE id = $1 AND child_user_id = $2 AND status = 'ACTIVE' FOR UPDATE`,
           [chestId, childUserId],
         );
         const chest = res.rows[0];
         if (!chest) throw new HttpError(404, "active_chest_not_found");
-        if (new Date(chest.available_at) > new Date()) {
+        const daysRes = await client.query<{ completed_days: number }>(
+          `SELECT COUNT(*)::int AS completed_days FROM game_periods
+            WHERE child_user_id = $1 AND status = 'COMPLETED' AND closed_at >= $2`,
+          [childUserId, chest.opened_at],
+        );
+        if ((daysRes.rows[0]?.completed_days ?? 0) < ECONOMY_RULES.frostDays) {
           throw new HttpError(400, "chest_not_matured_yet");
         }
 
-        const withdrawTxn = await postTransaction(client, {
+        const transfer = await transferBetweenWallets(client, {
           childUserId,
-          walletKind: "FROZEN",
+          fromWallet: "FROZEN",
+          toWallet: "SPENDABLE",
           eventType: "FROST_WITHDRAWAL",
-          deltaAmount: -chest.principal_amount,
-          idempotencyKey: `frost-collect-frozen:${chestId}`,
-        });
-        await postTransaction(client, {
-          childUserId,
-          walletKind: "SAVINGS",
-          eventType: "FROST_WITHDRAWAL",
-          deltaAmount: chest.principal_amount,
-          idempotencyKey: `frost-collect-savings:${chestId}`,
+          amount: chest.principal_amount,
+          idempotencyKeyPrefix: `frost-collect:${chestId}`,
         });
         const bonusTxn = await postTransaction(client, {
           childUserId,
@@ -174,7 +242,7 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
           `UPDATE frost_chests
               SET status = 'COLLECTED', withdrawal_transaction_id = $1, bonus_transaction_id = $2, closed_at = now()
             WHERE id = $3`,
-          [withdrawTxn.id, bonusTxn.id, chestId],
+          [transfer.fromTxnId, bonusTxn.id, chestId],
         );
 
         return { ok: true, principalReturned: chest.principal_amount, bonusAwarded: chest.bonus_amount };

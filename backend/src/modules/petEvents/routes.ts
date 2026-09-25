@@ -1,12 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
-import { postSpendableThenSavings } from "../../lib/ledger.js";
+import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { pickWeighted } from "../../lib/random.js";
 import { paramsSchema, uuidSchema } from "../../lib/schema.js";
+import { ECONOMY_RULES } from "../economy/rules.js";
 
-const TRIGGER_PROBABILITY = 0.2;
 
 export async function petEventRoutes(app: FastifyInstance): Promise<void> {
   app.get(
@@ -34,16 +34,42 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
     async (req) => {
       const childUserId = req.authUser!.id;
 
-      const activeRes = await pool.query(
-        `SELECT 1 FROM pet_event_occurrences WHERE child_user_id = $1 AND status = 'ACTIVE'`,
+      const periodRes = await pool.query<{ id: string; sequence_no: number }>(
+        `SELECT id, sequence_no FROM game_periods
+          WHERE child_user_id = $1 AND status = 'ACTIVE'`,
         [childUserId],
+      );
+      const period = periodRes.rows[0];
+      if (!period || period.sequence_no < ECONOMY_RULES.firstEventDay) {
+        return { triggered: false };
+      }
+
+      const activeRes = await pool.query(
+        `SELECT 1 FROM pet_event_occurrences
+          WHERE child_user_id = $1 AND period_id = $2`,
+        [childUserId, period.id],
       );
       if ((activeRes.rowCount ?? 0) > 0) return { triggered: false };
 
-      if (Math.random() > TRIGGER_PROBABILITY) return { triggered: false };
+      if (Math.random() > ECONOMY_RULES.eventProbability) return { triggered: false };
 
       const defsRes = await pool.query<{ id: string; cost_amount: number; trigger_weight: number }>(
-        `SELECT id, cost_amount, trigger_weight FROM pet_event_definitions WHERE active`,
+        `SELECT id, cost_amount, trigger_weight
+           FROM pet_event_definitions
+          WHERE active AND cost_amount BETWEEN $1 AND $2
+            AND id IS DISTINCT FROM (
+              SELECT peo.event_definition_id
+                FROM pet_event_occurrences peo
+                JOIN game_periods gp ON gp.id = peo.period_id
+               WHERE peo.child_user_id = $3 AND gp.sequence_no = $4 - 1
+               LIMIT 1
+            )`,
+        [
+          ECONOMY_RULES.minimumEventCost,
+          ECONOMY_RULES.maximumEventCost,
+          childUserId,
+          period.sequence_no,
+        ],
       );
       const chosen = pickWeighted(defsRes.rows, (d) => d.trigger_weight);
       if (!chosen) return { triggered: false };
@@ -55,15 +81,18 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
       const pet = petRes.rows[0];
       if (!pet) return { triggered: false };
 
-      const periodRes = await pool.query<{ id: string }>(
-        `SELECT id FROM game_periods WHERE child_user_id = $1 AND status = 'ACTIVE'`,
-        [childUserId],
-      );
-
       const occRes = await pool.query<{ id: string }>(
         `INSERT INTO pet_event_occurrences (child_user_id, pet_id, event_definition_id, period_id, amount_due)
          VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        [childUserId, pet.id, chosen.id, periodRes.rows[0]?.id ?? null, chosen.cost_amount],
+        [childUserId, pet.id, chosen.id, period.id, chosen.cost_amount],
+      );
+      await pool.query(
+        `UPDATE game_periods gp
+            SET required_need_amount = required_need_amount + $1
+          WHERE gp.id = $2
+            AND EXISTS (SELECT 1 FROM budget_plans bp
+                         WHERE bp.period_id = gp.id AND bp.status = 'DRAFT')`,
+        [chosen.cost_amount, period.id],
       );
 
       return { triggered: true, occurrenceId: occRes.rows[0]!.id };
@@ -89,24 +118,25 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
         const occ = res.rows[0];
         if (!occ) throw new HttpError(404, "active_event_not_found");
 
-        const { spendableTxnId, savingsTxnId } = await postSpendableThenSavings(client, {
+        const transaction = await postTransaction(client, {
           childUserId,
-          amount: occ.amount_due,
+          walletKind: "SPENDABLE",
           eventType: "PET_EVENT_PAYMENT",
+          deltaAmount: -occ.amount_due,
           referenceType: "pet_event_occurrence",
           referenceId: occurrenceId,
-          idempotencyKeyPrefix: `pet-event:${occurrenceId}`,
+          idempotencyKey: `pet-event:${occurrenceId}`,
         });
 
         await client.query(
           `UPDATE pet_event_occurrences
               SET status = 'RESOLVED', resolved_at = now(),
-                  spendable_transaction_id = $1, savings_transaction_id = $2
-            WHERE id = $3`,
-          [spendableTxnId, savingsTxnId, occurrenceId],
+                  spendable_transaction_id = $1, savings_transaction_id = NULL
+            WHERE id = $2`,
+          [transaction.id, occurrenceId],
         );
 
-        return { ok: true, paidFromSavings: savingsTxnId !== null };
+        return { ok: true, paidFromSavings: false };
       });
     },
   );

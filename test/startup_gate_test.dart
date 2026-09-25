@@ -43,35 +43,39 @@ void main() {
     expect(find.byType(OnboardingStep1Screen), findsOneWidget);
   });
 
-  testWidgets(
-    'saved token + completed onboarding -> shows the home placeholder',
-    (tester) async {
-      final authStorage = FakeAuthStorage(initialToken: 'tok');
-      final client = MockClient((request) async {
-        expect(request.url.path, '/onboarding/status');
+  testWidgets('saved token + completed onboarding -> shows economy', (
+    tester,
+  ) async {
+    final authStorage = FakeAuthStorage(initialToken: 'tok');
+    final client = MockClient((request) async {
+      if (request.url.path == '/economy/state') {
         return _jsonResponse({
-          'currentStep': 4,
-          'completed': true,
-          'pet': {'petName': 'Грошик', 'furOptionId': 'FUR_GRAY'},
+          'pet': {'pet_name': 'Грошик'},
         }, 200);
-      });
+      }
+      expect(request.url.path, '/onboarding/status');
+      return _jsonResponse({
+        'currentStep': 4,
+        'completed': true,
+        'pet': {'petName': 'Грошик', 'furOptionId': 'FUR_GRAY'},
+      }, 200);
+    });
 
-      await tester.pumpWidget(
-        GroshikApp(
+    await tester.pumpWidget(
+      GroshikApp(
+        authStorage: authStorage,
+        apiClient: ApiClient(
+          httpClient: client,
           authStorage: authStorage,
-          apiClient: ApiClient(
-            httpClient: client,
-            authStorage: authStorage,
-            baseUrl: 'http://test',
-          ),
+          baseUrl: 'http://test',
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.byType(OnboardingStep1Screen), findsNothing);
-      expect(find.textContaining('Питомец уже создан'), findsOneWidget);
-    },
-  );
+    expect(find.byType(OnboardingStep1Screen), findsNothing);
+    expect(find.text('Начать день'), findsOneWidget);
+  });
 
   for (final resumeCase in <({int step, Type screen})>[
     (step: 1, screen: OnboardingStep1Screen),
@@ -197,6 +201,11 @@ void main() {
     final authStorage = FakeAuthStorage(initialToken: 'tok');
     var calls = 0;
     final client = MockClient((request) async {
+      if (request.url.path == '/economy/state') {
+        return _jsonResponse({
+          'pet': {'pet_name': 'Грошик'},
+        }, 200);
+      }
       calls++;
       if (calls == 1) return http.Response('', 500);
       return _jsonResponse({
@@ -223,6 +232,6 @@ void main() {
     await tester.tap(find.text('Повторить'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Питомец уже создан'), findsOneWidget);
+    expect(find.text('Начать день'), findsOneWidget);
   });
 }

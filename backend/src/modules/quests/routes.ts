@@ -4,6 +4,7 @@ import { HttpError } from "../../lib/errors.js";
 import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, paramsSchema, shortIdSchema, uuidSchema } from "../../lib/schema.js";
+import { ECONOMY_RULES } from "../economy/rules.js";
 
 interface UiSpec {
   correctOptionCode?: string;
@@ -207,6 +208,40 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
           return { outcome, feedback: step.success_feedback, questCompleted: false };
         }
 
+        if (!(ECONOMY_RULES.questRewards as readonly number[]).includes(assignment.reward_amount)) {
+          throw new HttpError(409, "quest_reward_is_not_an_economy_value");
+        }
+
+        const periodRes = await client.query<{ id: string }>(
+          `SELECT gp.id FROM game_periods gp
+            JOIN budget_plans bp ON bp.period_id = gp.id AND bp.status = 'CONFIRMED'
+           WHERE gp.child_user_id = $1 AND gp.status = 'ACTIVE'`,
+          [childUserId],
+        );
+        const period = periodRes.rows[0];
+        if (!period) throw new HttpError(409, "active_day_with_confirmed_plan_required");
+
+        const bootsRes = await client.query(
+          `SELECT 1 FROM pets p
+            JOIN inventory_items i ON i.id = p.equipped_inventory_item_id
+           WHERE p.child_user_id = $1 AND i.item_id = 'boots'`,
+          [childUserId],
+        );
+        const dailyLimit = (bootsRes.rowCount ?? 0) > 0
+          ? ECONOMY_RULES.bootsQuestLimit
+          : ECONOMY_RULES.dailyQuestLimit;
+        const paidRes = await client.query<{ paid: string }>(
+          `SELECT COUNT(*) AS paid FROM assignments
+            WHERE child_user_id = $1 AND origin = 'SYSTEM'
+              AND period_id = $2 AND status = 'COMPLETED'`,
+          [childUserId, period.id],
+        );
+        if (Number(paidRes.rows[0]?.paid ?? 0) >= dailyLimit) {
+          throw new HttpError(409, "daily_quest_reward_limit_reached", {
+            limit: dailyLimit,
+          });
+        }
+
         const txn = await postTransaction(client, {
           childUserId,
           walletKind: "SPENDABLE",
@@ -218,8 +253,11 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         });
 
         await client.query(
-          `UPDATE assignments SET status = 'COMPLETED', reward_transaction_id = $1, updated_at = now() WHERE id = $2`,
-          [txn.id, assignmentId],
+          `UPDATE assignments
+              SET status = 'COMPLETED', reward_transaction_id = $1,
+                  period_id = $2, updated_at = now()
+            WHERE id = $3`,
+          [txn.id, period.id, assignmentId],
         );
 
         return {

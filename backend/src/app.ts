@@ -17,6 +17,7 @@ import { petEventRoutes } from "./modules/petEvents/routes.js";
 import { scamOfferRoutes } from "./modules/scamOffers/routes.js";
 import { passportRoutes } from "./modules/passport/routes.js";
 import { onboardingRoutes } from "./modules/onboarding/routes.js";
+import { economyRoutes } from "./modules/economy/routes.js";
 
 /**
  * The migration this build's SQL assumes. `/health` refuses to report ready
@@ -106,6 +107,7 @@ export async function buildApp() {
 
   await app.register(authRoutes);
   await app.register(onboardingRoutes);
+  await app.register(economyRoutes);
   await app.register(petRoutes);
   await app.register(walletRoutes);
   await app.register(shopRoutes);
