@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'core/api_client.dart';
 import 'core/auth_storage.dart';
-import 'economy/economy_screen.dart';
+import 'home/main_shell.dart';
 import 'onboarding/onboarding_data.dart';
 import 'onboarding/onboarding_flow.dart';
 import 'theme/app_theme.dart';
@@ -126,7 +126,7 @@ class _StartupGateState extends State<_StartupGate> {
           initialData: _onboarding.data,
         );
       case _StartupState.hasPet:
-        return EconomyScreen(apiClient: _api);
+        return MainShell(apiClient: _api);
       case _StartupState.error:
         return Scaffold(
           backgroundColor: AppColors.parchment,

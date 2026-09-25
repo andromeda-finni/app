@@ -43,7 +43,7 @@ void main() {
     expect(find.byType(OnboardingStep1Screen), findsOneWidget);
   });
 
-  testWidgets('saved token + completed onboarding -> shows economy', (
+  testWidgets('saved token + completed onboarding -> shows main shell', (
     tester,
   ) async {
     final authStorage = FakeAuthStorage(initialToken: 'tok');
@@ -74,7 +74,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(OnboardingStep1Screen), findsNothing);
-    expect(find.text('Начать день'), findsOneWidget);
+    expect(find.text('Дом'), findsOneWidget);
+    expect(find.text('Копилка'), findsOneWidget);
+
+    await tester.tap(find.text('Копилка'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Моя цель'), findsOneWidget);
+    expect(find.text('Сундук Морозко'), findsOneWidget);
   });
 
   for (final resumeCase in <({int step, Type screen})>[
@@ -232,6 +239,6 @@ void main() {
     await tester.tap(find.text('Повторить'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Начать день'), findsOneWidget);
+    expect(find.text('Дом'), findsOneWidget);
   });
 }

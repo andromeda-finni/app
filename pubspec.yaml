@@ -74,6 +74,8 @@ flutter:
     - assets/icons/ball.png
     - assets/icons/pig.png
     - assets/icons/coin.png
+    - assets/icons/leaf.png
+    - assets/icons/chest.png
     - assets/Cat/Base/playful.png
     - assets/Cat/Red_collar/base/striped.png
     - assets/Cat/Red_collar/base/red.png
@@ -81,6 +83,15 @@ flutter:
     - assets/Cat/Red_collar/happy/striped.png
     - assets/Cat/Red_collar/happy/red.png
     - assets/Cat/Red_collar/happy/white.png
+    - assets/Cat/Red_collar/sad/striped.png
+    - assets/Cat/Red_collar/sad/red.png
+    - assets/Cat/Red_collar/sad/white.png
+    - assets/Cat/Red_collar/sleep/striped.png
+    - assets/Cat/Red_collar/sleep/red.png
+    - assets/Cat/Red_collar/sleep/white.png
+    - assets/Cat/Red_collar/fully/striped.png
+    - assets/Cat/Red_collar/fully/red.png
+    - assets/Cat/Red_collar/fully/white.png
 
   # Bundled locally so typography is stable offline. PT Serif carries all
   # functional copy; Barocco Initial is reserved for decorative drop caps.
