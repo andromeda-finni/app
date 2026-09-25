@@ -67,8 +67,9 @@ export async function petRoutes(app: FastifyInstance): Promise<void> {
     async (req) => {
       const res = await pool.query(
         `SELECT id, pet_name, pet_name_status, fur_option_id, accessory_option_id,
-                energy_level, joy_level, evolution_stage, successful_period_streak,
-                equipped_inventory_item_id, created_at, updated_at
+                energy_level, joy_level, health_level, evolution_stage,
+                successful_period_streak, equipped_inventory_item_id,
+                created_at, updated_at
            FROM pets WHERE child_user_id = $1`,
         [req.authUser!.id],
       );

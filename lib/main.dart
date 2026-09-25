@@ -125,13 +125,7 @@ class _StartupGateState extends State<_StartupGate> {
           initialData: _onboarding.data,
         );
       case _StartupState.hasPet:
-        // TODO: replace with the real pet home screen once it exists.
-        return const Scaffold(
-          backgroundColor: AppColors.parchment,
-          body: Center(
-            child: Text('Питомец уже создан — экран дома в разработке'),
-          ),
-        );
+        return MainShell(apiClient: _api);
       case _StartupState.error:
         return Scaffold(
           backgroundColor: AppColors.parchment,

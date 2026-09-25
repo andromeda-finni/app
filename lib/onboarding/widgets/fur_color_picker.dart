@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/pet_assets.dart';
 import '../../theme/app_theme.dart';
 import '../onboarding_data.dart';
 

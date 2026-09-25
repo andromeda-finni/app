@@ -8,6 +8,11 @@ import { paramsSchema, uuidSchema } from "../../lib/schema.js";
 
 const TRIGGER_PROBABILITY = 0.2;
 
+// How far an unresolved event knocks the pet's health down, and where paying
+// the bill puts it back.
+const PET_EVENT_HEALTH_DROP = 45;
+const PET_HEALTH_FULL = 100;
+
 export async function petEventRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/pet-events/active",
@@ -66,6 +71,14 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
         [childUserId, pet.id, chosen.id, periodRes.rows[0]?.id ?? null, chosen.cost_amount],
       );
 
+      // The pet visibly stops being well, so the child notices the event from
+      // the home screen rather than only from the events list.
+      await pool.query(
+        `UPDATE pets SET health_level = GREATEST(0, health_level - $1), updated_at = now()
+          WHERE child_user_id = $2`,
+        [PET_EVENT_HEALTH_DROP, childUserId],
+      );
+
       return { triggered: true, occurrenceId: occRes.rows[0]!.id };
     },
   );
@@ -104,6 +117,13 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
                   spendable_transaction_id = $1, savings_transaction_id = $2
             WHERE id = $3`,
           [spendableTxnId, savingsTxnId, occurrenceId],
+        );
+
+        // Paying the bill is what makes the pet well again — same transaction,
+        // so health can never recover without the money actually moving.
+        await client.query(
+          `UPDATE pets SET health_level = $1, updated_at = now() WHERE child_user_id = $2`,
+          [PET_HEALTH_FULL, childUserId],
         );
 
         return { ok: true, paidFromSavings: savingsTxnId !== null };

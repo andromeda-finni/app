@@ -74,6 +74,16 @@ flutter:
     - assets/icons/ball.png
     - assets/icons/pig.png
     - assets/icons/coin.png
+    - assets/icons/leaf.png
+    - assets/icons/chest.png
+    - assets/Cat/Base/playful.png
+    # Every mood folder is in use: the home screen swaps the pet's drawing to
+    # match its stats (see lib/core/pet_assets.dart).
+    - assets/Cat/Red_collar/base/
+    - assets/Cat/Red_collar/happy/
+    - assets/Cat/Red_collar/sad/
+    - assets/Cat/Red_collar/sleep/
+    - assets/Cat/Red_collar/fully/
     - assets/Cat/Red_collar/base/striped.png
     - assets/Cat/Red_collar/base/red.png
     - assets/Cat/Red_collar/base/white.png

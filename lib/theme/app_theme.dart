@@ -121,6 +121,12 @@ abstract final class AppTextStyles {
     fontWeight: FontWeight.w700,
   );
 
+  static const TextStyle navLabel = TextStyle(
+    fontFamily: _fontFamily,
+    fontSize: 14,
+    height: 1.1,
+  );
+
   static const TextStyle counterValue = TextStyle(
     fontFamily: AppFonts.body,
     color: AppColors.ink,
