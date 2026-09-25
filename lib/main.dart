@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'core/api_client.dart';
 import 'core/auth_storage.dart';
 import 'home/main_shell.dart';
+import 'home/pet_home_screen.dart';
 import 'onboarding/onboarding_data.dart';
 import 'onboarding/onboarding_flow.dart';
 import 'theme/app_theme.dart';
+
+const _foxEventDemo = bool.fromEnvironment('FOX_EVENT_DEMO');
 
 void main() {
   runApp(const GroshikApp());
@@ -27,7 +30,9 @@ class GroshikApp extends StatelessWidget {
       title: 'Грошик',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: _StartupGate(authStorage: authStorage, apiClient: apiClient),
+      home: _foxEventDemo
+          ? const PetHomeScreen()
+          : _StartupGate(authStorage: authStorage, apiClient: apiClient),
     );
   }
 }
@@ -119,7 +124,14 @@ class _StartupGateState extends State<_StartupGate> {
         );
       case _StartupState.needsOnboarding:
         return OnboardingFlow(
-          onFinished: () => setState(() => _state = _StartupState.hasPet),
+          onFinished: (data) => setState(() {
+            _onboarding = OnboardingResumeState(
+              currentStep: 4,
+              completed: true,
+              data: data,
+            );
+            _state = _StartupState.hasPet;
+          }),
           apiClient: _api,
           authStorage: _authStorage,
           initialStep: _onboarding.currentStep,

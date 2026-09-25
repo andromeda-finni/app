@@ -40,9 +40,20 @@ abstract final class AppRadii {
 abstract final class AppFonts {
   static const body = 'PTSerif';
   static const accent = 'BaroccoInitial';
+  static const eventAccent = 'Monomakh';
 }
 
 abstract final class AppTextStyles {
+  /// Monomakh is reserved for short event headings. Longer copy stays in the
+  /// more readable PT Serif family.
+  static const TextStyle eventTitle = TextStyle(
+    fontFamily: AppFonts.eventAccent,
+    color: AppColors.crimsonDark,
+    fontSize: 24,
+    height: 1.15,
+    fontWeight: FontWeight.w400,
+  );
+
   static const TextStyle dropCap = TextStyle(
     fontFamily: AppFonts.accent,
     color: AppColors.crimson,

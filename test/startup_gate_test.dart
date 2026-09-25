@@ -44,35 +44,34 @@ void main() {
     expect(find.byType(OnboardingStep1Screen), findsOneWidget);
   });
 
-  testWidgets(
-    'saved token + completed onboarding -> shows the home placeholder',
-    (tester) async {
-      final authStorage = FakeAuthStorage(initialToken: 'tok');
-      final client = MockClient((request) async {
-        expect(request.url.path, '/onboarding/status');
-        return _jsonResponse({
-          'currentStep': 4,
-          'completed': true,
-          'pet': {'petName': 'Грошик', 'furOptionId': 'FUR_GRAY'},
-        }, 200);
-      });
+  testWidgets('saved token + completed onboarding -> shows the pet home', (
+    tester,
+  ) async {
+    final authStorage = FakeAuthStorage(initialToken: 'tok');
+    final client = MockClient((request) async {
+      expect(request.url.path, '/onboarding/status');
+      return _jsonResponse({
+        'currentStep': 4,
+        'completed': true,
+        'pet': {'petName': 'Рыжик', 'furOptionId': 'FUR_GRAY'},
+      }, 200);
+    });
 
-      await tester.pumpWidget(
-        GroshikApp(
+    await tester.pumpWidget(
+      GroshikApp(
+        authStorage: authStorage,
+        apiClient: ApiClient(
+          httpClient: client,
           authStorage: authStorage,
-          apiClient: ApiClient(
-            httpClient: client,
-            authStorage: authStorage,
-            baseUrl: 'http://test',
-          ),
+          baseUrl: 'http://test',
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.byType(OnboardingStep1Screen), findsNothing);
-      expect(find.byType(MainShell), findsOneWidget);
-    },
-  );
+    expect(find.byType(OnboardingStep1Screen), findsNothing);
+    expect(find.byType(MainShell), findsOneWidget);
+  });
 
   for (final resumeCase in <({int step, Type screen})>[
     (step: 1, screen: OnboardingStep1Screen),
