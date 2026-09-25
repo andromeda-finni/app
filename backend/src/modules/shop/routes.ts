@@ -66,32 +66,58 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
 
             const totalPrice = item.price * quantity;
 
+            const periodRes = await client.query<{
+              id: string;
+              need_amount: number;
+              required_need_amount: number;
+            }>(
+              `SELECT gp.id, gp.required_need_amount, bp.need_amount
+                 FROM game_periods gp
+                 JOIN budget_plans bp ON bp.period_id = gp.id AND bp.status = 'CONFIRMED'
+                WHERE gp.child_user_id = $1 AND gp.status = 'ACTIVE'`,
+              [childUserId],
+            );
+            const period = periodRes.rows[0];
+            if (!period) throw new HttpError(409, "active_day_with_confirmed_plan_required");
+
+            const needSpentRes = await client.query<{ spent: string }>(
+              `SELECT
+                 COALESCE((SELECT SUM(p.total_price)
+                             FROM purchases p
+                             JOIN transactions t ON t.id = p.transaction_id
+                            WHERE p.child_user_id = $1 AND p.item_kind = 'NEED'
+                              AND t.occurred_at >= gp.opened_at), 0)
+                 + COALESCE((SELECT SUM(-t.delta_amount)
+                               FROM transactions t
+                              WHERE t.child_user_id = $1
+                                AND t.event_type = 'PET_EVENT_PAYMENT'
+                                AND t.occurred_at >= gp.opened_at), 0) AS spent
+                 FROM game_periods gp WHERE gp.id = $2`,
+              [childUserId, period.id],
+            );
+            const needSpent = Number(needSpentRes.rows[0]?.spent ?? 0);
+
             // Impulse check: buying a WANT while this period's NEED commitment
             // isn't covered yet by actual NEED spending — the game's concrete,
             // non-punishing signal for "you spent on a want before a need".
             let impulsive = false;
             if (item.kind === "WANT") {
-              const periodRes = await client.query<{ id: string; need_amount: number }>(
-                `SELECT gp.id, bp.need_amount
-                   FROM game_periods gp
-                   JOIN budget_plans bp ON bp.period_id = gp.id AND bp.status = 'CONFIRMED'
-                  WHERE gp.child_user_id = $1 AND gp.status = 'ACTIVE'`,
+              const remainingReserve = Math.max(
+                period.required_need_amount - needSpent,
+                0,
+              );
+              const walletRes = await client.query<{ balance: number }>(
+                `SELECT balance FROM wallets
+                  WHERE child_user_id = $1 AND kind = 'SPENDABLE' FOR UPDATE`,
                 [childUserId],
               );
-              const period = periodRes.rows[0];
-              if (period) {
-                const spentRes = await client.query<{ spent: string }>(
-                  `SELECT COALESCE(SUM(total_price), 0) AS spent
-                     FROM purchases p
-                     JOIN transactions t ON t.id = p.transaction_id
-                    WHERE p.child_user_id = $1 AND p.item_kind = 'NEED' AND t.occurred_at >= (
-                      SELECT opened_at FROM game_periods WHERE id = $2
-                    )`,
-                  [childUserId, period.id],
-                );
-                const needSpent = Number(spentRes.rows[0]?.spent ?? 0);
-                impulsive = needSpent < period.need_amount;
+              const balance = walletRes.rows[0]?.balance ?? 0;
+              if (balance - totalPrice < remainingReserve) {
+                throw new HttpError(409, "food_reserve_is_unavailable_for_wants", {
+                  reserve: remainingReserve,
+                });
               }
+              impulsive = needSpent < period.need_amount;
             }
 
             const txn = await postTransaction(client, {

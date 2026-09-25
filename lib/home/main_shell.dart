@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../economy/savings_screen.dart';
+import '../shop/shop_screen.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'widgets/app_nav_bar.dart';
@@ -21,6 +23,42 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+  int _storeReturnIndex = 0;
+  int _homeRevision = 0;
+  int _storeRevision = 0;
+  int _savingsRevision = 0;
+  StoreMode _storeMode = StoreMode.normal;
+
+  void _openGoalStore(StoreMode mode) {
+    setState(() {
+      _storeReturnIndex = _index;
+      _storeMode = mode;
+      _storeRevision++;
+      _index = 2;
+    });
+  }
+
+  void _goalSelected() {
+    setState(() {
+      _storeMode = StoreMode.normal;
+      _homeRevision++;
+      _savingsRevision++;
+      _index = 3;
+    });
+  }
+
+  void _selectTab(int index) {
+    setState(() {
+      if (index == 0) _homeRevision++;
+      if (index == 2) {
+        _storeMode = StoreMode.normal;
+        _storeReturnIndex = _index;
+        _storeRevision++;
+      }
+      if (index == 3) _savingsRevision++;
+      _index = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,15 +69,32 @@ class _MainShellState extends State<MainShell> {
         child: IndexedStack(
           index: _index,
           children: [
-            HomeScreen(apiClient: widget.apiClient),
-            for (final destination in kNavDestinations.skip(1))
-              _TabPlaceholder(destination: destination),
+            HomeScreen(
+              key: ValueKey('home-$_homeRevision'),
+              apiClient: widget.apiClient,
+              onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
+            ),
+            _TabPlaceholder(destination: kNavDestinations[1]),
+            ShopScreen(
+              key: ValueKey('store-$_storeRevision'),
+              apiClient: widget.apiClient,
+              mode: _storeMode,
+              onBack: () => setState(() => _index = _storeReturnIndex),
+              onGoalSelected: _goalSelected,
+            ),
+            SavingsScreen(
+              key: ValueKey('savings-$_savingsRevision'),
+              apiClient: widget.apiClient,
+              onBack: () => setState(() => _index = 0),
+              onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
+              onBrowseGoals: () => _openGoalStore(StoreMode.browseGoals),
+            ),
           ],
         ),
       ),
       bottomNavigationBar: AppNavBar(
         currentIndex: _index,
-        onSelected: (index) => setState(() => _index = index),
+        onSelected: _selectTab,
       ),
     );
   }

@@ -22,19 +22,24 @@ import 'support/fake_auth_storage.dart';
 /// backend — the nav bar itself is what is under test.
 Widget _shell() {
   final client = MockClient((request) async {
+    // Every tab now reads the single economy read model; serving it keeps the
+    // tabs in their real loaded state instead of silently erroring.
     final body = switch (request.url.path) {
-      '/pet' => {
-        'pet_name': 'Грошик',
-        'fur_option_id': 'FUR_GRAY',
-        'energy_level': 60,
-        'joy_level': 55,
-        'health_level': 100,
-        'evolution_stage': 1,
+      '/economy/state' => {
+        'pet': {
+          'pet_name': 'Мурзик',
+          'fur_option_id': 'FUR_GRAY',
+          'energy_level': 60,
+          'joy_level': 55,
+          'health_level': 100,
+          'evolution_stage': 1,
+        },
+        'wallets': {'SPENDABLE': 40, 'SAVINGS': 10, 'FROZEN': 0},
+        'activeDay': null,
+        'activeGoal': null,
+        'shopItems': <Object>[],
+        'artifacts': <Object>[],
       },
-      '/wallets' => [
-        {'kind': 'SPENDABLE', 'balance': 40},
-        {'kind': 'SAVINGS', 'balance': 10},
-      ],
       _ => null,
     };
     return http.Response(
@@ -161,14 +166,23 @@ void main() {
           as BoxDecoration;
     }
 
-    expect(decorationOf('Дом').border!.top.color, Colors.transparent);
+    Color ringOf(String label) => decorationOf(label).border!.top.color;
+    final labels = kNavDestinations.map((d) => d.label).toList();
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.pumpAndSettle();
+    expect(labels.map(ringOf), everyElement(Colors.transparent));
+
+    // The home tab has its own buttons, so Tab first walks through the page
+    // before it reaches the bar; keep pressing until focus lands on a tab.
+    for (var i = 0; i < 40; i++) {
+      if (labels.any((l) => ringOf(l) != Colors.transparent)) break;
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+    }
 
     // A keyboard user gets no hover colour, so the ring is the only cue that
-    // says which tab Enter will open.
-    expect(decorationOf('Дом').border!.top.color, AppColors.crimson);
+    // says which tab Enter will open — and it must mark exactly one tab.
+    final ringed = labels.where((l) => ringOf(l) == AppColors.crimson);
+    expect(ringed, hasLength(1));
   });
 
   testWidgets('a tab reports its selected state to accessibility', (

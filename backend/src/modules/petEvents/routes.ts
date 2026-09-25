@@ -1,12 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
-import { postSpendableThenSavings } from "../../lib/ledger.js";
+import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { pickWeighted } from "../../lib/random.js";
 import { paramsSchema, uuidSchema } from "../../lib/schema.js";
-
-const TRIGGER_PROBABILITY = 0.2;
+import { ECONOMY_RULES } from "../economy/rules.js";
 
 // How far an unresolved event knocks the pet's health down, and where paying
 // the bill puts it back.
@@ -40,9 +39,8 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
       const childUserId = req.authUser!.id;
 
       return withTransaction(async (client) => {
-        // Serialise rolls for one pet. The database's partial unique index is a
-        // final invariant, but this lock also turns concurrent retries into a
-        // normal "nothing triggered" response instead of a raw unique error.
+        // Serialise rolls for one pet: two concurrent calls would otherwise both
+        // pass the checks below and race on the single-active-event index.
         const petRes = await client.query<{ id: string }>(
           `SELECT id FROM pets WHERE child_user_id = $1 FOR UPDATE`,
           [childUserId],
@@ -50,31 +48,70 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
         const pet = petRes.rows[0];
         if (!pet) return { triggered: false };
 
-        const activeRes = await client.query(
-          `SELECT 1 FROM pet_event_occurrences WHERE child_user_id = $1 AND status = 'ACTIVE'`,
+        const periodRes = await client.query<{ id: string; sequence_no: number }>(
+          `SELECT id, sequence_no FROM game_periods
+            WHERE child_user_id = $1 AND status = 'ACTIVE'`,
           [childUserId],
         );
-        if ((activeRes.rowCount ?? 0) > 0) return { triggered: false };
+        const period = periodRes.rows[0];
+        if (!period || period.sequence_no < ECONOMY_RULES.firstEventDay) {
+          return { triggered: false };
+        }
 
-        if (Math.random() > TRIGGER_PROBABILITY) return { triggered: false };
+        // Two separate rules: at most one event per game day, and never a new
+        // one while an earlier day's bill is still unpaid — the latter is also
+        // what uq_pet_event_active_pet enforces, so skipping it here would turn
+        // an unpaid yesterday into a raw unique-violation 500 today.
+        const blockingRes = await client.query(
+          `SELECT 1 FROM pet_event_occurrences
+            WHERE child_user_id = $1 AND (period_id = $2 OR status = 'ACTIVE')
+            LIMIT 1`,
+          [childUserId, period.id],
+        );
+        if ((blockingRes.rowCount ?? 0) > 0) return { triggered: false };
+
+        if (Math.random() > ECONOMY_RULES.eventProbability) return { triggered: false };
 
         const defsRes = await client.query<{
           id: string;
           cost_amount: number;
           trigger_weight: number;
-        }>(`SELECT id, cost_amount, trigger_weight FROM pet_event_definitions WHERE active`);
+        }>(
+          `SELECT id, cost_amount, trigger_weight
+             FROM pet_event_definitions
+            WHERE active AND cost_amount BETWEEN $1 AND $2
+              AND id IS DISTINCT FROM (
+                SELECT peo.event_definition_id
+                  FROM pet_event_occurrences peo
+                  JOIN game_periods gp ON gp.id = peo.period_id
+                 WHERE peo.child_user_id = $3 AND gp.sequence_no = $4 - 1
+                 LIMIT 1
+              )`,
+          [
+            ECONOMY_RULES.minimumEventCost,
+            ECONOMY_RULES.maximumEventCost,
+            childUserId,
+            period.sequence_no,
+          ],
+        );
         const chosen = pickWeighted(defsRes.rows, (d) => d.trigger_weight);
         if (!chosen) return { triggered: false };
-
-        const periodRes = await client.query<{ id: string }>(
-          `SELECT id FROM game_periods WHERE child_user_id = $1 AND status = 'ACTIVE'`,
-          [childUserId],
-        );
 
         const occRes = await client.query<{ id: string }>(
           `INSERT INTO pet_event_occurrences (child_user_id, pet_id, event_definition_id, period_id, amount_due)
            VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-          [childUserId, pet.id, chosen.id, periodRes.rows[0]?.id ?? null, chosen.cost_amount],
+          [childUserId, pet.id, chosen.id, period.id, chosen.cost_amount],
+        );
+        // A bill that lands before the plan is approved becomes part of the
+        // day's must-haves, so the child plans for it instead of discovering
+        // it only after the money is already allocated.
+        await client.query(
+          `UPDATE game_periods gp
+              SET required_need_amount = required_need_amount + $1
+            WHERE gp.id = $2
+              AND EXISTS (SELECT 1 FROM budget_plans bp
+                           WHERE bp.period_id = gp.id AND bp.status = 'DRAFT')`,
+          [chosen.cost_amount, period.id],
         );
 
         // The occurrence and its visible health effect are one domain change:
@@ -109,21 +146,22 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
         const occ = res.rows[0];
         if (!occ) throw new HttpError(404, "active_event_not_found");
 
-        const { spendableTxnId, savingsTxnId } = await postSpendableThenSavings(client, {
+        const transaction = await postTransaction(client, {
           childUserId,
-          amount: occ.amount_due,
+          walletKind: "SPENDABLE",
           eventType: "PET_EVENT_PAYMENT",
+          deltaAmount: -occ.amount_due,
           referenceType: "pet_event_occurrence",
           referenceId: occurrenceId,
-          idempotencyKeyPrefix: `pet-event:${occurrenceId}`,
+          idempotencyKey: `pet-event:${occurrenceId}`,
         });
 
         await client.query(
           `UPDATE pet_event_occurrences
               SET status = 'RESOLVED', resolved_at = now(),
-                  spendable_transaction_id = $1, savings_transaction_id = $2
-            WHERE id = $3`,
-          [spendableTxnId, savingsTxnId, occurrenceId],
+                  spendable_transaction_id = $1, savings_transaction_id = NULL
+            WHERE id = $2`,
+          [transaction.id, occurrenceId],
         );
 
         // Paying the bill is what makes the pet well again — same transaction,
@@ -133,7 +171,9 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
           [PET_HEALTH_FULL, childUserId],
         );
 
-        return { ok: true, paidFromSavings: savingsTxnId !== null };
+        // Bills come out of the day's must-have reserve in SPENDABLE; savings
+        // belong to the chosen goal and are never tapped for them.
+        return { ok: true, paidFromSavings: false };
       });
     },
   );

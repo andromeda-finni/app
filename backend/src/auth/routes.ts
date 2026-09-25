@@ -1,7 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { pool, withTransaction } from "../lib/db.js";
 import { HttpError } from "../lib/errors.js";
-import { postTransaction } from "../lib/ledger.js";
 import { bodySchema } from "../lib/schema.js";
 import {
   generateInviteCode,
@@ -12,7 +11,6 @@ import {
 import { requireAuth, requireRole } from "./plugin.js";
 
 const INVITE_TTL_MS = 24 * 60 * 60 * 1000;
-const START_GRANT_SPENDABLE = 50;
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   // A parent account is just an anonymous identity — no name/email/phone.
@@ -64,8 +62,8 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   // Child self-registers standalone — no parent or invite code required at
   // account-creation time (product decision: a parent link is optional and
-  // attached later, see POST /child/parent-link/redeem). Provisions wallets
-  // and grants a small starting balance atomically with the account.
+  // attached later, see POST /child/parent-link/redeem). Provisions empty
+  // wallets; the first 30 coins arrive only when the child starts a game day.
   app.post<{ Body: { difficulty?: "SIMPLE" | "ADVANCED" } }>(
     "/auth/child/register",
     {
@@ -91,14 +89,6 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
           `INSERT INTO wallets (child_user_id, kind) VALUES ($1, 'SPENDABLE'), ($1, 'SAVINGS'), ($1, 'FROZEN')`,
           [childUserId],
         );
-
-        await postTransaction(client, {
-          childUserId,
-          walletKind: "SPENDABLE",
-          eventType: "START_GRANT",
-          deltaAmount: START_GRANT_SPENDABLE,
-          idempotencyKey: "start-grant",
-        });
 
         const token = generateOpaqueToken();
         await client.query(

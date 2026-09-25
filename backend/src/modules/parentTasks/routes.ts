@@ -4,6 +4,7 @@ import { HttpError } from "../../lib/errors.js";
 import { postTransaction } from "../../lib/ledger.js";
 import { assertActiveLink, requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
+import { ECONOMY_RULES } from "../economy/rules.js";
 
 // Real-life chores assigned by the parent (вынес мусор, помыл посуду, ...),
 // confirmed by the parent — from behind the app's parent-gate (PIN/math
@@ -17,7 +18,11 @@ export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
         {
           childUserId: uuidSchema,
           title: { type: "string", minLength: 1, maxLength: 160 },
-          rewardAmount: { type: "integer", minimum: 1 },
+          rewardAmount: {
+            type: "integer",
+            minimum: 1,
+            maximum: ECONOMY_RULES.parentRewardLimit,
+          },
         },
         ["childUserId", "title", "rewardAmount"],
       ),
@@ -114,6 +119,27 @@ export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
         );
         const task = res.rows[0];
         if (!task) throw new HttpError(404, "task_not_found_or_not_awaiting_parent");
+        if (task.reward_amount > ECONOMY_RULES.parentRewardLimit) {
+          throw new HttpError(409, "parent_reward_exceeds_daily_limit");
+        }
+
+        const periodRes = await client.query<{ id: string; opened_at: Date }>(
+          `SELECT id, opened_at FROM game_periods
+            WHERE child_user_id = $1 AND status = 'ACTIVE' FOR UPDATE`,
+          [task.child_user_id],
+        );
+        const period = periodRes.rows[0];
+        if (!period) throw new HttpError(409, "active_day_required");
+
+        const rewardedRes = await client.query(
+          `SELECT 1 FROM transactions
+            WHERE child_user_id = $1 AND event_type = 'PARENT_TASK_REWARD'
+              AND occurred_at >= $2 LIMIT 1`,
+          [task.child_user_id, period.opened_at],
+        );
+        if ((rewardedRes.rowCount ?? 0) > 0) {
+          throw new HttpError(409, "parent_reward_already_paid_today");
+        }
 
         const txn = await postTransaction(client, {
           childUserId: task.child_user_id,
@@ -126,8 +152,11 @@ export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
         });
 
         await client.query(
-          `UPDATE assignments SET status = 'VERIFIED', reward_transaction_id = $1, updated_at = now() WHERE id = $2`,
-          [txn.id, assignmentId],
+          `UPDATE assignments
+              SET status = 'VERIFIED', reward_transaction_id = $1,
+                  period_id = $2, updated_at = now()
+            WHERE id = $3`,
+          [txn.id, period.id, assignmentId],
         );
 
         return { ok: true, balanceAfter: txn.balanceAfter };

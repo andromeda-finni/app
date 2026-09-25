@@ -14,9 +14,14 @@ enum _LoadState { loading, ready, error }
 /// The pet's home: who they are, how they are doing, what money there is and
 /// what the plan for it is.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.apiClient});
+  const HomeScreen({
+    super.key,
+    required this.apiClient,
+    required this.onChooseGoal,
+  });
 
   final ApiClient apiClient;
+  final VoidCallback onChooseGoal;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -27,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Pet? _pet;
   ActivePeriod? _period;
   Map<String, int> _wallets = const {};
+  bool _hasGoal = false;
 
   @override
   void initState() {
@@ -37,27 +43,32 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _load() async {
     setState(() => _state = _LoadState.loading);
     try {
-      // Three independent reads — fetched together so the screen appears at
-      // once instead of filling in piecewise.
-      final results = await Future.wait([
-        widget.apiClient.get('/pet'),
-        widget.apiClient.getList('/wallets'),
-        widget.apiClient.getOptional('/periods/active'),
-      ]);
-
-      final pet = Pet.fromJson(results[0]! as Map<String, dynamic>);
+      // The current backend exposes one read model for all child-facing
+      // economy state. Reading it once also keeps the balance and active day
+      // consistent with each other while the screen appears.
+      final economy = await widget.apiClient.get('/economy/state');
+      final petJson = Map<String, dynamic>.from(
+        economy['pet'] as Map? ?? const {},
+      );
+      final walletJson = Map<String, dynamic>.from(
+        economy['wallets'] as Map? ?? const {},
+      );
+      final dayValue = economy['activeDay'];
+      final periodJson = dayValue is Map
+          ? Map<String, dynamic>.from(dayValue)
+          : null;
+      final pet = Pet.fromJson(petJson);
       final wallets = {
-        for (final row in results[1] as List<dynamic>)
-          (row as Map<String, dynamic>)['kind'] as String:
-              (row['balance'] as num).toInt(),
+        for (final entry in walletJson.entries)
+          entry.key: (entry.value as num?)?.toInt() ?? 0,
       };
-      final periodJson = results[2] as Map<String, dynamic>?;
 
       if (!mounted) return;
       setState(() {
         _pet = pet;
         _wallets = wallets;
         _period = periodJson == null ? null : ActivePeriod.fromJson(periodJson);
+        _hasGoal = economy['activeGoal'] is Map;
         _state = _LoadState.ready;
       });
     } catch (_) {
@@ -67,6 +78,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _startPeriod() async {
+    if (!_hasGoal) {
+      widget.onChooseGoal();
+      return;
+    }
     await widget.apiClient.post('/periods');
     await _load();
   }
