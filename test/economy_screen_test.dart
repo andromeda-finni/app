@@ -1,10 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:io';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -70,34 +67,30 @@ void main() {
     await (FontLoader(
       'PTSerif',
     )..addFont(rootBundle.load('assets/fonts/PTSerif-Regular.ttf'))).load();
-    const boundaryKey = Key('economy-preview');
     await tester.pumpWidget(
-      RepaintBoundary(
-        key: boundaryKey,
-        child: MaterialApp(
-          theme: AppTheme.light,
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context)
-                .copyWith(textScaler: const TextScaler.linear(1.5)),
-            child: child!,
-          ),
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () => showEconomyConfirmation(
-                  context,
-                  EconomyActions.purchase(
-                    EconomyState.fromJson(_economyState()),
-                    const EconomyItem(
-                      id: 'ball',
-                      name: 'Мячик для Грошика',
-                      price: 8,
-                      kind: 'WANT',
-                    ),
-                  ).confirmation,
-                ),
-                child: const Text('Открыть'),
+      MaterialApp(
+        theme: AppTheme.light,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(1.5)),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showEconomyConfirmation(
+                context,
+                EconomyActions.purchase(
+                  EconomyState.fromJson(_economyState()),
+                  const EconomyItem(
+                    id: 'ball',
+                    name: 'Мячик для Грошика',
+                    price: 8,
+                    kind: 'WANT',
+                  ),
+                ).confirmation,
               ),
+              child: const Text('Открыть'),
             ),
           ),
         ),
@@ -110,16 +103,6 @@ void main() {
       find.widgetWithText(FilledButton, 'Купить').hitTestable(),
       findsOneWidget,
     );
-    await tester.runAsync(() async {
-      final boundary = tester.renderObject<RenderRepaintBoundary>(
-        find.byKey(boundaryKey),
-      );
-      final picture = await boundary.toImage();
-      final bytes = await picture.toByteData(format: ui.ImageByteFormat.png);
-      await File('/private/tmp/groshik-economy-confirmation.png')
-          .writeAsBytes(bytes!.buffer.asUint8List());
-      picture.dispose();
-    });
     await tester.tap(find.text('Отмена'));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
