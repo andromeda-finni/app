@@ -17,6 +17,7 @@ import { goalRoutes } from "./modules/goals/routes.js";
 import { petEventRoutes } from "./modules/petEvents/routes.js";
 import { scamOfferRoutes } from "./modules/scamOffers/routes.js";
 import { passportRoutes } from "./modules/passport/routes.js";
+import { parentViewRoutes } from "./modules/parentView/routes.js";
 import { onboardingRoutes } from "./modules/onboarding/routes.js";
 import { economyRoutes } from "./modules/economy/routes.js";
 
@@ -152,6 +153,7 @@ export async function buildApp() {
   await app.register(petEventRoutes);
   await app.register(scamOfferRoutes);
   await app.register(passportRoutes);
+  await app.register(parentViewRoutes);
 
   return app;
 }

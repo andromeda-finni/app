@@ -24,8 +24,7 @@ class HomeScreen extends StatefulWidget {
   final ApiClient apiClient;
   final VoidCallback onChooseGoal;
 
-  /// Opens the child's settings; receives the pet id the access code uses.
-  final void Function(String? petId)? onOpenSettings;
+  final VoidCallback? onOpenSettings;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -129,9 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case _LoadState.ready:
         return _Content(
           pet: _pet!,
-          onOpenSettings: widget.onOpenSettings == null
-              ? null
-              : () => widget.onOpenSettings!(_pet!.id),
+          onOpenSettings: widget.onOpenSettings,
           period: _period,
           spendable: _wallets['SPENDABLE'] ?? 0,
           savings: _wallets['SAVINGS'] ?? 0,

@@ -38,7 +38,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
       const [petRes, walletsRes, dayRes, eventRes, goalRes, frostRes, shopRes, artifactRes, inventoryRes, transactionsRes, historyRes, questsRes, tasksRes] =
         await Promise.all([
           pool.query(
-            `SELECT id, pet_name, fur_option_id, energy_level, joy_level, health_level, evolution_stage
+            `SELECT pet_name, fur_option_id, energy_level, joy_level, health_level, evolution_stage
                FROM pets WHERE child_user_id = $1`,
             [childUserId],
           ),

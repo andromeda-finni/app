@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../core/api_client.dart';
 import '../onboarding/widgets/back_circle_button.dart';
 import '../theme/app_theme.dart';
 
@@ -35,13 +35,14 @@ class ChildSettingsSnapshot {
 class ChildSettingsScreen extends StatefulWidget {
   const ChildSettingsScreen({
     super.key,
-    required this.childCode,
+    this.apiClient,
     required this.initialSettings,
     required this.onSettingsChanged,
     required this.onSwitchAudience,
   });
 
-  final String childCode;
+  /// Talks to the server for the parent link; null only in isolated tests.
+  final ApiClient? apiClient;
   final ChildSettingsSnapshot initialSettings;
   final ValueChanged<ChildSettingsSnapshot> onSettingsChanged;
   final VoidCallback onSwitchAudience;
@@ -56,13 +57,6 @@ class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
   void _update(ChildSettingsSnapshot next) {
     setState(() => _settings = next);
     widget.onSettingsChanged(next);
-  }
-
-  Future<void> _copyCode() async {
-    await Clipboard.setData(ClipboardData(text: widget.childCode));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('ID ребёнка скопирован')));
   }
 
   @override
@@ -94,45 +88,8 @@ class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
                 ),
                 const SizedBox(height: 20),
                 _Section(
-                  title: 'Профиль ребёнка',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'ID для подключения родителя',
-                        style: TextStyle(color: AppColors.inkMuted),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SelectableText(
-                              widget.childCode,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                letterSpacing: 1.2,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.ink,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: 'Скопировать ID',
-                            onPressed: _copyCode,
-                            icon: const Icon(Icons.copy_rounded),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                      const Text(
-                        'Передайте этот ID родителю. Он увидит учебный прогресс и темы для повторения.',
-                        style: TextStyle(
-                          height: 1.35,
-                          color: AppColors.inkMuted,
-                        ),
-                      ),
-                    ],
-                  ),
+                  title: 'Родитель',
+                  child: _ParentLinkSection(apiClient: widget.apiClient),
                 ),
                 const SizedBox(height: 14),
                 _Section(
@@ -249,6 +206,145 @@ class _Section extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Links this child to a parent: the parent gets a one-time code in their
+/// cabinet and the child enters it here. Status always comes from the server.
+class _ParentLinkSection extends StatefulWidget {
+  const _ParentLinkSection({required this.apiClient});
+
+  final ApiClient? apiClient;
+
+  @override
+  State<_ParentLinkSection> createState() => _ParentLinkSectionState();
+}
+
+class _ParentLinkSectionState extends State<_ParentLinkSection> {
+  final _controller = TextEditingController();
+  bool? _linked;
+  bool _busy = false;
+  String? _message;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStatus();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadStatus() async {
+    final api = widget.apiClient;
+    if (api == null) return;
+    try {
+      final status = await api.get('/child/parent-link');
+      if (mounted) setState(() => _linked = status['linked'] == true);
+    } on ApiException {
+      if (mounted) {
+        setState(() => _message = 'Не удалось проверить подключение.');
+      }
+    }
+  }
+
+  Future<void> _redeem() async {
+    final api = widget.apiClient;
+    // Parents may read the code with a hyphen or spaces; only letters and
+    // digits are part of it.
+    final code = _controller.text.replaceAll(RegExp('[^A-Za-z0-9]'), '');
+    if (api == null || code.isEmpty) return;
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      await api.post('/child/parent-link/redeem', body: {'inviteCode': code});
+      if (!mounted) return;
+      setState(() {
+        _linked = true;
+        _controller.clear();
+      });
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _message = switch (error.code) {
+          'invite_code_invalid_or_expired' =>
+            'Код не подошёл или устарел. Попроси родителя получить новый.',
+          'already_linked_to_this_parent' => 'Этот родитель уже подключён.',
+          _ when error.isNetworkError =>
+            'Нет связи с сервером. Попробуй ещё раз.',
+          _ => 'Не получилось подключить. Попробуй ещё раз.',
+        },
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_linked == true) {
+      return const Row(
+        children: [
+          Icon(Icons.check_circle, color: AppColors.leafGreen),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Родитель подключён и видит твой прогресс.',
+              style: TextStyle(color: AppColors.ink),
+            ),
+          ),
+        ],
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Попроси родителя открыть «Кабинет родителя» и получить код. '
+          'Введи его здесь — и он сможет следить за твоими успехами.',
+          style: TextStyle(height: 1.35, color: AppColors.inkMuted),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('parent-invite-code-field'),
+          controller: _controller,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(
+            labelText: 'Код от родителя',
+            hintText: 'Например, 6B9B-EBHW',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (_) => _redeem(),
+        ),
+        if (_message != null) ...[
+          const SizedBox(height: 8),
+          Text(_message!, style: const TextStyle(color: AppColors.crimson)),
+        ],
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: _busy ? null : _redeem,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.crimson,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+          child: _busy
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Подключить родителя'),
+        ),
+      ],
     );
   }
 }

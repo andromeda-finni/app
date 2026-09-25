@@ -6,7 +6,7 @@ import 'core/auth_storage.dart';
 import 'home/main_shell.dart';
 import 'onboarding/onboarding_data.dart';
 import 'onboarding/onboarding_flow.dart';
-import 'parent/parent_connect_screen.dart';
+import 'parent/parent_home_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -66,9 +66,7 @@ class _AudienceGateState extends State<_AudienceGate> {
           onSwitchAudience: () => setState(() => _audience = null),
         );
       case AppAudience.parent:
-        return ParentConnectScreen(
-          onBack: () => setState(() => _audience = null),
-        );
+        return ParentHomeScreen(onBack: () => setState(() => _audience = null));
       case null:
         return RoleChoiceScreen(
           onChildSelected: () => setState(() => _audience = AppAudience.child),

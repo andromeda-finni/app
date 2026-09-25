@@ -27,7 +27,6 @@ Widget _shell({VoidCallback? onSwitchAudience}) {
     final body = switch (request.url.path) {
       '/economy/state' => {
         'pet': {
-          'id': '11111111-2222-3333-4444-555566667777',
           'pet_name': 'Мурзик',
           'fur_option_id': 'FUR_GRAY',
           'energy_level': 60,
@@ -221,14 +220,18 @@ void main() {
     await tester.tap(find.byTooltip('Настройки').first);
     await tester.pumpAndSettle();
 
-    // The code is derived from the real pet id, never the demo fallback.
-    expect(find.textContaining('GR-DEMO'), findsNothing);
-    expect(find.textContaining('GR-6666-7777'), findsOneWidget);
+    // Parent linking uses the parent's one-time code, entered here.
+    expect(find.byKey(const Key('parent-invite-code-field')), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text('Сменить пользователя'),
       200,
-      scrollable: find.byType(Scrollable).last,
+      // The settings list, not the code field's own horizontal scrollable.
+      scrollable: find
+          .byWidgetPredicate(
+            (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+          )
+          .last,
     );
     await tester.tap(find.text('Сменить пользователя'));
     await tester.pumpAndSettle();

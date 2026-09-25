@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../economy/savings_screen.dart';
-import '../profile/child_access_code.dart';
 import '../quest_map/quest_map_screen.dart';
 import '../settings/child_settings_screen.dart';
 import '../shop/shop_screen.dart';
@@ -37,22 +36,11 @@ class _MainShellState extends State<MainShell> {
   StoreMode _storeMode = StoreMode.normal;
   ChildSettingsSnapshot _settings = const ChildSettingsSnapshot();
 
-  Future<void> _openSettings(String? petId) async {
-    // Only the home tab already holds the pet; from elsewhere ask the server,
-    // so the access code shown is always the child's real one.
-    var id = petId;
-    if (id == null) {
-      try {
-        id = (await widget.apiClient.get('/pet'))['id'] as String?;
-      } on ApiException {
-        id = null;
-      }
-    }
-    if (!mounted) return;
+  void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (screenContext) => ChildSettingsScreen(
-          childCode: childAccessCodeFrom(id),
+          apiClient: widget.apiClient,
           initialSettings: _settings,
           onSettingsChanged: (next) => setState(() => _settings = next),
           onSwitchAudience: () {
@@ -132,7 +120,7 @@ class _MainShellState extends State<MainShell> {
               onBack: () => setState(() => _index = 0),
               onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
               onBrowseGoals: () => _openGoalStore(StoreMode.browseGoals),
-              onOpenSettings: () => _openSettings(null),
+              onOpenSettings: _openSettings,
             ),
           ],
         ),
