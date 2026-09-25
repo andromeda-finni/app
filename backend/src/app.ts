@@ -25,13 +25,11 @@ import { onboardingRoutes } from "./modules/onboarding/routes.js";
  * traffic and then 500ing on the first query that hits a missing column.
  * Bump this whenever a migration the code depends on is added.
  */
-const REQUIRED_SCHEMA_VERSION = "0020_onboarding_progress.sql";
+const REQUIRED_SCHEMA_VERSION = "0022_generic_pet_copy.sql";
 
 export async function buildApp() {
   const app = Fastify({
     logger: true,
-    // No X-Powered-By-style fingerprinting, trims default error verbosity.
-    disableRequestLogging: false,
     ajv: {
       customOptions: {
         // Fastify defaults this to true, which makes `additionalProperties:

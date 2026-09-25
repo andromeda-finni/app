@@ -14,6 +14,24 @@ const REQUIRED_NEED_BY_DIFFICULTY: Record<"SIMPLE" | "ADVANCED", number> = {
   ADVANCED: 20,
 };
 
+export function buildPeriodFeedback({
+  planFollowed,
+  needCovered,
+  petName,
+}: {
+  planFollowed: boolean;
+  needCovered: boolean;
+  petName: string;
+}): string {
+  if (planFollowed) {
+    return `Отличный период! План выполнен, ${petName} доволен и растёт.`;
+  }
+  if (needCovered) {
+    return "Нужное закрыто, но с желаниями или накоплениями вышло не по плану — в следующий раз получится лучше!";
+  }
+  return `В этот раз не хватило на нужное. ${petName} расстроился, но ничего страшного — попробуем снова.`;
+}
+
 export async function periodRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/periods/active",
@@ -276,8 +294,13 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
         const planFollowed =
           needCovered && actualWant <= plan.want_amount && netSavings >= plan.savings_amount;
 
-        const petRes = await client.query<{ evolution_stage: number; successful_period_streak: number }>(
-          `SELECT evolution_stage, successful_period_streak FROM pets WHERE child_user_id = $1 FOR UPDATE`,
+        const petRes = await client.query<{
+          pet_name: string;
+          evolution_stage: number;
+          successful_period_streak: number;
+        }>(
+          `SELECT pet_name, evolution_stage, successful_period_streak
+             FROM pets WHERE child_user_id = $1 FOR UPDATE`,
           [childUserId],
         );
         const pet = petRes.rows[0];
@@ -292,11 +315,7 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
         const stageAfter =
           planFollowed && newStreak % 3 === 0 ? Math.min(3, stageBefore + 1) : stageBefore;
 
-        const feedback = planFollowed
-          ? "Отличный период! План выполнен, Грошик доволен и растёт."
-          : needCovered
-            ? "Нужное закрыто, но с желаниями или накоплениями вышло не по плану — в следующий раз получится лучше!"
-            : "В этот раз не хватило на нужное. Грошик расстроился, но ничего страшного — попробуем снова.";
+        const feedback = buildPeriodFeedback({ planFollowed, needCovered, petName: pet.pet_name });
 
         await client.query(
           `UPDATE pets SET evolution_stage = $1, successful_period_streak = $2, updated_at = now()

@@ -41,6 +41,18 @@ void main() {
     expect(captured.body, isEmpty);
   });
 
+  test('optional GET preserves a null resource response', () async {
+    final client = MockClient((_) async => http.Response('null', 200));
+
+    final api = ApiClient(httpClient: client, baseUrl: 'http://test');
+
+    expect(await api.getOptional('/periods/active', auth: false), isNull);
+    await expectLater(
+      api.get('/periods/active', auth: false),
+      throwsA(isA<ApiException>()),
+    );
+  });
+
   test('PUT sends the replacement body with the expected method', () async {
     late http.Request captured;
     final client = MockClient((request) async {

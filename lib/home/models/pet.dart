@@ -24,8 +24,12 @@ class Pet {
       value is int ? value : int.tryParse('${value ?? ''}') ?? fallback;
 
   factory Pet.fromJson(Map<String, dynamic> json) {
+    final name = json['pet_name'];
+    if (name is! String || name.trim().isEmpty) {
+      throw const FormatException('pet_name must be a non-empty string');
+    }
     return Pet(
-      name: json['pet_name'] as String? ?? 'Грошик',
+      name: name,
       furOptionId: json['fur_option_id'] as String?,
       satiety: _int(json['energy_level'], 100),
       joy: _int(json['joy_level'], 50),

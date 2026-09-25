@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/core/pet_assets.dart';
 import 'package:andromeda_app/home/home_screen.dart';
+import 'package:andromeda_app/home/models/pet.dart';
 
 import 'support/fake_auth_storage.dart';
 
@@ -96,6 +97,13 @@ Future<void> _pump(WidgetTester tester, Widget screen) async {
 
 void main() {
   group('pet mood', () {
+    test('rejects a pet response without the chosen name', () {
+      expect(
+        () => Pet.fromJson({..._pet(), 'pet_name': ''}),
+        throwsFormatException,
+      );
+    });
+
     test('an unpaid illness makes the pet visibly sad', () {
       // A pet event takes 45 health off, so the "unwell" threshold has to sit
       // above 55 or an unpaid bill would leave the pet looking fine.

@@ -73,9 +73,7 @@ class OnboardingScene extends StatelessWidget {
               height: 44,
               child: IgnorePointer(
                 child: Image(
-                  image: AssetImage(
-                    'assets/backgrounds/scene_transition.png',
-                  ),
+                  image: AssetImage('assets/backgrounds/scene_transition.png'),
                   fit: BoxFit.fill,
                   excludeFromSemantics: true,
                 ),

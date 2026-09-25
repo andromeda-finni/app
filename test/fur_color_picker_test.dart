@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:andromeda_app/onboarding/onboarding_data.dart';
+import 'package:andromeda_app/core/pet_assets.dart';
 import 'package:andromeda_app/onboarding/widgets/fur_color_picker.dart';
 
 void main() {

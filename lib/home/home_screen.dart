@@ -42,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final results = await Future.wait([
         widget.apiClient.get('/pet'),
         widget.apiClient.getList('/wallets'),
-        widget.apiClient.get('/periods/active', allowNullBody: true),
+        widget.apiClient.getOptional('/periods/active'),
       ]);
 
       final pet = Pet.fromJson(results[0]! as Map<String, dynamic>);
@@ -97,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Не получилось загрузить Грошика — проверьте подключение к интернету.',
+                  'Не получилось загрузить питомца — проверьте подключение к интернету.',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.story,
                 ),

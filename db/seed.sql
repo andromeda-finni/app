@@ -22,7 +22,7 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO quest_steps (quest_id, step_no, instruction, expected_action_code, success_feedback, recovery_feedback, ui_spec) VALUES
   ('Q_FIRST_BUDGET', 1,
-   'У тебя есть 30 монет. Сколько лучше отложить на нужное — еду для Грошика?',
+   'У тебя есть 30 монет. Сколько лучше отложить на нужное — еду для питомца?',
    'CHOOSE_OPTION', 'Верно! Нужное — в первую очередь.', 'Подумай ещё раз — что важнее прямо сейчас?',
    '{"options": [{"code": "A", "label": "10 монет"}, {"code": "B", "label": "0 монет"}], "correctOptionCode": "A"}'),
   ('Q_SAVING_JAR', 1,
@@ -41,8 +41,8 @@ INSERT INTO shop_items (id, kind, name, price, rarity) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO pet_event_definitions (id, title, description, cost_amount) VALUES
-  ('SICK', 'Грошик заболел', 'Нужно купить лекарство', 15),
-  ('HUNGRY', 'Грошик проголодался', 'Нужно срочно покормить', 10)
+  ('SICK', 'Питомец заболел', 'Нужно купить лекарство', 15),
+  ('HUNGRY', 'Питомец проголодался', 'Нужно срочно покормить', 10)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO scam_offer_definitions

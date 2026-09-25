@@ -97,17 +97,19 @@ class ApiClient {
     bool auth = true,
   }) async => _asObject(await _send('PUT', path, body: body, auth: auth));
 
-  /// For a route that answers with a JSON object. Pass [allowNullBody] for one
-  /// that legitimately answers `null` (e.g. "no active period"), which is a
-  /// valid answer rather than an error.
-  Future<Map<String, dynamic>?> get(
+  /// For a route that must answer with a JSON object.
+  Future<Map<String, dynamic>> get(String path, {bool auth = true}) async =>
+      _asObject(await _send('GET', path, auth: auth));
+
+  /// For a route where `null` is a valid resource state, such as "no active
+  /// period". Keeping this separate from [get] preserves non-nullable types at
+  /// every ordinary call site.
+  Future<Map<String, dynamic>?> getOptional(
     String path, {
     bool auth = true,
-    bool allowNullBody = false,
   }) async {
     final decoded = await _send('GET', path, auth: auth);
-    if (decoded == null && allowNullBody) return null;
-    return _asObject(decoded);
+    return decoded == null ? null : _asObject(decoded);
   }
 
   /// For a route that answers with a JSON array.

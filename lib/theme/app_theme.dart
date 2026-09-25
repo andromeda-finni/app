@@ -122,7 +122,7 @@ abstract final class AppTextStyles {
   );
 
   static const TextStyle navLabel = TextStyle(
-    fontFamily: _fontFamily,
+    fontFamily: AppFonts.body,
     fontSize: 14,
     height: 1.1,
   );

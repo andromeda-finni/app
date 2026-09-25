@@ -17,8 +17,9 @@ const _furFolder = <String, String>{
   'FUR_WHITE': 'white',
 };
 
-/// Shown before a fur colour has been chosen — the cat is still "any cat".
-const kBaseCatAsset = 'assets/Cat/Base/playful.png';
+/// Shown before a fur colour has been chosen. It deliberately matches the
+/// first (grey) option, so choosing grey never swaps the cat to another pose.
+const kBaseCatAsset = 'assets/Cat/Red_collar/base/striped.png';
 
 String catAsset({required String? furOptionId, PetMood mood = PetMood.base}) {
   final fur = _furFolder[furOptionId];

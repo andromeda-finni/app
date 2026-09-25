@@ -39,47 +39,54 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
     async (req) => {
       const childUserId = req.authUser!.id;
 
-      const activeRes = await pool.query(
-        `SELECT 1 FROM pet_event_occurrences WHERE child_user_id = $1 AND status = 'ACTIVE'`,
-        [childUserId],
-      );
-      if ((activeRes.rowCount ?? 0) > 0) return { triggered: false };
+      return withTransaction(async (client) => {
+        // Serialise rolls for one pet. The database's partial unique index is a
+        // final invariant, but this lock also turns concurrent retries into a
+        // normal "nothing triggered" response instead of a raw unique error.
+        const petRes = await client.query<{ id: string }>(
+          `SELECT id FROM pets WHERE child_user_id = $1 FOR UPDATE`,
+          [childUserId],
+        );
+        const pet = petRes.rows[0];
+        if (!pet) return { triggered: false };
 
-      if (Math.random() > TRIGGER_PROBABILITY) return { triggered: false };
+        const activeRes = await client.query(
+          `SELECT 1 FROM pet_event_occurrences WHERE child_user_id = $1 AND status = 'ACTIVE'`,
+          [childUserId],
+        );
+        if ((activeRes.rowCount ?? 0) > 0) return { triggered: false };
 
-      const defsRes = await pool.query<{ id: string; cost_amount: number; trigger_weight: number }>(
-        `SELECT id, cost_amount, trigger_weight FROM pet_event_definitions WHERE active`,
-      );
-      const chosen = pickWeighted(defsRes.rows, (d) => d.trigger_weight);
-      if (!chosen) return { triggered: false };
+        if (Math.random() > TRIGGER_PROBABILITY) return { triggered: false };
 
-      const petRes = await pool.query<{ id: string }>(
-        `SELECT id FROM pets WHERE child_user_id = $1`,
-        [childUserId],
-      );
-      const pet = petRes.rows[0];
-      if (!pet) return { triggered: false };
+        const defsRes = await client.query<{
+          id: string;
+          cost_amount: number;
+          trigger_weight: number;
+        }>(`SELECT id, cost_amount, trigger_weight FROM pet_event_definitions WHERE active`);
+        const chosen = pickWeighted(defsRes.rows, (d) => d.trigger_weight);
+        if (!chosen) return { triggered: false };
 
-      const periodRes = await pool.query<{ id: string }>(
-        `SELECT id FROM game_periods WHERE child_user_id = $1 AND status = 'ACTIVE'`,
-        [childUserId],
-      );
+        const periodRes = await client.query<{ id: string }>(
+          `SELECT id FROM game_periods WHERE child_user_id = $1 AND status = 'ACTIVE'`,
+          [childUserId],
+        );
 
-      const occRes = await pool.query<{ id: string }>(
-        `INSERT INTO pet_event_occurrences (child_user_id, pet_id, event_definition_id, period_id, amount_due)
-         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        [childUserId, pet.id, chosen.id, periodRes.rows[0]?.id ?? null, chosen.cost_amount],
-      );
+        const occRes = await client.query<{ id: string }>(
+          `INSERT INTO pet_event_occurrences (child_user_id, pet_id, event_definition_id, period_id, amount_due)
+           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+          [childUserId, pet.id, chosen.id, periodRes.rows[0]?.id ?? null, chosen.cost_amount],
+        );
 
-      // The pet visibly stops being well, so the child notices the event from
-      // the home screen rather than only from the events list.
-      await pool.query(
-        `UPDATE pets SET health_level = GREATEST(0, health_level - $1), updated_at = now()
-          WHERE child_user_id = $2`,
-        [PET_EVENT_HEALTH_DROP, childUserId],
-      );
+        // The occurrence and its visible health effect are one domain change:
+        // either both commit, or both roll back.
+        await client.query(
+          `UPDATE pets SET health_level = GREATEST(0, health_level - $1), updated_at = now()
+            WHERE child_user_id = $2`,
+          [PET_EVENT_HEALTH_DROP, childUserId],
+        );
 
-      return { triggered: true, occurrenceId: occRes.rows[0]!.id };
+        return { triggered: true, occurrenceId: occRes.rows[0]!.id };
+      });
     },
   );
 
