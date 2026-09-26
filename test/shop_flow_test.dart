@@ -118,7 +118,7 @@ Future<void> _pumpShell(WidgetTester tester, MockClient client) async {
 
 void main() {
   test('local catalog covers every seeded artifact', () {
-    expect(localItemArtwork.keys.toSet(), {
+    const artifactIds = {
       'saucer',
       'vial',
       'tablecloth',
@@ -126,7 +126,9 @@ void main() {
       'shield',
       'purse',
       'boots',
-    });
+    };
+    expect(localItemArtwork.keys.toSet(), artifactIds);
+    expect(localArtifactBenefitDescriptions.keys.toSet(), artifactIds);
   });
 
   testWidgets('every catalog artwork is bundled and can be loaded', (
@@ -370,6 +372,15 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(firstCard, findsOneWidget);
+    expect(
+      find.descendant(
+        of: firstCard,
+        matching: find.text(
+          'Показывает, сколько энергии потребует каждое предстоящее задание.',
+        ),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('ordinary store purchase requires explicit confirmation', (

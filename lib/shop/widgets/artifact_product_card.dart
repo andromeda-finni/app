@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../economy/economy_state.dart';
+import '../../economy/item_art_catalog.dart';
 import '../../economy/item_artwork.dart';
 import '../../theme/app_theme.dart';
 
@@ -22,11 +23,13 @@ class ArtifactProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selected = state == ArtifactProductState.selected;
+    final benefit = resolveArtifactBenefitDescription(item.id);
     return Semantics(
       key: ValueKey('artifact-card-${item.id}'),
       container: true,
       label:
-          '${item.name}, ${item.price} монет, ${_rarityLabel(item.rarity)}, ${_stateLabel(state)}',
+          '${item.name}, ${item.price} монет, ${_rarityLabel(item.rarity)}, '
+          '${benefit == null ? '' : 'эффект: $benefit, '}${_stateLabel(state)}',
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -65,6 +68,10 @@ class ArtifactProductCard extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(item.name, style: AppTextStyles.cardTitle),
+            if (benefit != null) ...[
+              const SizedBox(height: 10),
+              _BenefitDescription(description: benefit),
+            ],
             const SizedBox(height: 14),
             _action(),
           ],
@@ -120,6 +127,34 @@ class ArtifactProductCard extends StatelessWidget {
       ),
     ),
   };
+}
+
+class _BenefitDescription extends StatelessWidget {
+  const _BenefitDescription({required this.description});
+
+  final String description;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Padding(
+        padding: EdgeInsets.only(top: 2),
+        child: Icon(Icons.auto_awesome, size: 18, color: AppColors.coinGold),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Что умеет', style: AppTextStyles.swatchLabel),
+            const SizedBox(height: 2),
+            Text(description, style: AppTextStyles.supporting),
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 class _Price extends StatelessWidget {
