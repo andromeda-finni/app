@@ -61,6 +61,9 @@ class _SavingsScreenState extends State<SavingsScreen> {
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _error = economyErrorMessage(error));
+    } on FormatException {
+      if (!mounted) return;
+      setState(() => _error = economyContractErrorMessage);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -100,7 +103,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
     if (economy == null || _busy) return;
     final amount = await _chooseAmount(
       title: deposit ? 'Пополнить копилку' : 'Вернуть в кошелёк',
-      amounts: const [5, 10],
+      amounts: economy.rules.savingsTransferAmounts,
       enabled: (amount) {
         if (!_dayReady || economy.goal == null) return false;
         if (!deposit) return economy.savings >= amount;
@@ -117,7 +120,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
     if (economy == null || _busy) return;
     final amount = await _chooseAmount(
       title: 'Сколько положить в сундук?',
-      amounts: const [10, 20, 30, 40, 50],
+      amounts: economy.rules.frostPrincipalOptions,
       enabled: (amount) =>
           _dayReady && EconomyActions.spendingBlock(economy, amount) == null,
     );
@@ -557,6 +560,7 @@ class _FrostSection extends StatelessWidget {
           const SizedBox(height: 10),
           _FrostBody(
             chest: chest,
+            rules: economy.rules,
             busy: busy,
             dayReady: dayReady,
             onOpen: onOpen,
@@ -571,6 +575,7 @@ class _FrostSection extends StatelessWidget {
 class _FrostBody extends StatelessWidget {
   const _FrostBody({
     required this.chest,
+    required this.rules,
     required this.busy,
     required this.dayReady,
     required this.onOpen,
@@ -578,6 +583,7 @@ class _FrostBody extends StatelessWidget {
   });
 
   final Map<String, dynamic>? chest;
+  final EconomyRules rules;
   final bool busy;
   final bool dayReady;
   final VoidCallback onOpen;
@@ -587,8 +593,17 @@ class _FrostBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = chest;
     final details = data == null
-        ? _ClosedFrostDetails(enabled: !busy && dayReady, onOpen: onOpen)
-        : _OpenFrostDetails(chest: data, busy: busy, onFinish: onFinish);
+        ? _ClosedFrostDetails(
+            rules: rules,
+            enabled: !busy && dayReady,
+            onOpen: onOpen,
+          )
+        : _OpenFrostDetails(
+            chest: data,
+            rules: rules,
+            busy: busy,
+            onFinish: onFinish,
+          );
     return LayoutBuilder(
       builder: (context, constraints) {
         final stack =
@@ -622,8 +637,13 @@ class _FrostBody extends StatelessWidget {
 }
 
 class _ClosedFrostDetails extends StatelessWidget {
-  const _ClosedFrostDetails({required this.enabled, required this.onOpen});
+  const _ClosedFrostDetails({
+    required this.rules,
+    required this.enabled,
+    required this.onOpen,
+  });
 
+  final EconomyRules rules;
   final bool enabled;
   final VoidCallback onOpen;
 
@@ -631,13 +651,16 @@ class _ClosedFrostDetails extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      const Wrap(
+      Wrap(
         alignment: WrapAlignment.spaceBetween,
         runSpacing: 12,
         children: [
-          _FrostFact(label: 'Вклад', value: '10–50'),
-          _FrostFact(label: 'Срок', value: '5 дней'),
-          _FrostFact(label: 'Бонус', value: '+10%'),
+          _FrostFact(
+            label: 'Вклад',
+            value: '${rules.frostMinimum}–${rules.frostMaximum}',
+          ),
+          _FrostFact(label: 'Срок', value: '${rules.frostDays} дней'),
+          _FrostFact(label: 'Бонус', value: '+${rules.frostBonusPercent}%'),
         ],
       ),
       const SizedBox(height: 16),
@@ -657,11 +680,13 @@ class _ClosedFrostDetails extends StatelessWidget {
 class _OpenFrostDetails extends StatelessWidget {
   const _OpenFrostDetails({
     required this.chest,
+    required this.rules,
     required this.busy,
     required this.onFinish,
   });
 
   final Map<String, dynamic> chest;
+  final EconomyRules rules;
   final bool busy;
   final Future<void> Function(bool early) onFinish;
 
@@ -671,6 +696,8 @@ class _OpenFrostDetails extends StatelessWidget {
     final bonus = (chest['bonus_amount'] as num?)?.toInt() ?? 0;
     final completed = (chest['completed_days'] as num?)?.toInt() ?? 0;
     final remaining = (chest['days_remaining'] as num?)?.toInt() ?? 0;
+    final maturityDays =
+        (chest['maturity_days'] as num?)?.toInt() ?? rules.frostDays;
     final matured = chest['matured'] == true;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -684,7 +711,8 @@ class _OpenFrostDetails extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            for (var day = 0; day < 5; day++) _FrostDay(done: day < completed),
+            for (var day = 0; day < maturityDays; day++)
+              _FrostDay(done: day < completed),
           ],
         ),
         const SizedBox(height: 10),

@@ -73,4 +73,20 @@ void main() {
       'furOptionId': 'FUR_GRAY',
     });
   });
+
+  test('malformed server JSON is surfaced as an ApiException', () async {
+    final client = MockClient(
+      (_) async => http.Response('<html>proxy error</html>', 502),
+    );
+    final api = ApiClient(httpClient: client, baseUrl: 'http://test');
+
+    await expectLater(
+      api.get('/economy/state', auth: false),
+      throwsA(
+        isA<ApiException>()
+            .having((error) => error.statusCode, 'statusCode', 502)
+            .having((error) => error.code, 'code', 'invalid_json_response'),
+      ),
+    );
+  });
 }

@@ -1,6 +1,9 @@
 int _asInt(Object? value) =>
     value is num ? value.toInt() : int.tryParse('${value ?? ''}') ?? 0;
 
+const economyContractErrorMessage =
+    'Не удалось загрузить правила игры. Попробуй ещё раз чуть позже.';
+
 Map<String, dynamic>? _asMap(Object? value) =>
     value is Map<String, dynamic> ? value : null;
 
@@ -10,6 +13,85 @@ List<Map<String, dynamic>> _asList(Object? value) => value is List
           .map((row) => Map<String, dynamic>.from(row))
           .toList()
     : const [];
+
+int _requiredPositiveInt(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  if (value is num &&
+      value.isFinite &&
+      value == value.toInt() &&
+      value.toInt() > 0) {
+    return value.toInt();
+  }
+  throw FormatException('Missing or invalid economy rule: $key');
+}
+
+final class EconomyRules {
+  const EconomyRules({
+    required this.dailyIncome,
+    required this.foodReserve,
+    required this.savingsTransferAmounts,
+    required this.frostMinimum,
+    required this.frostMaximum,
+    required this.frostStep,
+    required this.frostDays,
+    required this.frostBonusPercent,
+  });
+
+  final int dailyIncome;
+  final int foodReserve;
+  final List<int> savingsTransferAmounts;
+  final int frostMinimum;
+  final int frostMaximum;
+  final int frostStep;
+  final int frostDays;
+  final int frostBonusPercent;
+
+  List<int> get frostPrincipalOptions => [
+    for (var amount = frostMinimum; amount <= frostMaximum; amount += frostStep)
+      amount,
+  ];
+
+  int frostBonusFor(int principal) =>
+      (principal * frostBonusPercent + 99) ~/ 100;
+
+  factory EconomyRules.fromJson(Map<String, dynamic> json) {
+    final rawTransferAmounts = json['savingsTransferAmounts'];
+    if (rawTransferAmounts is! List) {
+      throw const FormatException(
+        'Missing or invalid economy rule: savingsTransferAmounts',
+      );
+    }
+    final transferAmounts = rawTransferAmounts
+        .whereType<num>()
+        .where(
+          (amount) => amount.isFinite && amount == amount.toInt() && amount > 0,
+        )
+        .map((amount) => amount.toInt())
+        .toList(growable: false);
+    if (transferAmounts.isEmpty ||
+        transferAmounts.length != rawTransferAmounts.length) {
+      throw const FormatException(
+        'Missing or invalid economy rule: savingsTransferAmounts',
+      );
+    }
+
+    final rules = EconomyRules(
+      dailyIncome: _requiredPositiveInt(json, 'dailyIncome'),
+      foodReserve: _requiredPositiveInt(json, 'foodReserve'),
+      savingsTransferAmounts: transferAmounts,
+      frostMinimum: _requiredPositiveInt(json, 'frostMinimum'),
+      frostMaximum: _requiredPositiveInt(json, 'frostMaximum'),
+      frostStep: _requiredPositiveInt(json, 'frostStep'),
+      frostDays: _requiredPositiveInt(json, 'frostDays'),
+      frostBonusPercent: _requiredPositiveInt(json, 'frostBonusPercent'),
+    );
+    if (rules.frostMinimum > rules.frostMaximum ||
+        (rules.frostMaximum - rules.frostMinimum) % rules.frostStep != 0) {
+      throw const FormatException('Invalid frost principal range');
+    }
+    return rules;
+  }
+}
 
 final class EconomyDay {
   const EconomyDay({
@@ -89,6 +171,7 @@ final class EconomyItem {
 
 final class EconomyState {
   const EconomyState({
+    required this.rules,
     required this.petName,
     required this.energy,
     required this.joy,
@@ -108,6 +191,7 @@ final class EconomyState {
     required this.recentDays,
   });
 
+  final EconomyRules rules;
   final String petName;
   final int energy;
   final int joy;
@@ -131,6 +215,10 @@ final class EconomyState {
     final wallets = _asMap(json['wallets']) ?? const {};
     final dayJson = _asMap(json['activeDay']);
     return EconomyState(
+      rules: EconomyRules.fromJson(
+        _asMap(json['rules']) ??
+            (throw const FormatException('Missing economy rules')),
+      ),
       // Neutral fallback: a missing name must never masquerade as a real one.
       petName: pet['pet_name'] as String? ?? 'Питомец',
       energy: _asInt(pet['energy_level']),

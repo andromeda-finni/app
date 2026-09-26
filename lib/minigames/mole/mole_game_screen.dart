@@ -55,10 +55,20 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
       );
       if (!mounted) return;
       final reward = (result['rewardAmount'] as num?)?.toInt();
+      final nextStep = ((result['nextStepNo'] as num?)?.toInt() ?? 1).clamp(
+        1,
+        moleEpisodes.length,
+      );
       setState(() {
         _assignmentId = result['assignmentId'] as String?;
+        _episodeIndex = nextStep - 1;
+        _questionIndex = 0;
+        _wrongAttempts = 0;
+        _foundHotspots = <int>{};
+        _episodeSolved = false;
+        _feedback = null;
         _syncNote = result['resumed'] == true
-            ? 'Продолжаем задание с того места, где ты остановился.'
+            ? 'Продолжаем с проверки $nextStep из ${moleEpisodes.length}.'
             : reward == null
             ? 'Задание начато.'
             : 'Задание начато. За все пять проверок — $reward монет.';

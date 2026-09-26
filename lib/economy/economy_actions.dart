@@ -187,22 +187,25 @@ class EconomyActions {
     );
   }
 
-  static EconomyOperation openFrost(EconomyState s, int amount) =>
-      EconomyOperation(
-        '/frost-chests',
-        EconomyConfirmation(
-          title: 'Положить в Сундук Морозко?',
-          message: '$amount монет на 5 завершённых игровых дней.',
-          confirmLabel: 'Положить',
-          details: [
-            'Кошелёк: ${s.wallet} → ${s.wallet - amount}',
-            'После срока в Кошелёк вернётся ${amount + amount ~/ 10} монет.',
-            'При досрочном открытии вернётся только вложенная сумма.',
-          ],
-        ),
-        'Монеты помещены в Сундук Морозко.',
-        {'principalAmount': amount},
-      );
+  static EconomyOperation openFrost(
+    EconomyState s,
+    int amount,
+  ) => EconomyOperation(
+    '/frost-chests',
+    EconomyConfirmation(
+      title: 'Положить в Сундук Морозко?',
+      message:
+          '$amount монет на ${s.rules.frostDays} завершённых игровых дней.',
+      confirmLabel: 'Положить',
+      details: [
+        'Кошелёк: ${s.wallet} → ${s.wallet - amount}',
+        'После срока в Кошелёк вернётся ${amount + s.rules.frostBonusFor(amount)} монет.',
+        'При досрочном открытии вернётся только вложенная сумма.',
+      ],
+    ),
+    'Монеты помещены в Сундук Морозко.',
+    {'principalAmount': amount},
+  );
 
   static EconomyOperation finishFrost(EconomyState s, {required bool early}) {
     final chest = s.frost!;
@@ -220,7 +223,8 @@ class EconomyActions {
           if (early)
             'Прошло дней: ${chest['completed_days']}. Осталось: ${chest['days_remaining']}.',
           if (early)
-            'При открытии сейчас ты не получишь бонус $bonus монет (10%).',
+            'При открытии сейчас ты не получишь бонус $bonus монет '
+                '(${s.rules.frostBonusPercent}%).',
           'Кошелёк: ${s.wallet} → ${s.wallet + total}',
         ],
       ),

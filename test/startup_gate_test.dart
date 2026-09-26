@@ -13,6 +13,7 @@ import 'package:andromeda_app/onboarding/onboarding_step3_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_step4_screen.dart';
 
 import 'support/fake_auth_storage.dart';
+import 'support/economy_fixture.dart';
 
 /// http.Response(String, int)'s default encoding is Latin1, which throws on
 /// non-ASCII bytes like Cyrillic — always encode mock JSON bodies as UTF-8.
@@ -52,6 +53,7 @@ void main() {
     final client = MockClient((request) async {
       if (request.url.path == '/economy/state') {
         return _jsonResponse({
+          'rules': testEconomyRules,
           'pet': {'pet_name': 'Рыжик'},
         }, 200);
       }
@@ -217,6 +219,7 @@ void main() {
     final client = MockClient((request) async {
       if (request.url.path == '/economy/state') {
         return _jsonResponse({
+          'rules': testEconomyRules,
           'pet': {'pet_name': 'Грошик'},
         }, 200);
       }

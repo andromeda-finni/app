@@ -28,7 +28,7 @@ import { economyRoutes } from "./modules/economy/routes.js";
  * traffic and then 500ing on the first query that hits a missing column.
  * Bump this whenever a migration the code depends on is added.
  */
-const REQUIRED_SCHEMA_VERSION = "0023_mole_minigame_content.sql";
+const REQUIRED_SCHEMA_VERSION = "0024_quest_progression_and_generic_copy.sql";
 
 const LOOPBACK_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 

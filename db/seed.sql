@@ -56,7 +56,7 @@ ON CONFLICT (quest_id, step_no) DO NOTHING;
 INSERT INTO shop_items (id, kind, name, price, rarity) VALUES
   ('FOOD_APPLE', 'NEED', 'Яблоко', 5, NULL),
   ('FOOD_CARROT', 'NEED', 'Морковка', 5, NULL),
-  ('PET_MEAL', 'NEED', 'Обед для Грошика', 10, NULL),
+  ('PET_MEAL', 'NEED', 'Обед для питомца', 10, NULL),
   ('TOY_BALL', 'WANT', 'Мячик', 8, NULL),
   ('CANDY', 'WANT', 'Конфета', 6, NULL),
   ('saucer', 'ARTIFACT', 'Серебряное блюдечко и наливное яблочко', 80, 'RARE'),
@@ -71,6 +71,10 @@ ON CONFLICT (id) DO UPDATE SET
   price = EXCLUDED.price,
   rarity = EXCLUDED.rarity,
   active = true;
+
+INSERT INTO quest_prerequisites (quest_id, prerequisite_quest_id)
+VALUES ('Q_TUGRIKI_CURRENCY', 'Q_MOLE_FINE_PRINT')
+ON CONFLICT DO NOTHING;
 
 UPDATE shop_items
    SET active = false

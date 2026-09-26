@@ -115,6 +115,9 @@ class _EconomyScreenState extends State<EconomyScreen> {
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _error = economyErrorMessage(error));
+    } on FormatException {
+      if (!mounted) return;
+      setState(() => _error = economyContractErrorMessage);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -312,7 +315,11 @@ class _EconomyScreenState extends State<EconomyScreen> {
               ],
               const SizedBox(height: 16),
               if (economy.day == null)
-                _StartDayCard(busy: _busy, onStart: _startDay)
+                _StartDayCard(
+                  dailyIncome: economy.rules.dailyIncome,
+                  busy: _busy,
+                  onStart: _startDay,
+                )
               else if (!economy.day!.planConfirmed)
                 _BudgetEditor(
                   key: ValueKey(economy.day!.id),
@@ -506,7 +513,12 @@ class _Wallet extends StatelessWidget {
 }
 
 class _StartDayCard extends StatelessWidget {
-  const _StartDayCard({required this.busy, required this.onStart});
+  const _StartDayCard({
+    required this.dailyIncome,
+    required this.busy,
+    required this.onStart,
+  });
+  final int dailyIncome;
   final bool busy;
   final VoidCallback onStart;
 
@@ -517,8 +529,8 @@ class _StartDayCard extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Утром в Кошелёк поступят 30 монет. Затем составь план дня.',
+        Text(
+          'Утром в Кошелёк поступят $dailyIncome монет. Затем составь план дня.',
         ),
         const SizedBox(height: 12),
         FilledButton(
@@ -801,7 +813,7 @@ class _SavingsCard extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final amount in [5, 10]) ...[
+            for (final amount in economy.rules.savingsTransferAmounts) ...[
               OutlinedButton(
                 onPressed: busy || depositBlock(amount) != null
                     ? null
@@ -810,7 +822,7 @@ class _SavingsCard extends StatelessWidget {
               ),
               _BlockHint(block: depositBlock(amount), onNavigate: onNavigate),
             ],
-            for (final amount in [5, 10]) ...[
+            for (final amount in economy.rules.savingsTransferAmounts) ...[
               TextButton(
                 onPressed: busy || savings < amount
                     ? null
@@ -1011,17 +1023,21 @@ class _FrostCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              const Text(
-                'Положи монеты на 5 завершённых дней и получи сумму с бонусом 10% в Кошелёк. Раньше срока — без бонуса.',
+              Text(
+                'Положи монеты на ${economy.rules.frostDays} завершённых дней '
+                'и получи сумму с бонусом ${economy.rules.frostBonusPercent}% '
+                'в Кошелёк. Раньше срока — без бонуса.',
               ),
-              for (final amount in [10, 20, 30, 40, 50]) ...[
+              for (final amount in economy.rules.frostPrincipalOptions) ...[
                 OutlinedButton(
                   onPressed:
                       busy ||
                           EconomyActions.spendingBlock(economy, amount) != null
                       ? null
                       : () => onOpen(amount),
-                  child: Text('$amount → ${amount + amount ~/ 10}'),
+                  child: Text(
+                    '$amount → ${amount + economy.rules.frostBonusFor(amount)}',
+                  ),
                 ),
                 _BlockHint(
                   block: EconomyActions.spendingBlock(economy, amount),

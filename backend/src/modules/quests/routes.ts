@@ -46,21 +46,72 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
       const { questId } = req.params;
 
       const result = await withTransaction(async (client) => {
+        // Serialise starts for one child. Besides making two concurrent starts
+        // naturally converge on the same assignment, this gives prerequisite
+        // and active-day checks one stable view of that child's progression.
+        const childRes = await client.query<{ difficulty: string }>(
+          `SELECT difficulty FROM child_profiles WHERE user_id = $1 FOR UPDATE`,
+          [childUserId],
+        );
+        const child = childRes.rows[0];
+        if (!child) throw new HttpError(404, "child_profile_not_found");
+
         const questRes = await client.query<{ reward_amount: number }>(
-          `SELECT reward_amount FROM quest_definitions WHERE id = $1 AND active`,
-          [questId],
+          `SELECT reward_amount FROM quest_definitions
+            WHERE id = $1 AND active AND difficulty = $2`,
+          [questId, child.difficulty],
         );
         const quest = questRes.rows[0];
         if (!quest) throw new HttpError(404, "quest_not_found");
 
+        const blockedRes = await client.query<{ prerequisite_quest_id: string }>(
+          `SELECT qp.prerequisite_quest_id
+             FROM quest_prerequisites qp
+            WHERE qp.quest_id = $1
+              AND NOT EXISTS (
+                SELECT 1 FROM assignments a
+                 WHERE a.child_user_id = $2
+                   AND a.origin = 'SYSTEM'
+                   AND a.quest_id = qp.prerequisite_quest_id
+                   AND a.status = 'COMPLETED'
+              )
+            ORDER BY qp.prerequisite_quest_id`,
+          [questId, childUserId],
+        );
+        if (blockedRes.rowCount) {
+          throw new HttpError(409, "quest_prerequisite_not_completed", {
+            prerequisiteQuestIds: blockedRes.rows.map((row) => row.prerequisite_quest_id),
+          });
+        }
+
+        const periodRes = await client.query<{ id: string }>(
+          `SELECT gp.id FROM game_periods gp
+            JOIN budget_plans bp ON bp.period_id = gp.id AND bp.status = 'CONFIRMED'
+           WHERE gp.child_user_id = $1 AND gp.status = 'ACTIVE'`,
+          [childUserId],
+        );
+        const period = periodRes.rows[0];
+        if (!period) throw new HttpError(409, "active_day_with_confirmed_plan_required");
+
         // An unfinished run is resumed rather than refused: a child who left a
         // game halfway must still be able to finish it and earn the reward.
         // Only a completed quest is closed for good.
-        const existingRes = await client.query<{ id: string; status: string; reward_amount: number }>(
-          `SELECT id, status, reward_amount FROM assignments
-            WHERE child_user_id = $1 AND quest_id = $2 AND origin = 'SYSTEM'
-              AND status IN ('IN_PROGRESS', 'COMPLETED')
-            ORDER BY created_at DESC LIMIT 1`,
+        const existingRes = await client.query<{
+          id: string;
+          status: string;
+          reward_amount: number;
+          next_step_no: number;
+        }>(
+          `SELECT a.id, a.status, a.reward_amount,
+                  COALESCE((
+                    SELECT MAX(qsp.step_no) + 1
+                      FROM quest_step_progress qsp
+                     WHERE qsp.assignment_id = a.id AND qsp.outcome = 'SUCCESS'
+                  ), 1)::int AS next_step_no
+             FROM assignments a
+            WHERE a.child_user_id = $1 AND a.quest_id = $2 AND a.origin = 'SYSTEM'
+              AND a.status IN ('IN_PROGRESS', 'COMPLETED')
+            ORDER BY a.created_at DESC LIMIT 1`,
           [childUserId, questId],
         );
         const existing = existingRes.rows[0];
@@ -68,31 +119,25 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
           throw new HttpError(409, "quest_already_completed");
         }
         if (existing) {
-          return { assignmentId: existing.id, rewardAmount: existing.reward_amount, resumed: true };
+          return {
+            assignmentId: existing.id,
+            rewardAmount: existing.reward_amount,
+            resumed: true,
+            nextStepNo: existing.next_step_no,
+          };
         }
 
-        const periodRes = await client.query<{ id: string }>(
-          `SELECT id FROM game_periods WHERE child_user_id = $1 AND status = 'ACTIVE'`,
-          [childUserId],
+        const res = await client.query<{ id: string }>(
+          `INSERT INTO assignments (child_user_id, period_id, origin, quest_id, reward_amount, status)
+           VALUES ($1, $2, 'SYSTEM', $3, $4, 'IN_PROGRESS') RETURNING id`,
+          [childUserId, period.id, questId, quest.reward_amount],
         );
-
-        // The partial unique index from migration 0019 is still the real
-        // guard: two parallel starts can both miss the SELECT above, and only
-        // the database serialises them. 23505 means the other one won.
-        try {
-          const res = await client.query<{ id: string }>(
-            `INSERT INTO assignments (child_user_id, period_id, origin, quest_id, reward_amount, status)
-             VALUES ($1, $2, 'SYSTEM', $3, $4, 'IN_PROGRESS') RETURNING id`,
-            [childUserId, periodRes.rows[0]?.id ?? null, questId, quest.reward_amount],
-          );
-          return { assignmentId: res.rows[0]!.id, rewardAmount: quest.reward_amount, resumed: false };
-        } catch (err) {
-          const pgErr = err as { code?: string };
-          if (pgErr.code === "23505") {
-            throw new HttpError(409, "quest_already_started_or_completed");
-          }
-          throw err;
-        }
+        return {
+          assignmentId: res.rows[0]!.id,
+          rewardAmount: quest.reward_amount,
+          resumed: false,
+          nextStepNo: 1,
+        };
       });
 
       reply.code(result.resumed ? 200 : 201).send(result);
@@ -227,10 +272,14 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
           throw new HttpError(409, "quest_reward_is_not_an_economy_value");
         }
 
+        // Every quest completion for the day locks the same period row before
+        // counting paid assignments. Different assignments can otherwise all
+        // observe the old count and collectively exceed the daily limit.
         const periodRes = await client.query<{ id: string }>(
           `SELECT gp.id FROM game_periods gp
             JOIN budget_plans bp ON bp.period_id = gp.id AND bp.status = 'CONFIRMED'
-           WHERE gp.child_user_id = $1 AND gp.status = 'ACTIVE'`,
+           WHERE gp.child_user_id = $1 AND gp.status = 'ACTIVE'
+           FOR UPDATE OF gp`,
           [childUserId],
         );
         const period = periodRes.rows[0];

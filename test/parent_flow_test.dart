@@ -19,10 +19,11 @@ http.Response _json(Object? body, [int status = 200]) => http.Response(
 );
 
 const _childId = '18b24a3b-4078-4df9-a084-133b56a676fd';
+const _secondChildId = '94216594-af3f-4d4b-bdef-6e4163dcb2c0';
 
-Map<String, dynamic> _overview() => {
+Map<String, dynamic> _overview([String petName = 'Пушок']) => {
   'pet': {
-    'pet_name': 'Пушок',
+    'pet_name': petName,
     'evolution_stage': 1,
     'energy_level': 80,
     'joy_level': 60,
@@ -156,6 +157,36 @@ void main() {
     expect(find.textContaining('Грошик'), findsNothing);
   });
 
+  testWidgets('inviting another child keeps a route back to linked children', (
+    tester,
+  ) async {
+    final storage = FakeAuthStorage(initialToken: 'parent-token');
+    final client = MockClient((request) async {
+      return switch ((request.method, request.url.path)) {
+        ('GET', '/parent/children') => _json([
+          {'childUserId': _childId, 'petName': 'Пушок'},
+        ]),
+        ('GET', '/parent/children/$_childId/overview') => _json(_overview()),
+        ('POST', '/auth/parent/invites') => _json({
+          'inviteCode': '6B9BEBHW',
+          'expiresAt': '2026-10-02T12:00:00Z',
+        }, 201),
+        _ => _json({'error': 'unexpected'}, 500),
+      };
+    });
+
+    await _pumpParent(tester, storage: storage, client: client);
+    await tester.ensureVisible(find.text('Пригласить ещё одного ребёнка'));
+    await tester.tap(find.text('Пригласить ещё одного ребёнка'));
+    await tester.pumpAndSettle();
+    expect(find.text('6B9B-EBHW'), findsOneWidget);
+    expect(find.text('Вернуться к прогрессу детей'), findsOneWidget);
+
+    await tester.tap(find.text('Вернуться к прогрессу детей'));
+    await tester.pumpAndSettle();
+    expect(find.text('Пушок: прогресс'), findsOneWidget);
+  });
+
   testWidgets('a revoked parent session starts over instead of looping', (
     tester,
   ) async {
@@ -168,6 +199,47 @@ void main() {
 
     expect(await storage.readToken(), isNull);
     expect(find.text('Создать кабинет'), findsOneWidget);
+  });
+
+  testWidgets('an invalid child list shows an error instead of crashing', (
+    tester,
+  ) async {
+    final storage = FakeAuthStorage(initialToken: 'parent-token');
+    final client = MockClient((request) async => _json([null]));
+
+    await _pumpParent(tester, storage: storage, client: client);
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Сервер вернул неполные данные ребёнка.'), findsOneWidget);
+    expect(find.text('Повторить'), findsOneWidget);
+  });
+
+  testWidgets('a parent can switch between every linked child', (tester) async {
+    final storage = FakeAuthStorage(initialToken: 'parent-token');
+    final client = MockClient((request) async {
+      return switch (request.url.path) {
+        '/parent/children' => _json([
+          {'childUserId': _childId, 'petName': 'Пушок'},
+          {'childUserId': _secondChildId, 'petName': 'Рыжик'},
+        ]),
+        '/parent/children/$_childId/overview' => _json(_overview()),
+        '/parent/children/$_secondChildId/overview' => _json(
+          _overview('Рыжик'),
+        ),
+        _ => _json({'error': 'unexpected'}, 500),
+      };
+    });
+
+    await _pumpParent(tester, storage: storage, client: client);
+    expect(find.text('Пушок: прогресс'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('parent-child-picker')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Рыжик').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Рыжик: прогресс'), findsOneWidget);
+    expect(find.text('Пушок: прогресс'), findsNothing);
   });
 
   testWidgets('the child links a parent from settings with the spoken code', (

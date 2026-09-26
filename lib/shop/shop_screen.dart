@@ -58,6 +58,9 @@ class _ShopScreenState extends State<ShopScreen> {
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _error = economyErrorMessage(error));
+    } on FormatException {
+      if (!mounted) return;
+      setState(() => _error = economyContractErrorMessage);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

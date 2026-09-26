@@ -81,6 +81,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
           ),
           pool.query(
             `SELECT fc.id, fc.principal_amount, fc.bonus_amount, fc.opened_at,
+                    fc.required_active_days,
                     COUNT(gp.id)::int AS completed_days
                FROM frost_chests fc
                LEFT JOIN game_periods gp ON gp.child_user_id = fc.child_user_id
@@ -161,9 +162,10 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
       const frost = frostRes.rows[0] as Record<string, unknown> | undefined;
       if (frost) {
         const completedDays = Number(frost.completed_days);
-        frost.maturity_days = ECONOMY_RULES.frostDays;
-        frost.days_remaining = Math.max(0, ECONOMY_RULES.frostDays - completedDays);
-        frost.matured = completedDays >= ECONOMY_RULES.frostDays;
+        const maturityDays = Number(frost.required_active_days);
+        frost.maturity_days = maturityDays;
+        frost.days_remaining = Math.max(0, maturityDays - completedDays);
+        frost.matured = completedDays >= maturityDays;
       }
 
       const history = historyRes.rows.map((row) => ({

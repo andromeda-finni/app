@@ -9,6 +9,7 @@ import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/home/main_shell.dart';
 
 import 'support/fake_auth_storage.dart';
+import 'support/economy_fixture.dart';
 
 http.Response _jsonResponse(Object body, [int statusCode = 200]) =>
     http.Response(
@@ -18,6 +19,7 @@ http.Response _jsonResponse(Object body, [int statusCode = 200]) =>
     );
 
 Map<String, dynamic> _state({required bool withGoal}) => {
+  'rules': testEconomyRules,
   'pet': {
     'pet_name': 'Грошик',
     'fur_option_id': 'FUR_GRAY',

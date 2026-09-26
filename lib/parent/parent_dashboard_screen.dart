@@ -10,12 +10,18 @@ class ParentDashboardScreen extends StatelessWidget {
   const ParentDashboardScreen({
     super.key,
     required this.overview,
+    required this.children,
+    required this.selectedChildUserId,
+    required this.onChildSelected,
     required this.onRefresh,
     required this.onInviteChild,
     required this.onExitToRoleChoice,
   });
 
   final ChildOverview overview;
+  final List<({String childUserId, String petName})> children;
+  final String selectedChildUserId;
+  final ValueChanged<String> onChildSelected;
   final Future<void> Function() onRefresh;
   final VoidCallback onInviteChild;
   final VoidCallback onExitToRoleChoice;
@@ -37,6 +43,14 @@ class ParentDashboardScreen extends StatelessWidget {
                 children: [
                   _Header(onBack: onExitToRoleChoice),
                   const SizedBox(height: 14),
+                  if (children.length > 1) ...[
+                    _ChildPicker(
+                      children: children,
+                      selectedChildUserId: selectedChildUserId,
+                      onSelected: onChildSelected,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   Text(
                     '${overview.petName}: прогресс',
                     style: const TextStyle(
@@ -137,6 +151,50 @@ class ParentDashboardScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ChildPicker extends StatelessWidget {
+  const _ChildPicker({
+    required this.children,
+    required this.selectedChildUserId,
+    required this.onSelected,
+  });
+
+  final List<({String childUserId, String petName})> children;
+  final String selectedChildUserId;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      key: const Key('parent-child-picker'),
+      initialValue: selectedChildUserId,
+      decoration: const InputDecoration(
+        labelText: 'Чей прогресс показать',
+        prefixIcon: Icon(Icons.family_restroom_rounded),
+      ),
+      items: [
+        for (var index = 0; index < children.length; index++)
+          DropdownMenuItem(
+            value: children[index].childUserId,
+            child: Text(_labelFor(index)),
+          ),
+      ],
+      onChanged: (value) {
+        if (value != null) onSelected(value);
+      },
+    );
+  }
+
+  String _labelFor(int index) {
+    final child = children[index];
+    final duplicateCount = children
+        .where((candidate) => candidate.petName == child.petName)
+        .length;
+    return duplicateCount > 1
+        ? '${child.petName} · ${index + 1}'
+        : child.petName;
   }
 }
 

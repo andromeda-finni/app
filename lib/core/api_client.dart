@@ -154,19 +154,26 @@ class ApiClient {
     try {
       final request = http.Request(method, uri)..headers.addAll(headers);
       if (effectiveBody != null) request.body = jsonEncode(effectiveBody);
-      final streamed = await _http
-          .send(request)
-          .timeout(const Duration(seconds: 10));
-      response = await http.Response.fromStream(streamed);
+      response = await (() async {
+        final streamed = await _http.send(request);
+        return http.Response.fromStream(streamed);
+      })().timeout(const Duration(seconds: 10));
     } catch (_) {
       // Covers timeouts, DNS/connection refused, and any other transport
       // failure — surfaced uniformly so the UI can show one retry state.
       throw ApiException(0, 'network_error');
     }
 
-    final decoded = response.body.isEmpty
-        ? <String, dynamic>{}
-        : jsonDecode(response.body);
+    Object? decoded;
+    try {
+      decoded = response.body.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(response.body);
+    } on FormatException {
+      // A proxy error page or a truncated response is still an API failure,
+      // not an uncaught parsing exception that can tear down the current UI.
+      throw ApiException(response.statusCode, 'invalid_json_response');
+    }
 
     if (response.statusCode >= 400) {
       // An error body is always an object; anything else means the failure

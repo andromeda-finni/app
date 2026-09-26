@@ -6,6 +6,7 @@ export const ECONOMY_RULES = {
   dailyQuestLimit: 3,
   bootsQuestLimit: 4,
   parentRewardLimit: 10,
+  savingsTransferAmounts: [5, 10] as const,
   eventProbability: 0.7,
   firstEventDay: 2,
   minimumEventCost: 2,
@@ -14,6 +15,7 @@ export const ECONOMY_RULES = {
   frostMaximum: 50,
   frostStep: 10,
   frostDays: 5,
+  frostBonusPercent: 10,
 } as const;
 
 export interface DayOutcomeInput {
@@ -71,7 +73,7 @@ export function dayOfWeek(sequenceNo: number): number {
  * result identical to ceil(principal * 10%).
  */
 export function frostBonus(principal: number): number {
-  return Math.ceil(principal / 10);
+  return Math.ceil((principal * ECONOMY_RULES.frostBonusPercent) / 100);
 }
 
 export function assertFrostPrincipal(principal: number): void {

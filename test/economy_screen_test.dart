@@ -15,6 +15,7 @@ import 'package:andromeda_app/economy/economy_state.dart';
 import 'package:andromeda_app/theme/app_theme.dart';
 
 import 'support/fake_auth_storage.dart';
+import 'support/economy_fixture.dart';
 
 http.Response _jsonResponse(Object body, [int statusCode = 200]) =>
     http.Response(
@@ -24,6 +25,7 @@ http.Response _jsonResponse(Object body, [int statusCode = 200]) =>
     );
 
 Map<String, dynamic> _economyState({int wallet = 30, int savings = 0}) => {
+  'rules': testEconomyRules,
   'pet': {'pet_name': 'Грошик', 'energy_level': 100, 'joy_level': 100},
   'wallets': {'SPENDABLE': wallet, 'SAVINGS': savings, 'FROZEN': 0},
   'activeDay': {
@@ -301,6 +303,60 @@ void main() {
       find.textContaining('10 монет нужны на обязательные траты.'),
       findsWidgets,
     );
+  });
+
+  testWidgets('server economy rules drive income and available actions', (
+    tester,
+  ) async {
+    final data = _economyState();
+    data['rules'] = {
+      ...testEconomyRules,
+      'dailyIncome': 41,
+      'savingsTransferAmounts': [7],
+      'frostMinimum': 12,
+      'frostMaximum': 24,
+      'frostStep': 12,
+      'frostDays': 6,
+      'frostBonusPercent': 17,
+    };
+    data['activeDay'] = null;
+    await pumpEconomy(
+      tester,
+      MockClient((request) async => _jsonResponse(data)),
+    );
+
+    expect(
+      find.text('Утром в Кошелёк поступят 41 монет. Затем составь план дня.'),
+      findsOneWidget,
+    );
+
+    data['activeDay'] = _economyState()['activeDay'];
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpEconomy(
+      tester,
+      MockClient((request) async => _jsonResponse(data)),
+    );
+    await tester.scrollUntilVisible(find.text('Отложить 7'), 250);
+    expect(find.text('Отложить 7'), findsOneWidget);
+    expect(find.text('Отложить 5'), findsNothing);
+    await tester.scrollUntilVisible(find.text('12 → 15'), 250);
+    expect(find.textContaining('6 завершённых дней'), findsOneWidget);
+    expect(find.text('12 → 15'), findsOneWidget);
+    expect(find.text('24 → 29'), findsOneWidget);
+  });
+
+  testWidgets('invalid economy contract is a retryable error, not a crash', (
+    tester,
+  ) async {
+    final data = _economyState()..remove('rules');
+    await pumpEconomy(
+      tester,
+      MockClient((request) async => _jsonResponse(data)),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text(economyContractErrorMessage), findsOneWidget);
+    expect(find.text('Повторить'), findsOneWidget);
   });
 
   testWidgets(
