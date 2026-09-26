@@ -4,32 +4,30 @@ import { HttpError } from "../../lib/errors.js";
 import { postTransaction, transferBetweenWallets } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, nonNegativeIntSchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
-
-const PERIOD_GRANT_BY_DIFFICULTY: Record<"SIMPLE" | "ADVANCED", number> = {
-  SIMPLE: 100,
-  ADVANCED: 150,
-};
-const REQUIRED_NEED_BY_DIFFICULTY: Record<"SIMPLE" | "ADVANCED", number> = {
-  SIMPLE: 10,
-  ADVANCED: 20,
-};
+import { calculateDayOutcome, ECONOMY_RULES } from "../economy/rules.js";
+import { lockGoalOwner, requireGoal } from "../economy/goals.js";
+import { rollActivePeriodPetEvent } from "../petEvents/service.js";
 
 export function buildPeriodFeedback({
   planFollowed,
   needCovered,
   petName,
+  recommendations = [],
 }: {
   planFollowed: boolean;
   needCovered: boolean;
   petName: string;
+  recommendations?: string[];
 }): string {
   if (planFollowed) {
-    return `Отличный период! План выполнен, ${petName} доволен и растёт.`;
+    return `Игровой день завершён: план выполнен, ${petName} доволен и растёт.`;
   }
-  if (needCovered) {
-    return "Нужное закрыто, но с желаниями или накоплениями вышло не по плану — в следующий раз получится лучше!";
-  }
-  return `В этот раз не хватило на нужное. ${petName} расстроился, но ничего страшного — попробуем снова.`;
+  // The day outcome's own advice is more useful than a generic line, but it
+  // never names the pet, so the opener still does.
+  const opener = needCovered
+    ? "Нужное закрыто, но с желаниями или накоплениями вышло не по плану."
+    : `В этот раз не хватило на нужное. ${petName} расстроился, но ничего страшного.`;
+  return recommendations.length > 0 ? `${opener} ${recommendations.join(" ")}` : opener;
 }
 
 export async function periodRoutes(app: FastifyInstance): Promise<void> {
@@ -56,11 +54,15 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
       const childUserId = req.authUser!.id;
 
       const result = await withTransaction(async (client) => {
-        const childRes = await client.query<{ difficulty: "SIMPLE" | "ADVANCED" }>(
-          `SELECT difficulty FROM child_profiles WHERE user_id = $1`,
+        await lockGoalOwner(client, childUserId);
+        await requireGoal(client, childUserId, true);
+        const childRes = await client.query<{ mode: "STANDARD" | "DEMO" }>(
+          `SELECT mode FROM child_profiles WHERE user_id = $1`,
           [childUserId],
         );
-        const difficulty = childRes.rows[0]?.difficulty ?? "SIMPLE";
+        if (childRes.rows[0]?.mode !== "STANDARD") {
+          throw new HttpError(409, "standard_profile_required");
+        }
 
         const seqRes = await client.query<{ next_seq: number }>(
           `SELECT COALESCE(MAX(sequence_no), 0) + 1 AS next_seq FROM game_periods WHERE child_user_id = $1`,
@@ -83,7 +85,7 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
             [
               childUserId,
               sequenceNo,
-              REQUIRED_NEED_BY_DIFFICULTY[difficulty],
+              ECONOMY_RULES.foodReserve,
               balances["SPENDABLE"] ?? 0,
               balances["SAVINGS"] ?? 0,
               balances["FROZEN"] ?? 0,
@@ -96,15 +98,15 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
           throw err;
         }
 
-        const grantAmount = PERIOD_GRANT_BY_DIFFICULTY[difficulty];
+        const grantAmount = ECONOMY_RULES.dailyIncome;
         const txn = await postTransaction(client, {
           childUserId,
           walletKind: "SPENDABLE",
-          eventType: "PERIOD_GRANT",
+          eventType: "DAILY_INCOME",
           deltaAmount: grantAmount,
           referenceType: "game_period",
           referenceId: periodId,
-          idempotencyKey: `period-grant:${periodId}`,
+          idempotencyKey: `daily-income:${periodId}`,
         });
 
         const planRes = await client.query<{ id: string }>(
@@ -113,7 +115,15 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
           [periodId, childUserId, grantAmount],
         );
 
-        return { periodId, budgetPlanId: planRes.rows[0]!.id, grantAmount, balanceAfter: txn.balanceAfter };
+        const event = await rollActivePeriodPetEvent(client, childUserId);
+
+        return {
+          periodId,
+          budgetPlanId: planRes.rows[0]!.id,
+          grantAmount,
+          balanceAfter: txn.balanceAfter,
+          eventTriggered: event.triggered,
+        };
       });
 
       reply.code(201).send(result);
@@ -176,6 +186,7 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
       // confirms both see DRAFT, both pass validation, and both try to move
       // the savings — the loser died on the ledger's unique key as a 500.
       return withTransaction(async (client) => {
+        await lockGoalOwner(client, childUserId);
         const planRes = await client.query<{
           id: string;
           status: string;
@@ -199,6 +210,7 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
           return { ok: true, replayed: true };
         }
         if (plan.status !== "DRAFT") throw new HttpError(404, "draft_budget_plan_not_found");
+        await requireGoal(client, childUserId, plan.savings_amount === 0);
 
         const periodRes = await client.query<{ required_need_amount: number }>(
           `SELECT required_need_amount FROM game_periods WHERE id = $1 AND child_user_id = $2`,
@@ -277,22 +289,54 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
             WHERE p.child_user_id = $1 AND p.item_kind = 'WANT' AND t.occurred_at >= $2`,
           [childUserId, period.opened_at],
         );
+        const eventSpentRes = await client.query<{ total: string }>(
+          `SELECT COALESCE(SUM(-delta_amount), 0) AS total
+             FROM transactions
+            WHERE child_user_id = $1 AND event_type = 'PET_EVENT_PAYMENT'
+              AND occurred_at >= $2`,
+          [childUserId, period.opened_at],
+        );
         const savingsRes = await client.query<{ deposits: string; withdrawals: string }>(
           `SELECT
              COALESCE(SUM(delta_amount) FILTER (WHERE event_type = 'SAVINGS_DEPOSIT'), 0) AS deposits,
              COALESCE(SUM(-delta_amount) FILTER (WHERE event_type = 'SAVINGS_WITHDRAWAL'), 0) AS withdrawals
-           FROM transactions WHERE child_user_id = $1 AND occurred_at >= $2`,
+           FROM transactions WHERE child_user_id = $1 AND wallet_kind = 'SAVINGS' AND occurred_at >= $2`,
           [childUserId, period.opened_at],
         );
 
-        const actualNeed = Number(needSpentRes.rows[0]?.total ?? 0);
+        const actualNeed =
+          Number(needSpentRes.rows[0]?.total ?? 0) +
+          Number(eventSpentRes.rows[0]?.total ?? 0);
         const actualWant = Number(wantSpentRes.rows[0]?.total ?? 0);
         const netSavings =
           Number(savingsRes.rows[0]?.deposits ?? 0) - Number(savingsRes.rows[0]?.withdrawals ?? 0);
 
-        const needCovered = actualNeed >= period.required_need_amount;
-        const planFollowed =
-          needCovered && actualWant <= plan.want_amount && netSavings >= plan.savings_amount;
+        const dayOutcome = calculateDayOutcome({
+          requiredNeed: period.required_need_amount,
+          plannedNeed: plan.need_amount,
+          plannedWant: plan.want_amount,
+          plannedSavings: plan.savings_amount,
+          actualNeed,
+          actualWant,
+          netSavings,
+        });
+        const { needCovered, planFollowed } = dayOutcome;
+
+        if (!needCovered) {
+          throw new HttpError(409, "required_need_not_covered", {
+            required: period.required_need_amount,
+            actual: actualNeed,
+          });
+        }
+
+        const activeEventRes = await client.query(
+          `SELECT 1 FROM pet_event_occurrences
+            WHERE child_user_id = $1 AND status = 'ACTIVE'`,
+          [childUserId],
+        );
+        if ((activeEventRes.rowCount ?? 0) > 0) {
+          throw new HttpError(409, "active_event_must_be_resolved");
+        }
 
         const petRes = await client.query<{
           pet_name: string;
@@ -315,7 +359,12 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
         const stageAfter =
           planFollowed && newStreak % 3 === 0 ? Math.min(3, stageBefore + 1) : stageBefore;
 
-        const feedback = buildPeriodFeedback({ planFollowed, needCovered, petName: pet.pet_name });
+        const feedback = buildPeriodFeedback({
+          planFollowed,
+          needCovered,
+          petName: pet.pet_name,
+          recommendations: dayOutcome.recommendations,
+        });
 
         await client.query(
           `UPDATE pets SET evolution_stage = $1, successful_period_streak = $2, updated_at = now()
@@ -357,6 +406,7 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
           petStageAfter: stageAfter,
           successfulPeriodStreak: newStreak,
           feedback,
+          recommendations: dayOutcome.recommendations,
         };
       });
 

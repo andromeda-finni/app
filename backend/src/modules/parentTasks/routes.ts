@@ -4,10 +4,11 @@ import { HttpError } from "../../lib/errors.js";
 import { postTransaction } from "../../lib/ledger.js";
 import { assertActiveLink, requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
+import { ECONOMY_RULES } from "../economy/rules.js";
 
-// Real-life chores assigned by the parent (вынес мусор, помыл посуду, ...),
-// confirmed by the parent — from behind the app's parent-gate (PIN/math
-// captcha) on the client — before the reward is ever paid.
+// Real-life chores assigned and confirmed from an authenticated parent
+// session. The backend also verifies the active link to the exact child
+// before a task can be created or paid.
 export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: { childUserId: string; title: string; rewardAmount: number } }>(
     "/parent/tasks",
@@ -16,8 +17,17 @@ export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
       schema: bodySchema(
         {
           childUserId: uuidSchema,
-          title: { type: "string", minLength: 1, maxLength: 160 },
-          rewardAmount: { type: "integer", minimum: 1 },
+          title: {
+            type: "string",
+            minLength: 1,
+            maxLength: 160,
+            pattern: "\\S",
+          },
+          rewardAmount: {
+            type: "integer",
+            minimum: 1,
+            maximum: ECONOMY_RULES.parentRewardLimit,
+          },
         },
         ["childUserId", "title", "rewardAmount"],
       ),
@@ -25,19 +35,28 @@ export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const parentUserId = req.authUser!.id;
       const { childUserId, title, rewardAmount } = req.body;
-      await assertActiveLink(parentUserId, childUserId);
+      const id = await withTransaction(async (client) => {
+        // Authorisation and insert share one transaction. Locking the link
+        // keeps a future revoke operation from racing between the check and
+        // creation of an assignment tied to a no-longer-active relationship.
+        const linkRes = await client.query<{ id: string }>(
+          `SELECT id FROM parent_child_links
+            WHERE parent_user_id = $1 AND child_user_id = $2 AND status = 'ACTIVE'
+            FOR SHARE`,
+          [parentUserId, childUserId],
+        );
+        const link = linkRes.rows[0];
+        if (!link) throw new HttpError(403, "parent_child_link_required");
 
-      const linkRes = await pool.query<{ id: string }>(
-        `SELECT id FROM parent_child_links WHERE parent_user_id = $1 AND child_user_id = $2 AND status = 'ACTIVE'`,
-        [parentUserId, childUserId],
-      );
-
-      const res = await pool.query<{ id: string }>(
-        `INSERT INTO assignments (child_user_id, origin, assigned_by_parent_link_id, title, reward_amount, status)
-         VALUES ($1, 'PARENT', $2, $3, $4, 'AVAILABLE') RETURNING id`,
-        [childUserId, linkRes.rows[0]!.id, title.trim(), rewardAmount],
-      );
-      reply.code(201).send({ id: res.rows[0]!.id });
+        const result = await client.query<{ id: string }>(
+          `INSERT INTO assignments
+             (child_user_id, origin, assigned_by_parent_link_id, title, reward_amount, status)
+           VALUES ($1, 'PARENT', $2, $3, $4, 'AVAILABLE') RETURNING id`,
+          [childUserId, link.id, title.trim(), rewardAmount],
+        );
+        return result.rows[0]!.id;
+      });
+      reply.code(201).send({ id });
     },
   );
 
@@ -89,9 +108,8 @@ export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // The client is expected to have already passed the PIN/math parent-gate
-  // before calling this — the backend's guarantee is that only a PARENT
-  // token holding the ACTIVE link to this exact child can verify/pay it.
+  // A PARENT token holding the ACTIVE link to this exact child is required;
+  // the assignment row is locked so concurrent confirmations pay only once.
   app.post<{ Params: { assignmentId: string } }>(
     "/parent/tasks/:assignmentId/verify",
     {
@@ -114,6 +132,27 @@ export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
         );
         const task = res.rows[0];
         if (!task) throw new HttpError(404, "task_not_found_or_not_awaiting_parent");
+        if (task.reward_amount > ECONOMY_RULES.parentRewardLimit) {
+          throw new HttpError(409, "parent_reward_exceeds_daily_limit");
+        }
+
+        const periodRes = await client.query<{ id: string; opened_at: Date }>(
+          `SELECT id, opened_at FROM game_periods
+            WHERE child_user_id = $1 AND status = 'ACTIVE' FOR UPDATE`,
+          [task.child_user_id],
+        );
+        const period = periodRes.rows[0];
+        if (!period) throw new HttpError(409, "active_day_required");
+
+        const rewardedRes = await client.query(
+          `SELECT 1 FROM transactions
+            WHERE child_user_id = $1 AND event_type = 'PARENT_TASK_REWARD'
+              AND occurred_at >= $2 LIMIT 1`,
+          [task.child_user_id, period.opened_at],
+        );
+        if ((rewardedRes.rowCount ?? 0) > 0) {
+          throw new HttpError(409, "parent_reward_already_paid_today");
+        }
 
         const txn = await postTransaction(client, {
           childUserId: task.child_user_id,
@@ -126,8 +165,11 @@ export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
         });
 
         await client.query(
-          `UPDATE assignments SET status = 'VERIFIED', reward_transaction_id = $1, updated_at = now() WHERE id = $2`,
-          [txn.id, assignmentId],
+          `UPDATE assignments
+              SET status = 'VERIFIED', reward_transaction_id = $1,
+                  period_id = $2, updated_at = now()
+            WHERE id = $3`,
+          [txn.id, period.id, assignmentId],
         );
 
         return { ok: true, balanceAfter: txn.balanceAfter };

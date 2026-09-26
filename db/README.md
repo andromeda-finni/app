@@ -20,11 +20,11 @@ set -a && source .env && set +a
 - **Аккаунты**: `users`, `parent_profiles`, `child_profiles`, `parent_child_links` — без имени/возраста/email/телефона; `child_profiles` хранит только номер текущего шага и факт завершения онбординга.
 - **Питомец**: `pets` (один вид на всех, кастомизация через `cosmetic_options` — цвет шерсти/аксессуар).
 - **Обучающий контент**: `education_topics`, `quest_definitions`, `quest_steps`, `shop_items`.
-- **Экономика**: `wallets` (SPENDABLE/SAVINGS/FROZEN), `transactions` (единый append-only леджер), `purchases`, `frost_chests` (Сундук Морозко: 3 дня → +10%).
+- **Экономика**: `wallets` (SPENDABLE/SAVINGS/FROZEN), `transactions` (единый append-only леджер), `purchases`, `frost_chests` (Сундук Морозко: 5 завершённых игровых дней → +10%).
 - **Бюджетный цикл**: `game_periods`, `budget_plans`, `period_results`.
 - **Задания**: `assignments` (системные квесты + родительские поручения в одной таблице), `quest_step_progress`.
 - **Цели/инвентарь**: `financial_goals`, `inventory_items` (+ слот экипировки прямо на `pets`).
-- **Случайные события питомца**: `pet_event_definitions`, `pet_event_occurrences` — решаются оплатой монетами (сперва SPENDABLE, при нехватке — SAVINGS).
+- **Случайные события питомца**: `pet_event_definitions`, `pet_event_occurrences` — решаются оплатой из `SPENDABLE`; целевые накопления в `SAVINGS` автоматически не расходуются.
 
 ## Безопасность
 

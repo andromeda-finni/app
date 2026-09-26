@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 
+import 'audience/role_choice_screen.dart';
 import 'core/api_client.dart';
 import 'core/auth_storage.dart';
 import 'home/main_shell.dart';
+import 'home/pet_home_screen.dart';
 import 'onboarding/onboarding_data.dart';
 import 'onboarding/onboarding_flow.dart';
+import 'parent/parent_home_screen.dart';
 import 'theme/app_theme.dart';
+
+const _foxEventDemo = bool.fromEnvironment('FOX_EVENT_DEMO');
 
 void main() {
   runApp(const GroshikApp());
@@ -16,10 +21,12 @@ class GroshikApp extends StatelessWidget {
     super.key,
     @visibleForTesting this.authStorage,
     @visibleForTesting this.apiClient,
+    @visibleForTesting this.initialAudience,
   });
 
   final AuthStorage? authStorage;
   final ApiClient? apiClient;
+  final AppAudience? initialAudience;
 
   @override
   Widget build(BuildContext context) {
@@ -27,8 +34,54 @@ class GroshikApp extends StatelessWidget {
       title: 'Грошик',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: _StartupGate(authStorage: authStorage, apiClient: apiClient),
+      // FOX_EVENT_DEMO is a build-time switch for the Fox story prototype,
+      // which still runs on its own in-memory wallet; normal builds never
+      // reach it.
+      home: _foxEventDemo
+          ? const PetHomeScreen()
+          : _AudienceGate(
+              authStorage: authStorage,
+              apiClient: apiClient,
+              initialAudience: initialAudience,
+            ),
     );
+  }
+}
+
+enum AppAudience { child, parent }
+
+class _AudienceGate extends StatefulWidget {
+  const _AudienceGate({this.authStorage, this.apiClient, this.initialAudience});
+
+  final AuthStorage? authStorage;
+  final ApiClient? apiClient;
+  final AppAudience? initialAudience;
+
+  @override
+  State<_AudienceGate> createState() => _AudienceGateState();
+}
+
+class _AudienceGateState extends State<_AudienceGate> {
+  late AppAudience? _audience = widget.initialAudience;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (_audience) {
+      case AppAudience.child:
+        return _StartupGate(
+          authStorage: widget.authStorage,
+          apiClient: widget.apiClient,
+          onSwitchAudience: () => setState(() => _audience = null),
+        );
+      case AppAudience.parent:
+        return ParentHomeScreen(onBack: () => setState(() => _audience = null));
+      case null:
+        return RoleChoiceScreen(
+          onChildSelected: () => setState(() => _audience = AppAudience.child),
+          onParentSelected: () =>
+              setState(() => _audience = AppAudience.parent),
+        );
+    }
   }
 }
 
@@ -39,10 +92,15 @@ enum _StartupState { checking, needsOnboarding, hasPet, error }
 /// steps were completed, so the server returns the first unfinished step via
 /// `GET /onboarding/status`.
 class _StartupGate extends StatefulWidget {
-  const _StartupGate({this.authStorage, this.apiClient});
+  const _StartupGate({
+    this.authStorage,
+    this.apiClient,
+    required this.onSwitchAudience,
+  });
 
   final AuthStorage? authStorage;
   final ApiClient? apiClient;
+  final VoidCallback onSwitchAudience;
 
   @override
   State<_StartupGate> createState() => _StartupGateState();
@@ -119,14 +177,24 @@ class _StartupGateState extends State<_StartupGate> {
         );
       case _StartupState.needsOnboarding:
         return OnboardingFlow(
-          onFinished: () => setState(() => _state = _StartupState.hasPet),
+          onFinished: (data) => setState(() {
+            _onboarding = OnboardingResumeState(
+              currentStep: 4,
+              completed: true,
+              data: data,
+            );
+            _state = _StartupState.hasPet;
+          }),
           apiClient: _api,
           authStorage: _authStorage,
           initialStep: _onboarding.currentStep,
           initialData: _onboarding.data,
         );
       case _StartupState.hasPet:
-        return MainShell(apiClient: _api);
+        return MainShell(
+          apiClient: _api,
+          onSwitchAudience: widget.onSwitchAudience,
+        );
       case _StartupState.error:
         return Scaffold(
           backgroundColor: AppColors.parchment,

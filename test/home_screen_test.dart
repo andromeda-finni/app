@@ -18,13 +18,17 @@ http.Response _json(Object? body) => http.Response(
   headers: {'content-type': 'application/json; charset=utf-8'},
 );
 
+// Deliberately not "Грошик": the screen must show the name the child chose,
+// and a default name in the fixture would hide a hardcoded fallback.
+const _petName = 'Мурзик';
+
 Map<String, dynamic> _pet({
   int satiety = 60,
   int joy = 55,
   int health = 100,
   int stage = 1,
 }) => {
-  'pet_name': 'Грошик',
+  'pet_name': _petName,
   'fur_option_id': 'FUR_GRAY',
   'energy_level': satiety,
   'joy_level': joy,
@@ -32,24 +36,53 @@ Map<String, dynamic> _pet({
   'evolution_stage': stage,
 };
 
-/// Builds the screen over a stub backend. [period] is what
-/// `GET /periods/active` answers; [onRequest] observes every call.
+const _goal = {'id': 'goal-1', 'name': 'Сундучок', 'target_amount': 80};
+
+/// The single read model the screen loads, shaped like `GET /economy/state`.
+Map<String, dynamic> _economyState({
+  Map<String, dynamic>? pet,
+  Object? period,
+  Object? goal = _goal,
+  Object? event,
+  Object? parentTasks = const <Object>[],
+  int spendable = 40,
+  int savings = 10,
+}) => {
+  'pet': pet ?? _pet(),
+  'wallets': {'SPENDABLE': spendable, 'SAVINGS': savings, 'FROZEN': 0},
+  'activeDay': period,
+  'activeGoal': goal,
+  'activeEvent': event,
+  'parentTasks': parentTasks,
+};
+
+/// Builds the screen over a stub backend. [onRequest] observes every call.
 Widget _screen({
   Map<String, dynamic>? pet,
   Object? period,
+  Object? goal = _goal,
+  Object? event,
+  Object? parentTasks = const <Object>[],
   int spendable = 40,
   int savings = 10,
+  VoidCallback? onChooseGoal,
+  VoidCallback? onOpenShop,
   void Function(http.BaseRequest request, String body)? onRequest,
 }) {
   final client = MockClient((request) async {
     onRequest?.call(request, request.body);
     return switch (request.url.path) {
-      '/pet' => _json(pet ?? _pet()),
-      '/wallets' => _json([
-        {'kind': 'SPENDABLE', 'balance': spendable},
-        {'kind': 'SAVINGS', 'balance': savings},
-      ]),
-      '/periods/active' => _json(period),
+      '/economy/state' => _json(
+        _economyState(
+          pet: pet,
+          period: period,
+          goal: goal,
+          event: event,
+          parentTasks: parentTasks,
+          spendable: spendable,
+          savings: savings,
+        ),
+      ),
       _ => _json({'ok': true}),
     };
   });
@@ -62,6 +95,8 @@ Widget _screen({
           authStorage: FakeAuthStorage(initialToken: 'tok'),
           baseUrl: 'http://test',
         ),
+        onChooseGoal: onChooseGoal ?? () {},
+        onOpenShop: onOpenShop ?? () {},
       ),
     ),
   );
@@ -73,6 +108,7 @@ Map<String, dynamic> _draftPeriod({
   int need = 0,
   int want = 0,
   int savings = 0,
+  int? remainingReserve,
 }) => {
   'id': '11111111-1111-1111-1111-111111111111',
   'required_need_amount': requiredNeed,
@@ -82,6 +118,7 @@ Map<String, dynamic> _draftPeriod({
   'need_amount': need,
   'want_amount': want,
   'savings_amount': savings,
+  'remaining_reserve': remainingReserve ?? requiredNeed,
 };
 
 /// The screen is a tall scrolling page and a ListView does not build what is
@@ -148,7 +185,7 @@ void main() {
       _screen(pet: _pet(satiety: 30, joy: 40, health: 100), spendable: 42),
     );
 
-    expect(find.text('Грошик'), findsOneWidget);
+    expect(find.text(_petName), findsOneWidget);
     expect(find.textContaining('Стадия 1 из 3'), findsOneWidget);
     expect(find.text('30%'), findsOneWidget);
     expect(find.text('40%'), findsOneWidget);
@@ -170,6 +207,31 @@ void main() {
 
     expect(find.text('Начать период'), findsOneWidget);
     expect(find.text('Утвердить план'), findsNothing);
+  });
+
+  testWidgets('without a chosen goal, starting a day asks for a goal first', (
+    tester,
+  ) async {
+    var askedForGoal = false;
+    final calls = <String>[];
+    await _pump(
+      tester,
+      _screen(
+        period: null,
+        goal: null,
+        onChooseGoal: () => askedForGoal = true,
+        onRequest: (request, _) =>
+            calls.add('${request.method} ${request.url.path}'),
+      ),
+    );
+
+    await tester.tap(find.text('Начать период'));
+    await tester.pumpAndSettle();
+
+    expect(askedForGoal, isTrue);
+    // The day grant is paid when a day starts, so starting one without a goal
+    // would hand out coins before the child has anything to save towards.
+    expect(calls, isNot(contains('POST /periods')));
   });
 
   testWidgets('blocks approval until the coins add up and needs are covered', (
@@ -251,14 +313,111 @@ void main() {
     expect(find.bySemanticsLabel('Добавить монету: В копилку'), findsNothing);
   });
 
+  testWidgets('an active pet event can be paid from the real home screen', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    final confirmed = _draftPeriod(need: 25, want: 5, remainingReserve: 25)
+      ..['budget_plan_status'] = 'CONFIRMED';
+
+    await _pump(
+      tester,
+      _screen(
+        period: confirmed,
+        event: const {
+          'id': '22222222-2222-2222-2222-222222222222',
+          'title': 'Питомец заболел',
+          'description': 'Нужно купить лекарство',
+          'amount_due': 15,
+        },
+        onRequest: (request, _) =>
+            calls.add('${request.method} ${request.url.path}'),
+      ),
+    );
+
+    expect(find.text('Питомец заболел'), findsOneWidget);
+    await tester.tap(find.text('Помочь за 15 монет'));
+    await tester.pumpAndSettle();
+    expect(
+      calls,
+      contains('POST /pet-events/22222222-2222-2222-2222-222222222222/resolve'),
+    );
+  });
+
+  testWidgets('the home screen leads to needs before allowing day closure', (
+    tester,
+  ) async {
+    var openedShop = false;
+    final confirmed = _draftPeriod(need: 10, want: 20, remainingReserve: 10)
+      ..['budget_plan_status'] = 'CONFIRMED';
+
+    await _pump(
+      tester,
+      _screen(period: confirmed, onOpenShop: () => openedShop = true),
+    );
+
+    expect(find.text('Завершить день'), findsNothing);
+    await tester.tap(find.text('Открыть магазин'));
+    expect(openedShop, isTrue);
+  });
+
+  testWidgets('a fully covered day can be closed from the home screen', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    final confirmed = _draftPeriod(need: 10, want: 20, remainingReserve: 0)
+      ..['budget_plan_status'] = 'CONFIRMED';
+
+    await _pump(
+      tester,
+      _screen(
+        period: confirmed,
+        onRequest: (request, _) =>
+            calls.add('${request.method} ${request.url.path}'),
+      ),
+    );
+
+    await tester.tap(find.text('Завершить день'));
+    await tester.pumpAndSettle();
+    expect(calls, contains('POST /periods/$_periodId/close'));
+  });
+
+  testWidgets('a child can submit a real parent task from the home screen', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    await _pump(
+      tester,
+      _screen(
+        parentTasks: const [
+          {
+            'id': '33333333-3333-3333-3333-333333333333',
+            'title': 'Полить цветы',
+            'reward_amount': 7,
+            'status': 'AVAILABLE',
+          },
+        ],
+        onRequest: (request, _) =>
+            calls.add('${request.method} ${request.url.path}'),
+      ),
+    );
+
+    expect(find.text('Полить цветы'), findsOneWidget);
+    await tester.tap(find.text('Я сделал(а)'));
+    await tester.pumpAndSettle();
+    expect(
+      calls,
+      contains('POST /child/tasks/33333333-3333-3333-3333-333333333333/submit'),
+    );
+  });
+
   testWidgets('a failed load offers a retry', (tester) async {
     var attempt = 0;
     final client = MockClient((request) async {
       attempt++;
-      if (attempt <= 3) return http.Response('', 500);
+      if (attempt <= 1) return http.Response('', 500);
       return switch (request.url.path) {
-        '/pet' => _json(_pet()),
-        '/wallets' => _json(const []),
+        '/economy/state' => _json(_economyState()),
         _ => _json(null),
       };
     });
@@ -272,6 +431,8 @@ void main() {
               authStorage: FakeAuthStorage(initialToken: 'tok'),
               baseUrl: 'http://test',
             ),
+            onChooseGoal: () {},
+            onOpenShop: () {},
           ),
         ),
       ),
@@ -283,7 +444,7 @@ void main() {
     await tester.tap(find.text('Повторить'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Грошик'), findsOneWidget);
+    expect(find.text(_petName), findsOneWidget);
   });
 }
 

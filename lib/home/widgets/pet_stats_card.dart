@@ -101,11 +101,19 @@ class _StatRow extends StatelessWidget {
               ),
             ),
             SizedBox(
-              width: 56,
-              child: Text(
-                '${stat.value}%',
-                textAlign: TextAlign.right,
-                style: AppTextStyles.counterValue,
+              width: 64,
+              // "100%" must never break onto two lines; at a large text scale
+              // it shrinks to fit instead.
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '${stat.value}%',
+                  maxLines: 1,
+                  softWrap: false,
+                  textAlign: TextAlign.right,
+                  style: AppTextStyles.counterValue,
+                ),
               ),
             ),
           ],

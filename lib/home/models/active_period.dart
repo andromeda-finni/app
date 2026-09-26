@@ -10,6 +10,7 @@ class ActivePeriod {
     required this.needAmount,
     required this.wantAmount,
     required this.savingsAmount,
+    required this.remainingReserve,
   });
 
   final String id;
@@ -22,6 +23,7 @@ class ActivePeriod {
   final int needAmount;
   final int wantAmount;
   final int savingsAmount;
+  final int remainingReserve;
 
   bool get isConfirmed => budgetPlanStatus == 'CONFIRMED';
 
@@ -40,6 +42,9 @@ class ActivePeriod {
       needAmount: _int(json['need_amount']),
       wantAmount: _int(json['want_amount']),
       savingsAmount: _int(json['savings_amount']),
+      remainingReserve: _int(
+        json['remaining_reserve'] ?? json['required_need_amount'],
+      ),
     );
   }
 }

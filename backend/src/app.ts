@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import sensible from "@fastify/sensible";
@@ -16,7 +17,9 @@ import { goalRoutes } from "./modules/goals/routes.js";
 import { petEventRoutes } from "./modules/petEvents/routes.js";
 import { scamOfferRoutes } from "./modules/scamOffers/routes.js";
 import { passportRoutes } from "./modules/passport/routes.js";
+import { parentViewRoutes } from "./modules/parentView/routes.js";
 import { onboardingRoutes } from "./modules/onboarding/routes.js";
+import { economyRoutes } from "./modules/economy/routes.js";
 
 /**
  * The migration this build's SQL assumes. `/health` refuses to report ready
@@ -25,7 +28,31 @@ import { onboardingRoutes } from "./modules/onboarding/routes.js";
  * traffic and then 500ing on the first query that hits a missing column.
  * Bump this whenever a migration the code depends on is added.
  */
-const REQUIRED_SCHEMA_VERSION = "0022_generic_pet_copy.sql";
+const REQUIRED_SCHEMA_VERSION = "0025_atomic_period_event_roll.sql";
+
+const LOOPBACK_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * CORS_ORIGINS is a comma-separated allow-list for deployed web builds. When
+ * unset, only loopback origins are allowed, because `flutter run -d chrome`
+ * serves the app from localhost on a random port.
+ */
+export function corsOriginPolicy(configured: string | undefined) {
+  const allowList = (configured ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  return (origin: string | undefined, callback: (err: Error | null, allow: boolean) => void) => {
+    // Native apps and curl send no Origin header; CORS does not apply to them.
+    if (!origin) return callback(null, true);
+    if (allowList.length > 0) return callback(null, allowList.includes(origin));
+    try {
+      return callback(null, LOOPBACK_ORIGIN_HOSTS.has(new URL(origin).hostname));
+    } catch {
+      return callback(null, false);
+    }
+  };
+}
 
 export async function buildApp() {
   const app = Fastify({
@@ -42,6 +69,16 @@ export async function buildApp() {
     },
   });
 
+  // Only browsers enforce CORS, so this only matters for the Flutter web build.
+  // `origin: true` with credentials would let any site script this API; the
+  // app authenticates with a bearer header rather than cookies, so credentials
+  // stay off and origins come from an explicit allow-list.
+  await app.register(cors, {
+    origin: corsOriginPolicy(process.env["CORS_ORIGINS"]),
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: false,
+  });
   await app.register(helmet);
   await app.register(sensible);
   await app.register(rateLimit, {
@@ -104,6 +141,7 @@ export async function buildApp() {
 
   await app.register(authRoutes);
   await app.register(onboardingRoutes);
+  await app.register(economyRoutes);
   await app.register(petRoutes);
   await app.register(walletRoutes);
   await app.register(shopRoutes);
@@ -115,6 +153,7 @@ export async function buildApp() {
   await app.register(petEventRoutes);
   await app.register(scamOfferRoutes);
   await app.register(passportRoutes);
+  await app.register(parentViewRoutes);
 
   return app;
 }

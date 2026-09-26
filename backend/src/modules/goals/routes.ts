@@ -4,6 +4,7 @@ import { HttpError } from "../../lib/errors.js";
 import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, paramsSchema, shortIdSchema, uuidSchema } from "../../lib/schema.js";
+import { lockGoalOwner } from "../economy/goals.js";
 
 export async function goalRoutes(app: FastifyInstance): Promise<void> {
   app.get(
@@ -42,50 +43,57 @@ export async function goalRoutes(app: FastifyInstance): Promise<void> {
       const childUserId = req.authUser!.id;
       const { targetItemId } = req.body;
 
-      const itemRes = await pool.query<{ price: number }>(
-        `SELECT price FROM shop_items WHERE id = $1 AND kind = 'ARTIFACT' AND active`,
-        [targetItemId],
-      );
-      const item = itemRes.rows[0];
-      if (!item) throw new HttpError(404, "artifact_not_found");
+      const result = await withTransaction(async (client) => {
+        await lockGoalOwner(client, childUserId);
 
-      try {
-        const res = await pool.query<{ id: string }>(
+        const itemRes = await client.query<{ price: number }>(
+          `SELECT price FROM shop_items WHERE id = $1 AND kind = 'ARTIFACT' AND active`,
+          [targetItemId],
+        );
+        const item = itemRes.rows[0];
+        if (!item) throw new HttpError(404, "artifact_not_found");
+
+        const currentRes = await client.query<{ id: string; target_item_id: string }>(
+          `SELECT id, target_item_id FROM financial_goals
+            WHERE child_user_id = $1 AND status IN ('ACTIVE','PAUSED','ACHIEVED')
+            FOR UPDATE`,
+          [childUserId],
+        );
+        const current = currentRes.rows[0];
+        if (current?.target_item_id === targetItemId) {
+          return { id: current.id, targetAmount: item.price, replayed: true };
+        }
+        if (current) {
+          throw new HttpError(409, "goal_change_not_allowed");
+        }
+
+        const owned = await client.query(
+          `SELECT 1 FROM inventory_items WHERE child_user_id = $1 AND item_id = $2`,
+          [childUserId, targetItemId],
+        );
+        if (owned.rowCount) throw new HttpError(409, "artifact_already_owned");
+
+        const res = await client.query<{ id: string }>(
           `INSERT INTO financial_goals (child_user_id, target_item_id, target_amount)
            VALUES ($1, $2, $3) RETURNING id`,
           [childUserId, targetItemId, item.price],
         );
-        reply.code(201).send({ id: res.rows[0]!.id, targetAmount: item.price });
-      } catch (err) {
-        const pgErr = err as { code?: string };
-        if (pgErr.code === "23505") throw new HttpError(409, "goal_already_open");
-        throw err;
-      }
+        return { id: res.rows[0]!.id, targetAmount: item.price, replayed: false };
+      });
+
+      reply.code(result.replayed ? 200 : 201).send(result);
     },
   );
 
-  for (const [path, toStatus] of [
-    ["pause", "PAUSED"],
-    ["resume", "ACTIVE"],
-    ["cancel", "CANCELLED"],
-  ] as const) {
+  for (const path of ["pause", "resume", "cancel"] as const) {
     app.post<{ Params: { goalId: string } }>(
       `/goals/:goalId/${path}`,
       {
         preHandler: [requireAuth, requireRole("CHILD")],
         schema: paramsSchema({ goalId: uuidSchema }, ["goalId"]),
       },
-      async (req) => {
-        const fromStatuses = toStatus === "CANCELLED" ? "('ACTIVE','PAUSED')" : toStatus === "PAUSED" ? "('ACTIVE')" : "('PAUSED')";
-        const res = await pool.query(
-          `UPDATE financial_goals
-              SET status = $1${toStatus === "CANCELLED" ? ", cancelled_at = now()" : ""}
-            WHERE id = $2 AND child_user_id = $3 AND status IN ${fromStatuses}
-            RETURNING id`,
-          [toStatus, req.params.goalId, req.authUser!.id],
-        );
-        if (res.rowCount === 0) throw new HttpError(409, "goal_not_in_a_valid_state_for_this_action");
-        return { ok: true };
+      async () => {
+        throw new HttpError(409, "goal_change_not_allowed");
       },
     );
   }
@@ -101,13 +109,25 @@ export async function goalRoutes(app: FastifyInstance): Promise<void> {
       const { goalId } = req.params;
 
       return withTransaction(async (client) => {
-        const goalRes = await client.query<{ target_item_id: string; target_amount: number }>(
-          `SELECT target_item_id, target_amount FROM financial_goals
-            WHERE id = $1 AND child_user_id = $2 AND status = 'ACHIEVED' FOR UPDATE`,
+        await lockGoalOwner(client, childUserId);
+        const dayRes = await client.query(
+          `SELECT 1 FROM game_periods gp
+            JOIN budget_plans bp ON bp.period_id = gp.id AND bp.status = 'CONFIRMED'
+           WHERE gp.child_user_id = $1 AND gp.status = 'ACTIVE'`,
+          [childUserId],
+        );
+        if ((dayRes.rowCount ?? 0) === 0) {
+          throw new HttpError(409, "active_day_with_confirmed_plan_required");
+        }
+
+        const goalRes = await client.query<{ target_item_id: string; target_amount: number; status: string }>(
+          `SELECT target_item_id, target_amount, status FROM financial_goals
+            WHERE id = $1 AND child_user_id = $2 AND status IN ('ACTIVE','PAUSED','ACHIEVED','REDEEMED') FOR UPDATE`,
           [goalId, childUserId],
         );
         const goal = goalRes.rows[0];
         if (!goal) throw new HttpError(404, "achieved_goal_not_found");
+        if (goal.status === 'REDEEMED') return { ok: true, replayed: true };
 
         const txn = await postTransaction(client, {
           childUserId,
@@ -120,7 +140,7 @@ export async function goalRoutes(app: FastifyInstance): Promise<void> {
         });
 
         await client.query(
-          `UPDATE financial_goals SET status = 'REDEEMED', redeemed_at = now(), redemption_transaction_id = $1 WHERE id = $2`,
+          `UPDATE financial_goals SET status = 'REDEEMED', achieved_at = COALESCE(achieved_at, now()), redeemed_at = now(), redemption_transaction_id = $1 WHERE id = $2`,
           [txn.id, goalId],
         );
 

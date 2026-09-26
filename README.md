@@ -36,6 +36,10 @@ cp .env.example .env
 
 ## Разработка
 
+### Прототип анимации питомца
+
+Интерактивная проба смены эмоций и перехода «Малыш → Исследователь» находится в [`prototype/pet-motion/`](prototype/pet-motion/README.md). Она сделана на HTML, CSS и JavaScript из существующих иллюстраций Грошика и не меняет состояние Flutter-приложения.
+
 ### Установка окружения
 
 1. Установить Flutter SDK: `brew install --cask flutter` (macOS) или см. [flutter.dev/get-started](https://docs.flutter.dev/get-started/install)
@@ -49,6 +53,27 @@ cp .env.example .env
 flutter pub get
 flutter run
 ```
+
+После завершения онбординга приложение открывает рабочую экономику профиля
+`STANDARD`. Экран получает состояние из backend/PostgreSQL: начинает игровой
+день, составляет бюджет, проводит покупки и события, выдаёт квестовые награды,
+ведёт Копилку, финансовую цель, Сундук Морозко и историю завершённых дней.
+Для этого должны быть запущены backend и БД, а игровые каталоги должны быть
+загружены командой `psql "$DATABASE_URL" -f db/seed.sql`.
+
+Перед первым днём ребёнок выбирает мечту: затем начисляются 30 монет и
+составляется план. Выбранную цель нельзя сменить или отменить до получения
+артефакта. Копилку можно пополнять сверх стоимости цели и снимать из неё деньги
+с подтверждением. После получения артефакта сразу открывается выбор следующей
+мечты; остаток накоплений сохраняется. Уже полученные предметы не предлагаются
+повторно. Когда каталог исчерпан, дни доступны без новой цели, а пополнение
+Копилки недоступно до появления новой мечты.
+
+Морозко принимает 10–50 монет шагом 10 из Кошелька. Через пять завершённых
+игровых дней сумма и бонус 10% возвращаются в Кошелёк; досрочно — только вклад.
+Подтверждения, команды и смысловые переходы находятся в
+`lib/economy/economy_actions.dart`: будущие вкладки главного экрана могут
+использовать их независимо от текущей временной компоновки.
 
 ### Тесты и анализ
 
@@ -66,9 +91,17 @@ dart format --output=none --set-exit-if-changed .
 
 | Файл | Триггер | Что делает |
 |---|---|---|
-| `ci.yml` | PR в `main`, push в `main` | `flutter analyze`, `flutter test`, проверка форматирования |
-| `build-apk.yml` | push в `main`, вручную | собирает release APK и кладёт его в Artifacts запуска (хранится 30 дней) |
-| `release.yml` | push тега `v*` (например `v1.0.0`) | собирает release APK и публикует его в GitHub Releases |
+| `ci.yml` | PR в `main`, push в `main` | форматирование, `flutter analyze`, Flutter-тесты, TypeScript build, миграции с повторным прогоном и backend-тесты на PostgreSQL |
+| `build-apk.yml` | push в `main`, вручную | собирает release APK с настроенным HTTPS API и кладёт его в Artifacts запуска (хранится 30 дней) |
+| `release.yml` | push тега `v*` (например `v1.0.0`) | собирает release APK с настроенным HTTPS API и публикует его в GitHub Releases |
+
+Перед первой release-сборкой владелец репозитория должен добавить GitHub
+Actions variable `API_BASE_URL` в **Settings → Secrets and variables → Actions →
+Variables**. Значение — полный HTTPS-адрес backend без завершающего слеша,
+например `https://api.example.com`. Workflow намеренно завершится ошибкой, если
+переменная отсутствует или содержит HTTP: иначе он выпустил бы APK, который
+пытается подключаться к адресу Android-эмулятора `10.0.2.2` и не работает на
+обычном телефоне.
 
 ### Как включить обязательность пайплайна перед мёржем
 
@@ -78,7 +111,7 @@ dart format --output=none --set-exit-if-changed .
 2. Добавить **branch protection rule** для `main`
 3. Включить:
    - **Require a pull request before merging**
-   - **Require status checks to pass before merging** → выбрать job `Analyze & Test` из `ci.yml`
+   - **Require status checks to pass before merging** → выбрать jobs `Analyze & Test` и `Backend & PostgreSQL` из `ci.yml`
    - (опционально) **Require branches to be up to date before merging**
 
 После этого смёржить в `main` можно будет только через PR с зелёным CI.

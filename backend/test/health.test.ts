@@ -1,5 +1,13 @@
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
 import test from "node:test";
+
+// The newest file in db/migrations is what /health must demand; pinning a name
+// here would let a new migration ship without REQUIRED_SCHEMA_VERSION moving.
+const LATEST_MIGRATION = readdirSync(new URL("../../db/migrations/", import.meta.url))
+  .filter((name) => name.endsWith(".sql"))
+  .sort()
+  .at(-1)!;
 
 test("health requires the latest migration used by this build", async () => {
   process.env["APP_DATABASE_URL"] =
@@ -17,7 +25,7 @@ test("health requires the latest migration used by this build", async () => {
       rows: [
         {
           required_present: true,
-          latest: "0022_generic_pet_copy.sql",
+          latest: LATEST_MIGRATION,
         },
       ],
       rowCount: 1,
@@ -29,10 +37,10 @@ test("health requires the latest migration used by this build", async () => {
     const response = await app.inject({ method: "GET", url: "/health" });
 
     assert.equal(response.statusCode, 200);
-    assert.equal(requiredVersion, "0022_generic_pet_copy.sql");
+    assert.equal(requiredVersion, LATEST_MIGRATION);
     assert.deepEqual(response.json(), {
       ok: true,
-      schemaVersion: "0022_generic_pet_copy.sql",
+      schemaVersion: LATEST_MIGRATION,
     });
   } finally {
     pool.query = originalQuery;

@@ -13,6 +13,7 @@ import 'package:andromeda_app/onboarding/onboarding_step3_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_step4_screen.dart';
 
 import 'support/fake_auth_storage.dart';
+import 'support/economy_fixture.dart';
 
 /// http.Response(String, int)'s default encoding is Latin1, which throws on
 /// non-ASCII bytes like Cyrillic — always encode mock JSON bodies as UTF-8.
@@ -31,6 +32,7 @@ void main() {
 
     await tester.pumpWidget(
       GroshikApp(
+        initialAudience: AppAudience.child,
         authStorage: authStorage,
         apiClient: ApiClient(
           httpClient: client,
@@ -44,35 +46,49 @@ void main() {
     expect(find.byType(OnboardingStep1Screen), findsOneWidget);
   });
 
-  testWidgets(
-    'saved token + completed onboarding -> shows the home placeholder',
-    (tester) async {
-      final authStorage = FakeAuthStorage(initialToken: 'tok');
-      final client = MockClient((request) async {
-        expect(request.url.path, '/onboarding/status');
+  testWidgets('saved token + completed onboarding -> shows main shell', (
+    tester,
+  ) async {
+    final authStorage = FakeAuthStorage(initialToken: 'tok');
+    final client = MockClient((request) async {
+      if (request.url.path == '/economy/state') {
         return _jsonResponse({
-          'currentStep': 4,
-          'completed': true,
-          'pet': {'petName': 'Грошик', 'furOptionId': 'FUR_GRAY'},
+          'rules': testEconomyRules,
+          'pet': {'pet_name': 'Рыжик'},
         }, 200);
-      });
+      }
+      expect(request.url.path, '/onboarding/status');
+      return _jsonResponse({
+        'currentStep': 4,
+        'completed': true,
+        'pet': {'petName': 'Рыжик', 'furOptionId': 'FUR_GRAY'},
+      }, 200);
+    });
 
-      await tester.pumpWidget(
-        GroshikApp(
+    await tester.pumpWidget(
+      GroshikApp(
+        initialAudience: AppAudience.child,
+        authStorage: authStorage,
+        apiClient: ApiClient(
+          httpClient: client,
           authStorage: authStorage,
-          apiClient: ApiClient(
-            httpClient: client,
-            authStorage: authStorage,
-            baseUrl: 'http://test',
-          ),
+          baseUrl: 'http://test',
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.byType(OnboardingStep1Screen), findsNothing);
-      expect(find.byType(MainShell), findsOneWidget);
-    },
-  );
+    expect(find.byType(OnboardingStep1Screen), findsNothing);
+    expect(find.byType(MainShell), findsOneWidget);
+    expect(find.text('Дом'), findsOneWidget);
+    expect(find.text('Копилка'), findsOneWidget);
+
+    await tester.tap(find.text('Копилка'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Моя цель'), findsOneWidget);
+    expect(find.text('Сундук Морозко'), findsOneWidget);
+  });
 
   for (final resumeCase in <({int step, Type screen})>[
     (step: 1, screen: OnboardingStep1Screen),
@@ -97,6 +113,7 @@ void main() {
 
         await tester.pumpWidget(
           GroshikApp(
+            initialAudience: AppAudience.child,
             authStorage: authStorage,
             apiClient: ApiClient(
               httpClient: client,
@@ -132,6 +149,7 @@ void main() {
 
       await tester.pumpWidget(
         GroshikApp(
+          initialAudience: AppAudience.child,
           authStorage: authStorage,
           apiClient: ApiClient(
             httpClient: client,
@@ -174,6 +192,7 @@ void main() {
 
       await tester.pumpWidget(
         GroshikApp(
+          initialAudience: AppAudience.child,
           authStorage: authStorage,
           apiClient: ApiClient(
             httpClient: client,
@@ -198,6 +217,12 @@ void main() {
     final authStorage = FakeAuthStorage(initialToken: 'tok');
     var calls = 0;
     final client = MockClient((request) async {
+      if (request.url.path == '/economy/state') {
+        return _jsonResponse({
+          'rules': testEconomyRules,
+          'pet': {'pet_name': 'Грошик'},
+        }, 200);
+      }
       calls++;
       if (calls == 1) return http.Response('', 500);
       return _jsonResponse({
@@ -209,6 +234,7 @@ void main() {
 
     await tester.pumpWidget(
       GroshikApp(
+        initialAudience: AppAudience.child,
         authStorage: authStorage,
         apiClient: ApiClient(
           httpClient: client,
@@ -225,5 +251,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(MainShell), findsOneWidget);
+    expect(find.text('Дом'), findsOneWidget);
   });
 }
