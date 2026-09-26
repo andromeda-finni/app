@@ -90,7 +90,7 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
       petName: "Без плана",
       furOptionId: "FUR_GRAY",
     })).statusCode, 200);
-    const unreadyStart = await start("Q_MOLE_FINE_PRINT", unreadyHeaders);
+    const unreadyStart = await start("Q_TURNIP_HARVEST", unreadyHeaders);
     assert.equal(unreadyStart.statusCode, 409, unreadyStart.body);
     assert.equal(unreadyStart.json().error, "active_day_with_confirmed_plan_required");
 
@@ -99,6 +99,23 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
     const locked = await start("Q_TUGRIKI_CURRENCY", progression.headers);
     assert.equal(locked.statusCode, 409, locked.body);
     assert.equal(locked.json().error, "quest_prerequisite_not_completed");
+
+    // The map starts in the village: the mole's market opens after the turnip.
+    const moleLocked = await start("Q_MOLE_FINE_PRINT", progression.headers);
+    assert.equal(moleLocked.statusCode, 409, moleLocked.body);
+    assert.equal(moleLocked.json().error, "quest_prerequisite_not_completed");
+
+    const turnipStart = await start("Q_TURNIP_HARVEST", progression.headers);
+    assert.equal(turnipStart.statusCode, 201, turnipStart.body);
+    const turnipDone = await answer(
+      turnipStart.json().assignmentId as string,
+      1,
+      "VERIFIED",
+      progression.headers,
+    );
+    assert.equal(turnipDone.statusCode, 200, turnipDone.body);
+    assert.equal(turnipDone.json().questCompleted, true);
+    assert.equal(turnipDone.json().rewardAmount, 10);
 
     const firstStart = await start("Q_MOLE_FINE_PRINT", progression.headers);
     assert.equal(firstStart.statusCode, 201, firstStart.body);
@@ -129,7 +146,7 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
       ["Q_FIRST_BUDGET", "A"],
       ["Q_SAVING_JAR", "B"],
       ["Q_SAFE_CHOICE", "B"],
-      ["Q_MOLE_FINE_PRINT", "VERIFIED"],
+      ["Q_TURNIP_HARVEST", "VERIFIED"],
     ] as const;
     const assignments = new Map<string, string>();
     for (const [questId] of questCodes) {
@@ -137,19 +154,9 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
       assert.equal(response.statusCode, 201, response.body);
       assignments.set(questId, response.json().assignmentId as string);
     }
-    const limitMoleId = assignments.get("Q_MOLE_FINE_PRINT")!;
-    for (let stepNo = 1; stepNo <= 4; stepNo++) {
-      const result = await answer(limitMoleId, stepNo, "VERIFIED", limited.headers);
-      assert.equal(result.statusCode, 200, result.body);
-    }
 
     const finishes = await Promise.all(questCodes.map(([questId, code]) =>
-      answer(
-        assignments.get(questId)!,
-        questId === "Q_MOLE_FINE_PRINT" ? 5 : 1,
-        code,
-        limited.headers,
-      )
+      answer(assignments.get(questId)!, 1, code, limited.headers)
     ));
     assert.deepEqual(finishes.map((response) => response.statusCode).sort(), [200, 200, 200, 409]);
     const refused = finishes.find((response) => response.statusCode === 409)!;

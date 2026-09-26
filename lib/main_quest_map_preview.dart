@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'quest_map/quest_map_screen.dart';
+import 'map/quest_map_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() {
