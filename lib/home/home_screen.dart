@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/pet_assets.dart';
+import '../day_summary/day_summary.dart';
+import '../day_summary/day_summary_screen.dart';
 import '../theme/app_theme.dart';
 import 'models/active_period.dart';
 import 'models/active_pet_event.dart';
@@ -160,9 +162,29 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _closeDay() {
     final period = _period;
     if (period == null) return Future.value();
-    return _runDayAction(
-      () => widget.apiClient.post('/periods/${period.id}/close'),
-    );
+    return _runDayAction(() async {
+      final response = await widget.apiClient.post(
+        '/periods/${period.id}/close',
+      );
+      final DaySummary summary;
+      try {
+        summary = DaySummary.fromJson(response);
+      } on FormatException {
+        // The day is already closed on the server; home reloads either way,
+        // so a malformed summary only skips the mirror screen.
+        return;
+      }
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (routeContext) => DaySummaryScreen(
+            summary: summary,
+            onContinue: () => Navigator.of(routeContext).pop(),
+          ),
+        ),
+      );
+    });
   }
 
   Future<void> _submitParentTask(String assignmentId) => _runDayAction(

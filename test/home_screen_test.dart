@@ -68,6 +68,7 @@ Widget _screen({
   VoidCallback? onChooseGoal,
   VoidCallback? onOpenShop,
   void Function(http.BaseRequest request, String body)? onRequest,
+  Map<String, dynamic>? closeResponse,
 }) {
   final client = MockClient((request) async {
     onRequest?.call(request, request.body);
@@ -82,6 +83,9 @@ Widget _screen({
           spendable: spendable,
           savings: savings,
         ),
+      ),
+      final path when closeResponse != null && path.endsWith('/close') => _json(
+        closeResponse,
       ),
       _ => _json({'ok': true}),
     };
@@ -374,12 +378,34 @@ void main() {
         period: confirmed,
         onRequest: (request, _) =>
             calls.add('${request.method} ${request.url.path}'),
+        closeResponse: {
+          'periodId': _periodId,
+          'sequenceNo': 1,
+          'earnedAmount': 30,
+          'plan': {'need': 10, 'want': 20, 'savings': 0},
+          'actual': {'need': 10, 'want': 0, 'savings': 0},
+          'needCovered': true,
+          'planFollowed': true,
+          'feedback': 'Мурзик сыт и доволен.',
+          'recommendations': <String>[],
+        },
       ),
     );
 
     await tester.tap(find.text('Завершить день'));
     await tester.pumpAndSettle();
-    expect(calls, contains('POST /periods/$_periodId/close'));
+    expect(
+      calls.where((call) => call == 'POST /periods/$_periodId/close'),
+      hasLength(1),
+    );
+    // Closing the day opens the mirror with the server's summary, and
+    // leaving it returns to a refreshed home screen.
+    expect(find.text('Свет мой, зеркальце, скажи…'), findsOneWidget);
+    await tester.ensureVisible(find.text('Продолжить'));
+    await tester.tap(find.text('Продолжить'));
+    await tester.pumpAndSettle();
+    expect(find.text('Свет мой, зеркальце, скажи…'), findsNothing);
+    expect(calls.where((call) => call == 'GET /economy/state'), hasLength(2));
   });
 
   testWidgets('a child can submit a real parent task from the home screen', (
