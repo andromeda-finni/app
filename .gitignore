@@ -56,3 +56,7 @@ app.*.map.json
 
 # Generated Flutter Web scaffold (kept local by request)
 /web/
+
+# Obsidian local cache & settings
+**/.obsidian/
+scratch/
