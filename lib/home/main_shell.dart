@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../economy/savings_screen.dart';
-import '../quest_map/quest_map_screen.dart';
+import '../map/quest_map_screen.dart';
 import '../settings/child_settings_screen.dart';
 import '../shop/shop_screen.dart';
 import '../theme/app_theme.dart';

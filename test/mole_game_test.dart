@@ -8,7 +8,7 @@ import 'package:http/testing.dart';
 import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/minigames/mole/mole_game_data.dart';
 import 'package:andromeda_app/minigames/mole/mole_game_screen.dart';
-import 'package:andromeda_app/quest_map/quest_map_screen.dart';
+import 'package:andromeda_app/map/quest_map_screen.dart';
 
 import 'support/fake_auth_storage.dart';
 
@@ -123,7 +123,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: QuestMapScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Крот с лупой'), findsOneWidget);
+    expect(find.byKey(const Key('quest-map-hero-mole')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
