@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'core/api_client.dart';
 import 'core/auth_storage.dart';
+import 'games/turnip/turnip_game_models.dart';
+import 'games/turnip/turnip_game_demo_screen.dart';
 import 'home/main_shell.dart';
 import 'home/pet_home_screen.dart';
 import 'onboarding/onboarding_data.dart';
@@ -9,6 +11,7 @@ import 'onboarding/onboarding_flow.dart';
 import 'theme/app_theme.dart';
 
 const _foxEventDemo = bool.fromEnvironment('FOX_EVENT_DEMO');
+const _turnipGameDemo = bool.fromEnvironment('TURNIP_GAME_DEMO');
 
 void main() {
   runApp(const GroshikApp());
@@ -19,10 +22,12 @@ class GroshikApp extends StatelessWidget {
     super.key,
     @visibleForTesting this.authStorage,
     @visibleForTesting this.apiClient,
+    this.turnipDifficulty = TurnipDifficulty.normal,
   });
 
   final AuthStorage? authStorage;
   final ApiClient? apiClient;
+  final TurnipDifficulty turnipDifficulty;
 
   @override
   Widget build(BuildContext context) {
@@ -30,9 +35,15 @@ class GroshikApp extends StatelessWidget {
       title: 'Грошик',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: _foxEventDemo
+      home: _turnipGameDemo
+          ? const TurnipGameDemoScreen()
+          : _foxEventDemo
           ? const PetHomeScreen()
-          : _StartupGate(authStorage: authStorage, apiClient: apiClient),
+          : _StartupGate(
+              authStorage: authStorage,
+              apiClient: apiClient,
+              turnipDifficulty: turnipDifficulty,
+            ),
     );
   }
 }
@@ -44,10 +55,15 @@ enum _StartupState { checking, needsOnboarding, hasPet, error }
 /// steps were completed, so the server returns the first unfinished step via
 /// `GET /onboarding/status`.
 class _StartupGate extends StatefulWidget {
-  const _StartupGate({this.authStorage, this.apiClient});
+  const _StartupGate({
+    this.authStorage,
+    this.apiClient,
+    required this.turnipDifficulty,
+  });
 
   final AuthStorage? authStorage;
   final ApiClient? apiClient;
+  final TurnipDifficulty turnipDifficulty;
 
   @override
   State<_StartupGate> createState() => _StartupGateState();
@@ -138,7 +154,11 @@ class _StartupGateState extends State<_StartupGate> {
           initialData: _onboarding.data,
         );
       case _StartupState.hasPet:
-        return MainShell(apiClient: _api);
+        return MainShell(
+          apiClient: _api,
+          petName: _onboarding.data.petName,
+          turnipDifficulty: widget.turnipDifficulty,
+        );
       case _StartupState.error:
         return Scaffold(
           backgroundColor: AppColors.parchment,

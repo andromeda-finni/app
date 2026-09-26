@@ -91,6 +91,16 @@ flutter:
     - assets/Cat/Red_collar/happy/white.png
     - assets/Fox/fox_friendly.png
     - assets/Fox/fox_sly.png
+    - assets/games/turnip/garden_background.png
+    - assets/games/turnip/grandpa_sad.png
+    - assets/games/turnip/grandpa_pulling.png
+    - assets/games/turnip/grandmother.png
+    - assets/games/turnip/granddaughter.png
+    - assets/games/turnip/zhuchka.png
+    - assets/games/turnip/cat.png
+    - assets/games/turnip/mouse.png
+    - assets/games/turnip/team_pulling.png
+    - assets/games/turnip/success_harvest.png
 
   # Bundled locally so typography is stable offline. PT Serif carries all
   # functional copy; Barocco Initial is reserved for decorative drop caps.

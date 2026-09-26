@@ -71,6 +71,7 @@ void main() {
 
     expect(find.byType(OnboardingStep1Screen), findsNothing);
     expect(find.byType(MainShell), findsOneWidget);
+    expect(tester.widget<MainShell>(find.byType(MainShell)).petName, 'Рыжик');
   });
 
   for (final resumeCase in <({int step, Type screen})>[

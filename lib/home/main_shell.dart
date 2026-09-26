@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../games/turnip/turnip_game_models.dart';
 import '../theme/app_theme.dart';
+import 'games_screen.dart';
 import 'home_screen.dart';
 import 'widgets/app_nav_bar.dart';
 
@@ -11,9 +13,16 @@ import 'widgets/app_nav_bar.dart';
 /// switch, so each keeps its scroll position and any in-progress input while
 /// the child moves between them.
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, required this.apiClient});
+  const MainShell({
+    super.key,
+    required this.apiClient,
+    this.petName = 'Грошик',
+    this.turnipDifficulty = TurnipDifficulty.normal,
+  });
 
   final ApiClient apiClient;
+  final String petName;
+  final TurnipDifficulty turnipDifficulty;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -32,7 +41,11 @@ class _MainShellState extends State<MainShell> {
           index: _index,
           children: [
             HomeScreen(apiClient: widget.apiClient),
-            for (final destination in kNavDestinations.skip(1))
+            GamesScreen(
+              turnipDifficulty: widget.turnipDifficulty,
+              petName: widget.petName,
+            ),
+            for (final destination in kNavDestinations.skip(2))
               _TabPlaceholder(destination: destination),
           ],
         ),
