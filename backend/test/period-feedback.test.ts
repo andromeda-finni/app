@@ -8,26 +8,27 @@ test("period feedback uses the child's chosen pet name", async () => {
 
   assert.equal(
     buildPeriodFeedback({ planFollowed: true, needCovered: true, petName: "Мурзик" }),
-    "Игровой день завершён: план выполнен, Мурзик доволен и растёт.",
+    "Ты молодец! Сегодня мы уложились в план. Мурзик доволен и растёт.",
   );
   assert.equal(
     buildPeriodFeedback({ planFollowed: false, needCovered: false, petName: "Рыжик" }),
-    "В этот раз не хватило на нужное. Рыжик расстроился, но ничего страшного.",
+    "Сегодня план и действия немного разошлись. Рыжик ждёт заботы, а завтра попробуем ещё раз.",
   );
 });
 
-test("period feedback appends the day's recommendations after the opener", async () => {
+test("period feedback stays encouraging when only the allocation missed", async () => {
   process.env["APP_DATABASE_URL"] =
     "postgres://test:test@localhost:5432/test?sslmode=disable";
   const { buildPeriodFeedback } = await import("../src/modules/periods/routes.js");
 
   const text = buildPeriodFeedback({
     planFollowed: false,
-    needCovered: false,
+    needCovered: true,
     petName: "Рыжик",
-    recommendations: ["Сначала закрой обязательные траты на питомца."],
   });
-  assert.match(text, /Рыжик/);
-  assert.match(text, /Сначала закрой обязательные траты на питомца\.$/);
-  assert.doesNotMatch(text, /Грошик/);
+  assert.equal(
+    text,
+    "Сегодня план и действия немного разошлись. Завтра попробуем ещё раз.",
+  );
+  assert.doesNotMatch(text, /расстро/);
 });

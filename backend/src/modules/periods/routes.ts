@@ -6,12 +6,12 @@ import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, nonNegativeIntSchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
 import { calculateDayOutcome, ECONOMY_RULES } from "../economy/rules.js";
 import { lockGoalOwner, requireGoal } from "../economy/goals.js";
+import { readDaySummary } from "./daySummary.js";
 
 export function buildPeriodFeedback({
   planFollowed,
   needCovered,
   petName,
-  recommendations = [],
 }: {
   planFollowed: boolean;
   needCovered: boolean;
@@ -19,14 +19,11 @@ export function buildPeriodFeedback({
   recommendations?: string[];
 }): string {
   if (planFollowed) {
-    return `Игровой день завершён: план выполнен, ${petName} доволен и растёт.`;
+    return `Ты молодец! Сегодня мы уложились в план. ${petName} доволен и растёт.`;
   }
-  // The day outcome's own advice is more useful than a generic line, but it
-  // never names the pet, so the opener still does.
-  const opener = needCovered
-    ? "Нужное закрыто, но с желаниями или накоплениями вышло не по плану."
-    : `В этот раз не хватило на нужное. ${petName} расстроился, но ничего страшного.`;
-  return recommendations.length > 0 ? `${opener} ${recommendations.join(" ")}` : opener;
+  return needCovered
+    ? "Сегодня план и действия немного разошлись. Завтра попробуем ещё раз."
+    : `Сегодня план и действия немного разошлись. ${petName} ждёт заботы, а завтра попробуем ещё раз.`;
 }
 
 export async function periodRoutes(app: FastifyInstance): Promise<void> {
@@ -255,11 +252,17 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
 
       const result = await withTransaction(async (client) => {
         const periodRes = await client.query(
-          `SELECT * FROM game_periods WHERE id = $1 AND child_user_id = $2 AND status = 'ACTIVE' FOR UPDATE`,
+          `SELECT * FROM game_periods WHERE id = $1 AND child_user_id = $2 FOR UPDATE`,
           [periodId, childUserId],
         );
         const period = periodRes.rows[0];
-        if (!period) throw new HttpError(404, "active_period_not_found");
+        if (!period) throw new HttpError(404, "period_not_found");
+        if (period.status === "COMPLETED") {
+          return readDaySummary(client, childUserId, periodId);
+        }
+        if (period.status !== "ACTIVE") {
+          throw new HttpError(409, "period_cannot_be_closed");
+        }
 
         const planRes = await client.query(
           `SELECT * FROM budget_plans WHERE period_id = $1 AND status = 'CONFIRMED'`,
@@ -313,13 +316,6 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
         });
         const { needCovered, planFollowed } = dayOutcome;
 
-        if (!needCovered) {
-          throw new HttpError(409, "required_need_not_covered", {
-            required: period.required_need_amount,
-            actual: actualNeed,
-          });
-        }
-
         const activeEventRes = await client.query(
           `SELECT 1 FROM pet_event_occurrences
             WHERE child_user_id = $1 AND status = 'ACTIVE'`,
@@ -354,7 +350,6 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
           planFollowed,
           needCovered,
           petName: pet.pet_name,
-          recommendations: dayOutcome.recommendations,
         });
 
         await client.query(
@@ -387,18 +382,7 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
           ],
         );
 
-        return {
-          needCovered,
-          planFollowed,
-          actualNeed,
-          actualWant,
-          netSavings,
-          petStageBefore: stageBefore,
-          petStageAfter: stageAfter,
-          successfulPeriodStreak: newStreak,
-          feedback,
-          recommendations: dayOutcome.recommendations,
-        };
+        return readDaySummary(client, childUserId, periodId);
       });
 
       return result;

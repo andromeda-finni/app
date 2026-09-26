@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/pet_assets.dart';
+import '../day_summary/day_end_action.dart';
 import '../theme/app_theme.dart';
 import 'models/active_period.dart';
 import 'models/pet.dart';
@@ -127,6 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       case _LoadState.ready:
         return _Content(
+          apiClient: widget.apiClient,
           pet: _pet!,
           onOpenSettings: widget.onOpenSettings,
           period: _period,
@@ -142,6 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _Content extends StatelessWidget {
   const _Content({
+    required this.apiClient,
     required this.pet,
     this.onOpenSettings,
     required this.period,
@@ -152,6 +155,7 @@ class _Content extends StatelessWidget {
     required this.onStartPeriod,
   });
 
+  final ApiClient apiClient;
   final Pet pet;
   final VoidCallback? onOpenSettings;
   final ActivePeriod? period;
@@ -206,6 +210,14 @@ class _Content extends StatelessWidget {
             onConfirm: onConfirmPlan,
             onStartPeriod: onStartPeriod,
           ),
+          if (period?.isConfirmed == true) ...[
+            const SizedBox(height: 14),
+            DayEndAction(
+              apiClient: apiClient,
+              periodId: period!.id,
+              onCompleted: onRefresh,
+            ),
+          ],
           const SizedBox(height: 14),
           const CollectionCard(),
         ],

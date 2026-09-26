@@ -297,6 +297,7 @@ void main() {
     await _pump(tester, _screen(period: confirmed));
 
     expect(find.text('План утверждён'), findsOneWidget);
+    expect(find.text('Завершить день'), findsOneWidget);
     expect(find.text('Утвердить план'), findsNothing);
     expect(find.bySemanticsLabel('Добавить монету: В копилку'), findsNothing);
   });
