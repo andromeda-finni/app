@@ -79,6 +79,13 @@ flutter:
     - assets/icons/bowl.png
     - assets/icons/eat.png
     - assets/images/morozko_chest.png
+    - assets/images/artifacts/saucer.png
+    - assets/images/artifacts/vial.png
+    - assets/images/artifacts/tablecloth.png
+    - assets/images/artifacts/horseshoe.png
+    - assets/images/artifacts/shield.png
+    - assets/images/artifacts/purse.png
+    - assets/images/artifacts/boots.png
     # Every mood folder is in use: the home screen swaps the pet's drawing to
     # match its stats (see lib/core/pet_assets.dart).
     - assets/Cat/Red_collar/base/
