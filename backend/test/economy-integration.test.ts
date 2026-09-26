@@ -18,6 +18,10 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
   const { frostChestRoutes } = await import("../src/modules/frostChest/routes.js");
   const { economyRoutes } = await import("../src/modules/economy/routes.js");
   const { petRoutes } = await import("../src/modules/pet/routes.js");
+  const originalRandom = Math.random;
+  // This test exercises the base economy lifecycle. Event behavior has its
+  // own integration test and must not make this one probabilistic.
+  Math.random = () => 1;
   const app = Fastify({ ajv: { customOptions: { removeAdditional: false } } });
   app.setErrorHandler((error, _req, reply) => {
     if (error instanceof HttpError) reply.code(error.statusCode).send({ error: error.code });
@@ -122,6 +126,7 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
     const parent = (await app.inject({ method: 'POST', url: '/auth/parent/register', payload: {} })).json();
     assert.equal((await app.inject({ method: 'POST', url: '/goals', headers: { authorization: `Bearer ${parent.token}` }, payload: { targetItemId: 'shield' } })).statusCode, 403);
   } finally {
+    Math.random = originalRandom;
     await app.close();
     await pool.end();
   }

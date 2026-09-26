@@ -59,6 +59,8 @@ Map<String, dynamic> _overview([String petName = 'Пушок']) => {
       'occurred_at': '2026-09-25T18:30:00Z',
     },
   ],
+  'parentTasks': <Object>[],
+  'rules': {'parentRewardLimit': 10},
 };
 
 Future<void> _pumpParent(
@@ -155,6 +157,68 @@ void main() {
     // Nothing from the old prototype survives.
     expect(find.text('ПРОТОТИП'), findsNothing);
     expect(find.textContaining('Грошик'), findsNothing);
+  });
+
+  testWidgets('a parent can create and verify a linked child task', (
+    tester,
+  ) async {
+    final storage = FakeAuthStorage(initialToken: 'parent-token');
+    var overview = _overview();
+    final mutations = <String>[];
+    final client = MockClient((request) async {
+      switch ((request.method, request.url.path)) {
+        case ('GET', '/parent/children'):
+          return _json([
+            {'childUserId': _childId, 'petName': 'Пушок'},
+          ]);
+        case ('GET', '/parent/children/$_childId/overview'):
+          return _json(overview);
+        case ('POST', '/parent/tasks'):
+          mutations.add(
+            '${request.method} ${request.url.path} ${request.body}',
+          );
+          overview = _overview()
+            ..['parentTasks'] = [
+              {
+                'id': 'task-1',
+                'title': 'Полить цветы',
+                'reward_amount': 1,
+                'status': 'AWAITING_PARENT',
+              },
+            ];
+          return _json({'id': 'task-1'}, 201);
+        case ('POST', '/parent/tasks/task-1/verify'):
+          mutations.add('${request.method} ${request.url.path}');
+          overview = _overview()
+            ..['parentTasks'] = [
+              {
+                'id': 'task-1',
+                'title': 'Полить цветы',
+                'reward_amount': 1,
+                'status': 'VERIFIED',
+              },
+            ];
+          return _json({'ok': true, 'balanceAfter': 13});
+        default:
+          return _json({'error': 'unexpected'}, 500);
+      }
+    });
+
+    await _pumpParent(tester, storage: storage, client: client);
+    await tester.ensureVisible(find.byTooltip('Добавить дело'));
+    await tester.tap(find.byTooltip('Добавить дело'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Полить цветы');
+    await tester.tap(find.text('Назначить'));
+    await tester.pumpAndSettle();
+
+    expect(mutations.single, contains('"rewardAmount":1'));
+    expect(find.text('Подтвердить'), findsOneWidget);
+    await tester.tap(find.text('Подтвердить'));
+    await tester.pumpAndSettle();
+
+    expect(mutations.last, 'POST /parent/tasks/task-1/verify');
+    expect(find.textContaining('награда выдана'), findsOneWidget);
   });
 
   testWidgets('inviting another child keeps a route back to linked children', (

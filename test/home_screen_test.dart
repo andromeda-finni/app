@@ -43,6 +43,8 @@ Map<String, dynamic> _economyState({
   Map<String, dynamic>? pet,
   Object? period,
   Object? goal = _goal,
+  Object? event,
+  Object? parentTasks = const <Object>[],
   int spendable = 40,
   int savings = 10,
 }) => {
@@ -50,6 +52,8 @@ Map<String, dynamic> _economyState({
   'wallets': {'SPENDABLE': spendable, 'SAVINGS': savings, 'FROZEN': 0},
   'activeDay': period,
   'activeGoal': goal,
+  'activeEvent': event,
+  'parentTasks': parentTasks,
 };
 
 /// Builds the screen over a stub backend. [onRequest] observes every call.
@@ -57,9 +61,12 @@ Widget _screen({
   Map<String, dynamic>? pet,
   Object? period,
   Object? goal = _goal,
+  Object? event,
+  Object? parentTasks = const <Object>[],
   int spendable = 40,
   int savings = 10,
   VoidCallback? onChooseGoal,
+  VoidCallback? onOpenShop,
   void Function(http.BaseRequest request, String body)? onRequest,
 }) {
   final client = MockClient((request) async {
@@ -70,6 +77,8 @@ Widget _screen({
           pet: pet,
           period: period,
           goal: goal,
+          event: event,
+          parentTasks: parentTasks,
           spendable: spendable,
           savings: savings,
         ),
@@ -87,6 +96,7 @@ Widget _screen({
           baseUrl: 'http://test',
         ),
         onChooseGoal: onChooseGoal ?? () {},
+        onOpenShop: onOpenShop ?? () {},
       ),
     ),
   );
@@ -98,6 +108,7 @@ Map<String, dynamic> _draftPeriod({
   int need = 0,
   int want = 0,
   int savings = 0,
+  int? remainingReserve,
 }) => {
   'id': '11111111-1111-1111-1111-111111111111',
   'required_need_amount': requiredNeed,
@@ -107,6 +118,7 @@ Map<String, dynamic> _draftPeriod({
   'need_amount': need,
   'want_amount': want,
   'savings_amount': savings,
+  'remaining_reserve': remainingReserve ?? requiredNeed,
 };
 
 /// The screen is a tall scrolling page and a ListView does not build what is
@@ -301,6 +313,104 @@ void main() {
     expect(find.bySemanticsLabel('Добавить монету: В копилку'), findsNothing);
   });
 
+  testWidgets('an active pet event can be paid from the real home screen', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    final confirmed = _draftPeriod(need: 25, want: 5, remainingReserve: 25)
+      ..['budget_plan_status'] = 'CONFIRMED';
+
+    await _pump(
+      tester,
+      _screen(
+        period: confirmed,
+        event: const {
+          'id': '22222222-2222-2222-2222-222222222222',
+          'title': 'Питомец заболел',
+          'description': 'Нужно купить лекарство',
+          'amount_due': 15,
+        },
+        onRequest: (request, _) =>
+            calls.add('${request.method} ${request.url.path}'),
+      ),
+    );
+
+    expect(find.text('Питомец заболел'), findsOneWidget);
+    await tester.tap(find.text('Помочь за 15 монет'));
+    await tester.pumpAndSettle();
+    expect(
+      calls,
+      contains('POST /pet-events/22222222-2222-2222-2222-222222222222/resolve'),
+    );
+  });
+
+  testWidgets('the home screen leads to needs before allowing day closure', (
+    tester,
+  ) async {
+    var openedShop = false;
+    final confirmed = _draftPeriod(need: 10, want: 20, remainingReserve: 10)
+      ..['budget_plan_status'] = 'CONFIRMED';
+
+    await _pump(
+      tester,
+      _screen(period: confirmed, onOpenShop: () => openedShop = true),
+    );
+
+    expect(find.text('Завершить день'), findsNothing);
+    await tester.tap(find.text('Открыть магазин'));
+    expect(openedShop, isTrue);
+  });
+
+  testWidgets('a fully covered day can be closed from the home screen', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    final confirmed = _draftPeriod(need: 10, want: 20, remainingReserve: 0)
+      ..['budget_plan_status'] = 'CONFIRMED';
+
+    await _pump(
+      tester,
+      _screen(
+        period: confirmed,
+        onRequest: (request, _) =>
+            calls.add('${request.method} ${request.url.path}'),
+      ),
+    );
+
+    await tester.tap(find.text('Завершить день'));
+    await tester.pumpAndSettle();
+    expect(calls, contains('POST /periods/$_periodId/close'));
+  });
+
+  testWidgets('a child can submit a real parent task from the home screen', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    await _pump(
+      tester,
+      _screen(
+        parentTasks: const [
+          {
+            'id': '33333333-3333-3333-3333-333333333333',
+            'title': 'Полить цветы',
+            'reward_amount': 7,
+            'status': 'AVAILABLE',
+          },
+        ],
+        onRequest: (request, _) =>
+            calls.add('${request.method} ${request.url.path}'),
+      ),
+    );
+
+    expect(find.text('Полить цветы'), findsOneWidget);
+    await tester.tap(find.text('Я сделал(а)'));
+    await tester.pumpAndSettle();
+    expect(
+      calls,
+      contains('POST /child/tasks/33333333-3333-3333-3333-333333333333/submit'),
+    );
+  });
+
   testWidgets('a failed load offers a retry', (tester) async {
     var attempt = 0;
     final client = MockClient((request) async {
@@ -322,6 +432,7 @@ void main() {
               baseUrl: 'http://test',
             ),
             onChooseGoal: () {},
+            onOpenShop: () {},
           ),
         ),
       ),

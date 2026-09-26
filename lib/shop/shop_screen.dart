@@ -348,11 +348,7 @@ class _PurchaseRow extends StatelessWidget {
     final dayMissing = economy.day?.planConfirmed != true;
     final block = dayMissing
         ? null
-        : EconomyActions.spendingBlock(
-            economy,
-            item.price,
-            protectReserve: item.kind != 'NEED',
-          );
+        : EconomyActions.purchaseBlock(economy, item);
     final enabled = !busy && !dayMissing && block == null;
     final reason = dayMissing ? 'Сначала утверди план дня.' : block?.message;
     return Padding(

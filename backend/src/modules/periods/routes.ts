@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, nonNegativeIntSchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
 import { calculateDayOutcome, ECONOMY_RULES } from "../economy/rules.js";
 import { lockGoalOwner, requireGoal } from "../economy/goals.js";
+import { rollActivePeriodPetEvent } from "../petEvents/service.js";
 
 export function buildPeriodFeedback({
   planFollowed,
@@ -114,7 +115,15 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
           [periodId, childUserId, grantAmount],
         );
 
-        return { periodId, budgetPlanId: planRes.rows[0]!.id, grantAmount, balanceAfter: txn.balanceAfter };
+        const event = await rollActivePeriodPetEvent(client, childUserId);
+
+        return {
+          periodId,
+          budgetPlanId: planRes.rows[0]!.id,
+          grantAmount,
+          balanceAfter: txn.balanceAfter,
+          eventTriggered: event.triggered,
+        };
       });
 
       reply.code(201).send(result);

@@ -37,7 +37,6 @@ class EconomyActions {
 
   Future<void> startDay() async {
     await api.post('/periods');
-    await api.post('/pet-events/roll');
   }
 
   Future<void> confirmPlan(
@@ -80,6 +79,7 @@ class EconomyActions {
     EconomyState state,
     int amount, {
     bool protectReserve = true,
+    int? reserveOverride,
   }) {
     if (state.wallet < amount) {
       return EconomyBlock(
@@ -87,7 +87,7 @@ class EconomyActions {
         EconomyDestination.quests,
       );
     }
-    final reserve = state.day?.remainingReserve ?? 0;
+    final reserve = reserveOverride ?? state.day?.remainingReserve ?? 0;
     if (protectReserve && state.wallet - amount < reserve) {
       return EconomyBlock(
         '$reserve монет нужны на обязательные траты. Сначала позаботься о питомце.',
@@ -95,6 +95,23 @@ class EconomyActions {
       );
     }
     return null;
+  }
+
+  static EconomyBlock? purchaseBlock(EconomyState state, EconomyItem item) {
+    final eventReserve = (state.event?['amount_due'] as num?)?.toInt() ?? 0;
+    if (item.kind == 'NEED' && eventReserve > 0) {
+      return spendingBlock(
+        state,
+        item.price,
+        protectReserve: true,
+        reserveOverride: eventReserve,
+      );
+    }
+    return spendingBlock(
+      state,
+      item.price,
+      protectReserve: item.kind != 'NEED',
+    );
   }
 
   static EconomyOperation purchase(

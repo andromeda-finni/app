@@ -78,7 +78,8 @@ String economyErrorMessage(ApiException error) => switch (error.code) {
     'Перед завершением дня нужно решить случайное событие.',
   'food_reserve_is_unavailable_for_wants' ||
   'food_reserve_is_unavailable_for_frost' ||
-  'food_reserve_is_unavailable_for_savings' =>
+  'food_reserve_is_unavailable_for_savings' ||
+  'active_event_reserve_is_unavailable_for_purchases' =>
     'Эти монеты пока нужны для обязательных трат.',
   'insufficient_funds' => 'Не хватает монет для этого действия.',
   'active_day_with_confirmed_plan_required' =>

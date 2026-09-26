@@ -55,7 +55,7 @@ test("rolling a pet event changes health atomically and rolls back on failure", 
       if (text.includes("INSERT INTO pet_event_occurrences")) {
         return { rows: [{ id: "event-1" }], rowCount: 1 };
       }
-      if (text.includes("UPDATE pets SET health_level")) {
+      if (text.includes("UPDATE pets") && text.includes("health_level")) {
         if (failHealthUpdate) throw new Error("health update failed");
         return { rows: [], rowCount: 1 };
       }
@@ -74,13 +74,15 @@ test("rolling a pet event changes health atomically and rolls back on failure", 
       url: "/pet-events/roll",
       headers: { authorization: "Bearer token" },
     });
-    assert.equal(success.statusCode, 200);
+    assert.equal(success.statusCode, 200, success.body);
     assert.deepEqual(success.json(), { triggered: true, occurrenceId: "event-1" });
     assert.equal(statements[0], "BEGIN");
     assert.equal(statements.at(-1), "COMMIT");
     assert.ok(
       statements.findIndex((sql) => sql.includes("INSERT INTO pet_event_occurrences")) <
-        statements.findIndex((sql) => sql.includes("UPDATE pets SET health_level")),
+        statements.findIndex(
+          (sql) => sql.includes("UPDATE pets") && sql.includes("health_level"),
+        ),
     );
 
     statements = [];

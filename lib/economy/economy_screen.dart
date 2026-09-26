@@ -748,24 +748,14 @@ class _ShopCard extends StatelessWidget {
             subtitle: Text(item.kind == 'NEED' ? 'Надо' : 'Хочу'),
             trailing: OutlinedButton(
               onPressed:
-                  busy ||
-                      EconomyActions.spendingBlock(
-                            economy,
-                            item.price,
-                            protectReserve: item.kind != 'NEED',
-                          ) !=
-                          null
+                  busy || EconomyActions.purchaseBlock(economy, item) != null
                   ? null
                   : () => onBuy(item),
               child: Text('${item.price} монет'),
             ),
           ),
           _BlockHint(
-            block: EconomyActions.spendingBlock(
-              economy,
-              item.price,
-              protectReserve: item.kind != 'NEED',
-            ),
+            block: EconomyActions.purchaseBlock(economy, item),
             onNavigate: onNavigate,
           ),
         ],

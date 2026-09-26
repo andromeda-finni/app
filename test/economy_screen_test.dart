@@ -168,7 +168,9 @@ void main() {
     expect(calls, isEmpty);
     await tester.tap(find.widgetWithText(FilledButton, 'Выбрать'));
     await tester.pumpAndSettle();
-    expect(calls, ['/goals', '/periods', '/pet-events/roll']);
+    // POST /periods performs the one daily event roll in the same server
+    // transaction, so the client must not issue a second probabilistic roll.
+    expect(calls, ['/goals', '/periods']);
   });
 
   for (final purchase in [true, false]) {

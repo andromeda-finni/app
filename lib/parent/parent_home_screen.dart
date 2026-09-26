@@ -149,6 +149,27 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
     });
   }
 
+  Future<void> _createTask(String title, int rewardAmount) async {
+    final childUserId = _selectedChildUserId;
+    if (childUserId == null) return;
+    await _run(() async {
+      await _api.post(
+        '/parent/tasks',
+        body: {
+          'childUserId': childUserId,
+          'title': title,
+          'rewardAmount': rewardAmount,
+        },
+      );
+      await _load();
+    });
+  }
+
+  Future<void> _verifyTask(String assignmentId) => _run(() async {
+    await _api.post('/parent/tasks/$assignmentId/verify');
+    await _load();
+  });
+
   void _selectChild(String childUserId) {
     if (childUserId == _selectedChildUserId || _busy) return;
     _selectedChildUserId = childUserId;
@@ -185,6 +206,10 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
         onRefresh: _load,
         onInviteChild: _createInvite,
         onExitToRoleChoice: widget.onBack,
+        onCreateTask: _createTask,
+        onVerifyTask: _verifyTask,
+        busy: _busy,
+        error: _error,
       );
     }
     return Scaffold(

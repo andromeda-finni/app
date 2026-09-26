@@ -245,4 +245,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(purchaseCalls, 1);
   });
+
+  testWidgets('an unpaid pet event reserve cannot be spent in the store', (
+    tester,
+  ) async {
+    final data = _state(withGoal: true);
+    data['wallets'] = {'SPENDABLE': 20, 'SAVINGS': 0, 'FROZEN': 0};
+    data['activeEvent'] = {
+      'id': 'event-1',
+      'title': 'Питомец заболел',
+      'description': 'Нужно купить лекарство',
+      'amount_due': 20,
+    };
+    await _pumpShell(
+      tester,
+      MockClient((request) async => _jsonResponse(data)),
+    );
+
+    await tester.tap(find.text('Магазин'));
+    await tester.pumpAndSettle();
+
+    final mealButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '6 монет'),
+    );
+    expect(mealButton.onPressed, isNull);
+    expect(
+      find.text(
+        '20 монет нужны на обязательные траты. Сначала позаботься о питомце.',
+      ),
+      findsOneWidget,
+    );
+  });
 }

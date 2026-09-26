@@ -4,10 +4,14 @@ import '../core/api_client.dart';
 import '../core/pet_assets.dart';
 import '../theme/app_theme.dart';
 import 'models/active_period.dart';
+import 'models/active_pet_event.dart';
 import 'models/pet.dart';
+import 'models/parent_task.dart';
 import 'widgets/budget_plan_card.dart';
 import 'widgets/collection_card.dart';
+import 'widgets/day_actions_card.dart';
 import 'widgets/pet_stats_card.dart';
+import 'widgets/parent_tasks_card.dart';
 
 enum _LoadState { loading, ready, error }
 
@@ -18,11 +22,13 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.onChooseGoal,
+    required this.onOpenShop,
     this.onOpenSettings,
   });
 
   final ApiClient apiClient;
   final VoidCallback onChooseGoal;
+  final VoidCallback onOpenShop;
 
   final VoidCallback? onOpenSettings;
 
@@ -34,8 +40,12 @@ class _HomeScreenState extends State<HomeScreen> {
   _LoadState _state = _LoadState.loading;
   Pet? _pet;
   ActivePeriod? _period;
+  ActivePetEvent? _event;
+  List<ParentTask> _parentTasks = const [];
   Map<String, int> _wallets = const {};
   bool _hasGoal = false;
+  bool _dayActionBusy = false;
+  String? _dayActionError;
 
   @override
   void initState() {
@@ -60,7 +70,23 @@ class _HomeScreenState extends State<HomeScreen> {
       final periodJson = dayValue is Map
           ? Map<String, dynamic>.from(dayValue)
           : null;
+      final eventValue = economy['activeEvent'];
+      final eventJson = eventValue is Map
+          ? Map<String, dynamic>.from(eventValue)
+          : null;
       final pet = Pet.fromJson(petJson);
+      final parentTasksValue = economy['parentTasks'];
+      if (parentTasksValue is! List) {
+        throw const FormatException('parentTasks must be a list');
+      }
+      final parentTasks = parentTasksValue
+          .map((value) {
+            if (value is! Map) {
+              throw const FormatException('parent task must be an object');
+            }
+            return ParentTask.fromJson(Map<String, dynamic>.from(value));
+          })
+          .toList(growable: false);
       final wallets = {
         for (final entry in walletJson.entries)
           entry.key: (entry.value as num?)?.toInt() ?? 0,
@@ -71,6 +97,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _pet = pet;
         _wallets = wallets;
         _period = periodJson == null ? null : ActivePeriod.fromJson(periodJson);
+        _event = eventJson == null ? null : ActivePetEvent.fromJson(eventJson);
+        _parentTasks = parentTasks;
         _hasGoal = economy['activeGoal'] is Map;
         _state = _LoadState.ready;
       });
@@ -99,6 +127,47 @@ class _HomeScreenState extends State<HomeScreen> {
     await widget.apiClient.post('/periods/${period.id}/budget-plan/confirm');
     await _load();
   }
+
+  Future<void> _runDayAction(Future<void> Function() action) async {
+    if (_dayActionBusy) return;
+    setState(() {
+      _dayActionBusy = true;
+      _dayActionError = null;
+    });
+    try {
+      await action();
+      await _load();
+    } on ApiException {
+      if (mounted) {
+        setState(
+          () => _dayActionError =
+              'Не получилось выполнить действие. Попробуйте ещё раз.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _dayActionBusy = false);
+    }
+  }
+
+  Future<void> _resolveEvent() {
+    final event = _event;
+    if (event == null) return Future.value();
+    return _runDayAction(
+      () => widget.apiClient.post('/pet-events/${event.id}/resolve'),
+    );
+  }
+
+  Future<void> _closeDay() {
+    final period = _period;
+    if (period == null) return Future.value();
+    return _runDayAction(
+      () => widget.apiClient.post('/periods/${period.id}/close'),
+    );
+  }
+
+  Future<void> _submitParentTask(String assignmentId) => _runDayAction(
+    () => widget.apiClient.post('/child/tasks/$assignmentId/submit'),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -130,11 +199,19 @@ class _HomeScreenState extends State<HomeScreen> {
           pet: _pet!,
           onOpenSettings: widget.onOpenSettings,
           period: _period,
+          event: _event,
+          parentTasks: _parentTasks,
           spendable: _wallets['SPENDABLE'] ?? 0,
           savings: _wallets['SAVINGS'] ?? 0,
           onRefresh: _load,
           onConfirmPlan: _confirmPlan,
           onStartPeriod: _startPeriod,
+          onOpenShop: widget.onOpenShop,
+          dayActionBusy: _dayActionBusy,
+          dayActionError: _dayActionError,
+          onResolveEvent: _resolveEvent,
+          onCloseDay: _closeDay,
+          onSubmitParentTask: _submitParentTask,
         );
     }
   }
@@ -145,21 +222,37 @@ class _Content extends StatelessWidget {
     required this.pet,
     this.onOpenSettings,
     required this.period,
+    required this.event,
+    required this.parentTasks,
     required this.spendable,
     required this.savings,
     required this.onRefresh,
     required this.onConfirmPlan,
     required this.onStartPeriod,
+    required this.onOpenShop,
+    required this.dayActionBusy,
+    required this.onResolveEvent,
+    required this.onCloseDay,
+    required this.onSubmitParentTask,
+    this.dayActionError,
   });
 
   final Pet pet;
   final VoidCallback? onOpenSettings;
   final ActivePeriod? period;
+  final ActivePetEvent? event;
+  final List<ParentTask> parentTasks;
   final int spendable;
   final int savings;
   final Future<void> Function() onRefresh;
   final Future<void> Function(int, int, int) onConfirmPlan;
   final Future<void> Function() onStartPeriod;
+  final VoidCallback onOpenShop;
+  final bool dayActionBusy;
+  final String? dayActionError;
+  final VoidCallback onResolveEvent;
+  final VoidCallback onCloseDay;
+  final ValueChanged<String> onSubmitParentTask;
 
   @override
   Widget build(BuildContext context) {
@@ -206,6 +299,27 @@ class _Content extends StatelessWidget {
             onConfirm: onConfirmPlan,
             onStartPeriod: onStartPeriod,
           ),
+          if (period != null) ...[
+            const SizedBox(height: 14),
+            DayActionsCard(
+              period: period!,
+              event: event,
+              spendable: spendable,
+              busy: dayActionBusy,
+              error: dayActionError,
+              onResolveEvent: onResolveEvent,
+              onOpenShop: onOpenShop,
+              onCloseDay: onCloseDay,
+            ),
+          ],
+          if (parentTasks.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            ParentTasksCard(
+              tasks: parentTasks,
+              busy: dayActionBusy,
+              onSubmit: onSubmitParentTask,
+            ),
+          ],
           const SizedBox(height: 14),
           const CollectionCard(),
         ],

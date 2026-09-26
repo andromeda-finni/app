@@ -44,6 +44,10 @@ class ChildOverview {
 
   List<Map<String, dynamic>> get recentDays => _list(_json['recentDays']);
 
+  List<Map<String, dynamic>> get parentTasks => _list(_json['parentTasks']);
+
+  int get parentRewardLimit => _int(_map(_json['rules'])?['parentRewardLimit']);
+
   /// Ledger rows for the activity feed. A transfer is booked on both wallets;
   /// only its savings/frost side is kept so one action appears once.
   List<Map<String, dynamic>> get activity => [
