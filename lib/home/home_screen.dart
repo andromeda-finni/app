@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/pet_assets.dart';
+import '../map/quest_map_screen.dart';
 import '../theme/app_theme.dart';
 import 'models/active_period.dart';
 import 'models/pet.dart';
@@ -152,6 +153,8 @@ class _Content extends StatelessWidget {
           const SizedBox(height: 8),
           _PetPortrait(pet: pet),
           const SizedBox(height: 16),
+          const _QuestMapCard(),
+          const SizedBox(height: 14),
           PetStatsCard(
             stats: [
               PetStat(
@@ -324,3 +327,106 @@ String _moodWord(Pet pet) => switch (pet.mood) {
   PetMood.fully => 'сытый',
   PetMood.base => 'спокойный',
 };
+
+
+class _QuestMapCard extends StatelessWidget {
+  const _QuestMapCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: const Key('open-quest-map'),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const QuestMapScreen()),
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        child: Ink(
+          height: 118,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadii.lg),
+            border: Border.all(color: AppColors.fieldBorder, width: 1.5),
+            image: const DecorationImage(
+              image: AssetImage('assets/map/quest_map_scenarios_v03.png'),
+              fit: BoxFit.cover,
+              alignment: Alignment(0, 0.82),
+              colorFilter: ColorFilter.mode(
+                Color(0x553B2F27),
+                BlendMode.darken,
+              ),
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x183B2F27),
+                blurRadius: 8,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Color(0xE6FBF4E7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: SizedBox(
+                    width: 54,
+                    height: 54,
+                    child: Icon(
+                      Icons.map_outlined,
+                      color: AppColors.crimson,
+                      size: 30,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Карта приключений',
+                        style: TextStyle(
+                          fontFamily: AppFonts.body,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 21,
+                          shadows: [
+                            Shadow(color: Color(0xAA3B2F27), blurRadius: 5),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        '8 историй · путь начинается снизу',
+                        style: TextStyle(
+                          fontFamily: AppFonts.body,
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          shadows: [
+                            Shadow(color: Color(0xAA3B2F27), blurRadius: 4),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.white,
+                  size: 34,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

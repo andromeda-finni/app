@@ -69,6 +69,8 @@ flutter:
     - assets/backgrounds/paper.png
     - assets/backgrounds/meadow_foreground.png
     - assets/backgrounds/scene_transition.png
+    - assets/map/quest_map_scenarios_v03.png
+    - assets/Cat/Base/playful.png
     - assets/icons/arrow_left.png
     - assets/icons/sweet.png
     - assets/icons/ball.png
@@ -127,3 +129,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+

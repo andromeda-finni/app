@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'core/api_client.dart';
 import 'core/auth_storage.dart';
 import 'home/main_shell.dart';
+import 'map/quest_map_screen.dart';
 import 'onboarding/onboarding_data.dart';
 import 'onboarding/onboarding_flow.dart';
 import 'theme/app_theme.dart';
@@ -23,11 +24,15 @@ class GroshikApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final openMapPreview = Uri.base.queryParameters['screen'] == 'map';
     return MaterialApp(
       title: 'Грошик',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: _StartupGate(authStorage: authStorage, apiClient: apiClient),
+      routes: {'/map': (context) => const QuestMapScreen()},
+      home: openMapPreview
+          ? const QuestMapScreen()
+          : _StartupGate(authStorage: authStorage, apiClient: apiClient),
     );
   }
 }
@@ -151,3 +156,4 @@ class _StartupGateState extends State<_StartupGate> {
     }
   }
 }
+
