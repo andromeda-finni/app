@@ -124,18 +124,29 @@ void main() {
     int indexOf(String id) => questMapNodes.indexWhere((n) => n.id == id);
 
     test('with nothing completed the first game is the current node', () {
-      expect(unlockedIndexFor(const {}), indexOf('mole'));
+      expect(unlockedIndexFor(const {}), indexOf('repka'));
+    });
+
+    test('the turnip harvest opens the mole', () {
+      expect(unlockedIndexFor(const {'Q_TURNIP_HARVEST'}), indexOf('mole'));
     });
 
     test('finishing the mole opens the path up to the next game', () {
       // Story-only nodes in between have nothing to complete, so they must not
       // block the child from reaching Tugriki.
-      expect(unlockedIndexFor(const {'Q_MOLE_FINE_PRINT'}), indexOf('tugriki'));
+      expect(
+        unlockedIndexFor(const {'Q_TURNIP_HARVEST', 'Q_MOLE_FINE_PRINT'}),
+        indexOf('tugriki'),
+      );
     });
 
     test('with every game done the whole map is open', () {
       expect(
-        unlockedIndexFor(const {'Q_MOLE_FINE_PRINT', 'Q_TUGRIKI_CURRENCY'}),
+        unlockedIndexFor(const {
+          'Q_TURNIP_HARVEST',
+          'Q_MOLE_FINE_PRINT',
+          'Q_TUGRIKI_CURRENCY',
+        }),
         questMapNodes.length - 1,
       );
     });
@@ -149,6 +160,7 @@ void main() {
         jsonEncode({
           'pet': {'pet_name': 'Мурзик'},
           'quests': [
+            {'id': 'Q_TURNIP_HARVEST', 'assignment_status': 'COMPLETED'},
             {'id': 'Q_MOLE_FINE_PRINT', 'assignment_status': 'COMPLETED'},
           ],
         }),

@@ -1,3 +1,4 @@
+import '../games/turnip/turnip_game_models.dart';
 import '../minigames/mole/mole_game_data.dart';
 import '../minigames/tugriki/tugriki_game_data.dart';
 
@@ -122,6 +123,7 @@ QuestMapNodeState questMapNodeState(int index, int unlockedIndex) {
 /// Map nodes that are real, server-rewarded games. Only these gate progress:
 /// story-only nodes have nothing to complete, so they never block the path.
 const questIdForNode = <String, String>{
+  'repka': turnipQuestId,
   'mole': kMoleQuestId,
   'tugriki': kTugrikiQuestId,
 };

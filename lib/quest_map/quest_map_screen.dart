@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/pet_assets.dart';
+import '../games/turnip/turnip_game_models.dart';
+import '../games/turnip/turnip_game_screen.dart';
 import '../minigames/mole/mole_game_screen.dart';
 import '../minigames/tugriki/tugriki_game_screen.dart';
 import '../theme/app_theme.dart';
@@ -120,7 +122,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   }
 
   Future<void> _openQuest(QuestMapNodeData node) async {
-    final canPlay = node.id == 'mole' || node.id == 'tugriki';
+    final canPlay = questIdForNode.containsKey(node.id);
     final shouldPlay = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -216,7 +218,18 @@ class _QuestMapScreenState extends State<QuestMapScreen>
 
     if (!mounted || shouldPlay != true) return;
 
-    if (node.id == 'mole') {
+    if (node.id == 'repka') {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (gameContext) => TurnipGameScreen(
+            difficulty: TurnipDifficulty.normal,
+            apiClient: widget.apiClient,
+            petName: _petName,
+            onExit: () => Navigator.of(gameContext).pop(),
+          ),
+        ),
+      );
+    } else if (node.id == 'mole') {
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => MoleGameScreen(apiClient: widget.apiClient),
