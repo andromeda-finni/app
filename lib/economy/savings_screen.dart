@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import 'economy_action_ui.dart';
 import 'economy_actions.dart';
 import 'economy_state.dart';
+import 'item_art_catalog.dart';
 import 'item_artwork.dart';
 
 String _gameDaysLabel(int value) {
@@ -279,36 +280,64 @@ class _Header extends StatelessWidget {
   final VoidCallback onBack;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      IconButton(
-        onPressed: onBack,
-        tooltip: 'Вернуться домой',
-        icon: const Icon(Icons.arrow_back, size: 30),
-      ),
-      Expanded(child: Text('Копилка', style: AppTextStyles.screenTitle)),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.cardBg,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: AppColors.fieldBorder),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset('assets/icons/coin.png', width: 24, height: 24),
-            const SizedBox(width: 6),
-            Text('$wallet монет', style: AppTextStyles.cardRowLabel),
-          ],
-        ),
-      ),
-      IconButton(
-        tooltip: 'Настройки',
-        onPressed: onOpenSettings,
-        icon: const Icon(Icons.settings_outlined, size: 30),
-      ),
-    ],
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final compact =
+          constraints.maxWidth < 360 ||
+          MediaQuery.textScalerOf(context).scale(1) > 1.15;
+      final navigation = Row(
+        children: [
+          IconButton(
+            onPressed: onBack,
+            tooltip: 'Вернуться домой',
+            icon: const Icon(Icons.arrow_back, size: 30),
+          ),
+          Expanded(child: Text('Копилка', style: AppTextStyles.screenTitle)),
+          if (!compact) _WalletPill(wallet: wallet),
+          IconButton(
+            tooltip: 'Настройки',
+            onPressed: onOpenSettings,
+            icon: const Icon(Icons.settings_outlined, size: 30),
+          ),
+        ],
+      );
+      if (!compact) return navigation;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          navigation,
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: _WalletPill(wallet: wallet),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _WalletPill extends StatelessWidget {
+  const _WalletPill({required this.wallet});
+
+  final int wallet;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: AppColors.cardBg,
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: AppColors.fieldBorder),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset('assets/icons/coin.png', width: 24, height: 24),
+        const SizedBox(width: 6),
+        Text('$wallet монет', style: AppTextStyles.cardRowLabel),
+      ],
+    ),
   );
 }
 
@@ -376,7 +405,7 @@ String? _goalImageAsset(
       return artifact.imageAsset;
     }
   }
-  return null;
+  return targetId is String ? localItemArtwork[targetId] : null;
 }
 
 class _EmptyGoalCard extends StatelessWidget {
@@ -480,7 +509,12 @@ class _ActiveGoalCard extends StatelessWidget {
           if (stack) {
             return Column(
               children: [
-                ItemArtwork(imageAsset: imageAsset, size: 128),
+                ItemArtwork(
+                  itemId: goal['target_item_id'] as String?,
+                  imageAsset: imageAsset,
+                  semanticLabel: goal['name'] as String?,
+                  size: 128,
+                ),
                 const SizedBox(height: 16),
                 details,
               ],
@@ -489,7 +523,12 @@ class _ActiveGoalCard extends StatelessWidget {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              ItemArtwork(imageAsset: imageAsset, size: 132),
+              ItemArtwork(
+                itemId: goal['target_item_id'] as String?,
+                imageAsset: imageAsset,
+                semanticLabel: goal['name'] as String?,
+                size: 132,
+              ),
               const SizedBox(width: 18),
               Expanded(child: details),
             ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'item_art_catalog.dart';
 
 /// Product art shared by the store and the current-goal card.
 ///
@@ -9,18 +10,22 @@ import '../theme/app_theme.dart';
 class ItemArtwork extends StatelessWidget {
   const ItemArtwork({
     super.key,
+    this.itemId,
     this.imageAsset,
+    this.semanticLabel,
     this.size = 112,
     this.borderRadius = AppRadii.lg,
   });
 
+  final String? itemId;
   final String? imageAsset;
+  final String? semanticLabel;
   final double size;
   final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
-    final path = imageAsset?.trim();
+    final path = resolveItemArtwork(itemId: itemId, imageAsset: imageAsset);
     return SizedBox.square(
       dimension: size,
       child: ClipRRect(
@@ -32,6 +37,7 @@ class ItemArtwork extends StatelessWidget {
               : Image.asset(
                   path,
                   fit: BoxFit.contain,
+                  semanticLabel: semanticLabel,
                   errorBuilder: (_, _, _) => _fallback(),
                 ),
         ),

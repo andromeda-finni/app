@@ -4,8 +4,8 @@ import '../core/api_client.dart';
 import '../economy/economy_action_ui.dart';
 import '../economy/economy_actions.dart';
 import '../economy/economy_state.dart';
-import '../economy/item_artwork.dart';
 import '../theme/app_theme.dart';
+import 'widgets/artifact_product_card.dart';
 
 enum StoreMode { normal, selectGoal, browseGoals }
 
@@ -405,81 +405,83 @@ class _GoalCatalog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeId = economy.goal?['target_item_id'] as String?;
-    return _Card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const _SectionHeading(
-            title: 'Мечты',
-            subtitle: 'Артефакты, на которые можно копить',
-            icon: Icons.auto_awesome,
+    final ownedIds = economy.inventory
+        .map((row) => row['item_id'])
+        .whereType<String>()
+        .toSet();
+    final availableArtifacts = economy.artifacts
+        .where((item) => !ownedIds.contains(item.id))
+        .toList();
+    final canSelect =
+        !busy && economy.goal == null && mode != StoreMode.browseGoals;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SectionHeading(
+          title: 'Мечты',
+          subtitle: 'Выбери артефакт и копи на него в Копилке',
+          icon: Icons.auto_awesome,
+        ),
+        const SizedBox(height: 14),
+        if (availableArtifacts.isEmpty)
+          const _EmptyArtifactCatalog()
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final twoColumns = constraints.maxWidth >= 600;
+              final cardWidth = twoColumns
+                  ? (constraints.maxWidth - 16) / 2
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  for (final item in availableArtifacts)
+                    SizedBox(
+                      width: cardWidth,
+                      child: ArtifactProductCard(
+                        item: item,
+                        state: item.id == activeId
+                            ? ArtifactProductState.selected
+                            : canSelect
+                            ? ArtifactProductState.available
+                            : ArtifactProductState.locked,
+                        onSelect: canSelect ? () => onSelect(item) : null,
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 12),
-          if (economy.artifacts.isEmpty)
-            Text(
-              'Все доступные артефакты уже получены.',
-              style: AppTextStyles.supporting,
-            )
-          else
-            for (final item in economy.artifacts)
-              _GoalRow(
-                item: item,
-                selected: item.id == activeId,
-                canSelect:
-                    !busy &&
-                    economy.goal == null &&
-                    mode != StoreMode.browseGoals,
-                onSelect: onSelect,
-              ),
-        ],
-      ),
+      ],
     );
   }
 }
 
-class _GoalRow extends StatelessWidget {
-  const _GoalRow({
-    required this.item,
-    required this.selected,
-    required this.canSelect,
-    required this.onSelect,
-  });
-
-  final EconomyItem item;
-  final bool selected;
-  final bool canSelect;
-  final ValueChanged<EconomyItem> onSelect;
+class _EmptyArtifactCatalog extends StatelessWidget {
+  const _EmptyArtifactCatalog();
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Row(
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(24),
+    decoration: BoxDecoration(
+      color: AppColors.cardBg,
+      borderRadius: BorderRadius.circular(AppRadii.lg),
+      border: Border.all(color: AppColors.fieldBorder),
+    ),
+    child: Column(
       children: [
-        ItemArtwork(
-          imageAsset: item.imageAsset,
+        const Icon(
+          Icons.emoji_events_outlined,
           size: 48,
-          borderRadius: AppRadii.md,
+          color: AppColors.coinGold,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(item.name, style: AppTextStyles.cardRowLabel),
-              Text('${item.price} монет', style: AppTextStyles.supporting),
-            ],
-          ),
+        const SizedBox(height: 10),
+        Text(
+          'Все доступные артефакты уже получены.',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.sectionTitle,
         ),
-        if (selected)
-          const Chip(
-            avatar: Icon(Icons.check, size: 18),
-            label: Text('Моя цель'),
-          )
-        else
-          OutlinedButton(
-            onPressed: canSelect ? () => onSelect(item) : null,
-            child: const Text('Выбрать'),
-          ),
       ],
     ),
   );
