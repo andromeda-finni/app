@@ -263,7 +263,7 @@ class _SummaryRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: Text(label, style: AppTextStyles.cardRowLabel)),
-          Image.asset('assets/icons/coin.png', width: 20, height: 20),
+          Image.asset('assets/icons/coin.webp', width: 20, height: 20),
           const SizedBox(width: 6),
           Text('$amount', style: AppTextStyles.counterValue),
         ],

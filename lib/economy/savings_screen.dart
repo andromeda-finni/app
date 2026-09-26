@@ -336,7 +336,7 @@ class _WalletPill extends StatelessWidget {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Image.asset('assets/icons/coin.png', width: 24, height: 24),
+        Image.asset('assets/icons/coin.webp', width: 24, height: 24),
         const SizedBox(width: 6),
         Text('$wallet монет', style: AppTextStyles.cardRowLabel),
       ],
@@ -649,7 +649,7 @@ class _FrostBody extends StatelessWidget {
             constraints.maxWidth < 330 ||
             MediaQuery.textScalerOf(context).scale(1) > 1.2;
         final art = Image.asset(
-          'assets/images/morozko_chest.png',
+          'assets/images/morozko_chest.webp',
           fit: BoxFit.contain,
           semanticLabel: 'Синий зимний сундук Морозко',
         );

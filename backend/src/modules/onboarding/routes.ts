@@ -6,6 +6,7 @@ import { HttpError } from "../../lib/errors.js";
 import { bodySchema } from "../../lib/schema.js";
 
 interface OnboardingStatusRow {
+  difficulty: "SIMPLE" | "ADVANCED";
   onboarding_step: number;
   onboarding_completed_at: Date | null;
   pet_name: string | null;
@@ -18,6 +19,7 @@ interface CompleteStepBody {
 
 function statusResponse(row: OnboardingStatusRow) {
   return {
+    difficulty: row.difficulty,
     currentStep: row.onboarding_step,
     completed: row.onboarding_completed_at !== null,
     pet:
@@ -36,7 +38,7 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [requireAuth, requireRole("CHILD")] },
     async (req) => {
       const res = await pool.query<OnboardingStatusRow>(
-        `SELECT cp.onboarding_step, cp.onboarding_completed_at,
+        `SELECT cp.difficulty, cp.onboarding_step, cp.onboarding_completed_at,
                 p.pet_name, p.fur_option_id
            FROM child_profiles cp
            LEFT JOIN pets p ON p.child_user_id = cp.user_id

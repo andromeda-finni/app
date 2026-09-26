@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/child_difficulty.dart';
 import '../economy/savings_screen.dart';
 import '../map/quest_map_screen.dart';
 import '../settings/child_settings_screen.dart';
@@ -15,9 +16,15 @@ import 'widgets/app_nav_bar.dart';
 /// switch, so each keeps its scroll position and any in-progress input while
 /// the child moves between them.
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, required this.apiClient, this.onSwitchAudience});
+  const MainShell({
+    super.key,
+    required this.apiClient,
+    this.initialDifficulty = ChildDifficulty.beginner,
+    this.onSwitchAudience,
+  });
 
   final ApiClient apiClient;
+  final ChildDifficulty initialDifficulty;
 
   /// Returns to the child/parent role choice; wired from the settings screen.
   final VoidCallback? onSwitchAudience;
@@ -34,7 +41,26 @@ class _MainShellState extends State<MainShell> {
   int _savingsRevision = 0;
   int _mapRevision = 0;
   StoreMode _storeMode = StoreMode.normal;
-  ChildSettingsSnapshot _settings = const ChildSettingsSnapshot();
+  late ChildSettingsSnapshot _settings;
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = ChildSettingsSnapshot(difficulty: widget.initialDifficulty);
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final settings = ChildSettingsSnapshot.fromJson(
+        await widget.apiClient.get('/child/settings'),
+      );
+      if (mounted) setState(() => _settings = settings);
+    } on ApiException {
+      // Keep safe local defaults; the settings screen exposes an explicit
+      // retry/error state if the child opens it while the server is offline.
+    }
+  }
 
   void _openSettings() {
     Navigator.of(context).push(
@@ -42,7 +68,10 @@ class _MainShellState extends State<MainShell> {
         builder: (screenContext) => ChildSettingsScreen(
           apiClient: widget.apiClient,
           initialSettings: _settings,
-          onSettingsChanged: (next) => setState(() => _settings = next),
+          onSettingsChanged: (next) => setState(() {
+            if (next.difficulty != _settings.difficulty) _mapRevision++;
+            _settings = next;
+          }),
           onSwitchAudience: () {
             Navigator.of(screenContext).pop();
             widget.onSwitchAudience?.call();
@@ -87,7 +116,8 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final media = MediaQuery.of(context);
+    final content = Scaffold(
       backgroundColor: AppColors.parchment,
       body: SafeArea(
         bottom: false,
@@ -107,6 +137,7 @@ class _MainShellState extends State<MainShell> {
               // A tab root has nothing to go back to; the header hides the
               // arrow instead of offering a button that does nothing.
               showBack: false,
+              difficulty: _settings.difficulty,
             ),
             ShopScreen(
               key: ValueKey('store-$_storeRevision'),
@@ -130,6 +161,14 @@ class _MainShellState extends State<MainShell> {
         currentIndex: _index,
         onSelected: _selectTab,
       ),
+    );
+    return MediaQuery(
+      data: media.copyWith(
+        textScaler: _settings.largeText
+            ? media.textScaler.clamp(minScaleFactor: 1.15, maxScaleFactor: 2.0)
+            : media.textScaler,
+      ),
+      child: content,
     );
   }
 }

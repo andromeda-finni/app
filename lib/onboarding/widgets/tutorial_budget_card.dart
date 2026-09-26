@@ -31,7 +31,7 @@ class TutorialBudgetCard extends StatelessWidget {
               right: -12,
               bottom: 0,
               child: Image(
-                image: AssetImage('assets/backgrounds/paper.png'),
+                image: AssetImage('assets/backgrounds/paper.webp'),
                 fit: BoxFit.fill,
                 excludeFromSemantics: true,
               ),
@@ -67,7 +67,7 @@ class TutorialBudgetCard extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(left: AppSpacing.md),
                       child: _BudgetCategory(
-                        icon: 'assets/icons/sweet.png',
+                        icon: 'assets/icons/sweet.webp',
                         label: 'Конфеты',
                         explanation: 'Хочется сейчас',
                         value: data.candyAmount,
@@ -89,7 +89,7 @@ class TutorialBudgetCard extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(left: AppSpacing.md),
                       child: _BudgetCategory(
-                        icon: 'assets/icons/ball.png',
+                        icon: 'assets/icons/ball.webp',
                         label: 'Нужные вещи',
                         explanation: 'Пригодятся питомцу',
                         value: data.otherAmount,
@@ -111,7 +111,7 @@ class TutorialBudgetCard extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(left: AppSpacing.md),
                       child: _BudgetCategory(
-                        icon: 'assets/icons/pig.png',
+                        icon: 'assets/icons/pig.webp',
                         label: 'Копилка',
                         explanation: 'На будущую мечту',
                         value: data.piggyAmount,
@@ -270,7 +270,7 @@ class _CounterControls extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Image.asset(
-                'assets/icons/coin.png',
+                'assets/icons/coin.webp',
                 width: 30,
                 height: 30,
                 excludeFromSemantics: true,

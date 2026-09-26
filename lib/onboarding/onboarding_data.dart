@@ -1,3 +1,5 @@
+import '../core/child_difficulty.dart';
+
 /// A fur color choice offered on onboarding step 1. `id` matches
 /// `cosmetic_options.id` in the backend (see db/migrations/0003_pet.sql) so
 /// the value collected here can be sent to `PUT /pet` as-is.
@@ -72,12 +74,14 @@ class OnboardingResumeState {
     required this.currentStep,
     required this.completed,
     required this.data,
+    this.difficulty,
   });
 
   factory OnboardingResumeState.fresh() => OnboardingResumeState(
     currentStep: 1,
     completed: false,
     data: OnboardingData(),
+    difficulty: null,
   );
 
   factory OnboardingResumeState.fromJson(Map<String, dynamic> json) {
@@ -108,10 +112,12 @@ class OnboardingResumeState {
       currentStep: currentStep,
       completed: completed,
       data: data,
+      difficulty: childDifficultyFromApi(json['difficulty']),
     );
   }
 
   final int currentStep;
   final bool completed;
   final OnboardingData data;
+  final ChildDifficulty? difficulty;
 }

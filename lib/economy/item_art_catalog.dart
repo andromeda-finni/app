@@ -3,13 +3,13 @@
 /// Future bundled product art only needs a new asset and one entry here. A
 /// backend-provided `image_asset` still takes precedence when it is present.
 const Map<String, String> localItemArtwork = {
-  'saucer': 'assets/images/artifacts/saucer.png',
-  'vial': 'assets/images/artifacts/vial.png',
-  'tablecloth': 'assets/images/artifacts/tablecloth.png',
-  'horseshoe': 'assets/images/artifacts/horseshoe.png',
-  'shield': 'assets/images/artifacts/shield.png',
-  'purse': 'assets/images/artifacts/purse.png',
-  'boots': 'assets/images/artifacts/boots.png',
+  'saucer': 'assets/images/artifacts/saucer.webp',
+  'vial': 'assets/images/artifacts/vial.webp',
+  'tablecloth': 'assets/images/artifacts/tablecloth.webp',
+  'horseshoe': 'assets/images/artifacts/horseshoe.webp',
+  'shield': 'assets/images/artifacts/shield.webp',
+  'purse': 'assets/images/artifacts/purse.webp',
+  'boots': 'assets/images/artifacts/boots.webp',
 };
 
 /// Child-friendly descriptions of artifact effects shown in the store.

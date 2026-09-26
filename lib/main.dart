@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'audience/role_choice_screen.dart';
 import 'core/api_client.dart';
 import 'core/auth_storage.dart';
+import 'core/child_difficulty.dart';
 import 'home/main_shell.dart';
 import 'home/pet_home_screen.dart';
 import 'onboarding/onboarding_data.dart';
 import 'onboarding/onboarding_flow.dart';
 import 'parent/parent_home_screen.dart';
+import 'parent/parent_access_gate.dart';
 import 'theme/app_theme.dart';
 
 const _foxEventDemo = bool.fromEnvironment('FOX_EVENT_DEMO');
@@ -63,6 +65,7 @@ class _AudienceGate extends StatefulWidget {
 
 class _AudienceGateState extends State<_AudienceGate> {
   late AppAudience? _audience = widget.initialAudience;
+  bool _parentUnlocked = false;
 
   @override
   Widget build(BuildContext context) {
@@ -74,12 +77,25 @@ class _AudienceGateState extends State<_AudienceGate> {
           onSwitchAudience: () => setState(() => _audience = null),
         );
       case AppAudience.parent:
-        return ParentHomeScreen(onBack: () => setState(() => _audience = null));
+        if (!_parentUnlocked) {
+          return ParentAccessGate(
+            onBack: () => setState(() => _audience = null),
+            onUnlocked: () => setState(() => _parentUnlocked = true),
+          );
+        }
+        return ParentHomeScreen(
+          onBack: () => setState(() {
+            _parentUnlocked = false;
+            _audience = null;
+          }),
+        );
       case null:
         return RoleChoiceScreen(
           onChildSelected: () => setState(() => _audience = AppAudience.child),
-          onParentSelected: () =>
-              setState(() => _audience = AppAudience.parent),
+          onParentSelected: () => setState(() {
+            _parentUnlocked = false;
+            _audience = AppAudience.parent;
+          }),
         );
     }
   }
@@ -182,6 +198,7 @@ class _StartupGateState extends State<_StartupGate> {
               currentStep: 4,
               completed: true,
               data: data,
+              difficulty: _onboarding.difficulty ?? ChildDifficulty.beginner,
             );
             _state = _StartupState.hasPet;
           }),
@@ -189,10 +206,20 @@ class _StartupGateState extends State<_StartupGate> {
           authStorage: _authStorage,
           initialStep: _onboarding.currentStep,
           initialData: _onboarding.data,
+          initialDifficulty: _onboarding.difficulty,
+          onDifficultySaved: (difficulty) => setState(() {
+            _onboarding = OnboardingResumeState(
+              currentStep: _onboarding.currentStep,
+              completed: _onboarding.completed,
+              data: _onboarding.data,
+              difficulty: difficulty,
+            );
+          }),
         );
       case _StartupState.hasPet:
         return MainShell(
           apiClient: _api,
+          initialDifficulty: _onboarding.difficulty ?? ChildDifficulty.beginner,
           onSwitchAudience: widget.onSwitchAudience,
         );
       case _StartupState.error:

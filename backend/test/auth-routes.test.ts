@@ -13,9 +13,10 @@ test("child registration creates empty wallets without a starting grant", async 
   const app = Fastify();
   const originalConnect = pool.connect;
   const queries: string[] = [];
+  const childProfileParams: unknown[][] = [];
 
   const transactionClient = {
-    query: async (text: string) => {
+    query: async (text: string, params: unknown[] = []) => {
       queries.push(text);
       if (text === "BEGIN" || text === "COMMIT" || text === "ROLLBACK") {
         return { rows: [], rowCount: null };
@@ -31,6 +32,9 @@ test("child registration creates empty wallets without a starting grant", async 
         text.includes("INSERT INTO wallets") ||
         text.includes("INSERT INTO auth_credentials")
       ) {
+        if (text.includes("INSERT INTO child_profiles")) {
+          childProfileParams.push(params);
+        }
         return { rows: [], rowCount: 1 };
       }
       throw new Error(`Unexpected transaction query in test: ${text}`);
@@ -44,7 +48,7 @@ test("child registration creates empty wallets without a starting grant", async 
     const response = await app.inject({
       method: "POST",
       url: "/auth/child/register",
-      payload: {},
+      payload: { difficulty: "ADVANCED" },
     });
 
     assert.equal(response.statusCode, 201);
@@ -53,6 +57,9 @@ test("child registration creates empty wallets without a starting grant", async 
       "11111111-1111-4111-8111-111111111111",
     );
     assert.ok(queries.some((query) => query.includes("INSERT INTO wallets")));
+    assert.deepEqual(childProfileParams, [
+      ["11111111-1111-4111-8111-111111111111", "ADVANCED"],
+    ]);
     assert.ok(!queries.some((query) => query.includes("INSERT INTO transactions")));
     assert.ok(!queries.some((query) => query.includes("UPDATE wallets SET balance")));
   } finally {

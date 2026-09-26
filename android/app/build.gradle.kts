@@ -1,7 +1,16 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val releasePropertiesFile = rootProject.file("key.properties")
+val releaseProperties = Properties()
+if (releasePropertiesFile.exists()) {
+    FileInputStream(releasePropertiesFile).use(releaseProperties::load)
 }
 
 android {
@@ -15,7 +24,6 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.andromedafinni.andromeda_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -29,13 +37,42 @@ android {
         versionName = flutter.versionName
     }
 
-    buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+    signingConfigs {
+        if (releasePropertiesFile.exists()) {
+            create("release") {
+                keyAlias = releaseProperties.getProperty("keyAlias")
+                keyPassword = releaseProperties.getProperty("keyPassword")
+                storeFile = file(releaseProperties.getProperty("storeFile"))
+                storePassword = releaseProperties.getProperty("storePassword")
+            }
         }
     }
+
+    buildTypes {
+        release {
+            // Never ship a release carrying Android's public debug key. A
+            // release build fails below until an untracked key.properties is
+            // provided by the developer or CI secret setup.
+            signingConfig = signingConfigs.findByName("release")
+        }
+    }
+}
+
+val validateReleaseSigning by tasks.registering {
+    doLast {
+        val required = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+        val missing = required.filter { releaseProperties.getProperty(it).isNullOrBlank() }
+        if (!releasePropertiesFile.exists() || missing.isNotEmpty()) {
+            throw GradleException(
+                "Release signing is not configured. Copy android/key.properties.example " +
+                    "to android/key.properties and provide the private keystore values.",
+            )
+        }
+    }
+}
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn(validateReleaseSigning)
 }
 
 kotlin {

@@ -17,7 +17,7 @@ set -a && source .env && set +a
 
 ## Модель данных (23 таблицы)
 
-- **Аккаунты**: `users`, `parent_profiles`, `child_profiles`, `parent_child_links` — без имени/возраста/email/телефона; `child_profiles` хранит только номер текущего шага и факт завершения онбординга.
+- **Аккаунты**: `users`, `parent_profiles`, `child_profiles`, `parent_child_links` — без имени/возраста/email/телефона; `child_profiles` хранит ход онбординга и настройки ребёнка.
 - **Питомец**: `pets` (один вид на всех, кастомизация через `cosmetic_options` — цвет шерсти/аксессуар).
 - **Обучающий контент**: `education_topics`, `quest_definitions`, `quest_steps`, `shop_items`.
 - **Экономика**: `wallets` (SPENDABLE/SAVINGS/FROZEN), `transactions` (единый append-only леджер), `purchases`, `frost_chests` (Сундук Морозко: 5 завершённых игровых дней → +10%).

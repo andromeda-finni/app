@@ -243,7 +243,7 @@ class _Header extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('assets/icons/coin.png', width: 24, height: 24),
+            Image.asset('assets/icons/coin.webp', width: 24, height: 24),
             const SizedBox(width: 6),
             Text('$wallet', style: AppTextStyles.cardRowLabel),
           ],
@@ -372,6 +372,17 @@ class _PurchaseRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(item.name, style: AppTextStyles.cardRowLabel),
+                if (item.energyDelta > 0 || item.joyDelta > 0)
+                  Text(
+                    [
+                      if (item.energyDelta > 0)
+                        '+${item.energyDelta} к сытости',
+                      if (item.joyDelta > 0) '+${item.joyDelta} к радости',
+                    ].join(' · '),
+                    style: AppTextStyles.supporting.copyWith(
+                      color: AppColors.leafGreen,
+                    ),
+                  ),
                 if (reason != null)
                   Text(reason, style: AppTextStyles.supporting),
               ],

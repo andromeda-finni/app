@@ -34,6 +34,7 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
   String? _syncNote;
   int? _rewardAmount;
   int? _balanceAfter;
+  bool _serverQuestCompleted = false;
 
   MoleEpisode get _episode => moleEpisodes[_episodeIndex];
 
@@ -55,6 +56,14 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
       );
       if (!mounted) return;
       final reward = (result['rewardAmount'] as num?)?.toInt();
+      if (result['completed'] == true) {
+        setState(() {
+          _serverQuestCompleted = true;
+          _assignmentId = null;
+          _syncNote = 'Награда за это задание уже получена. Сейчас можно потренироваться ещё раз.';
+        });
+        return;
+      }
       final nextStep = ((result['nextStepNo'] as num?)?.toInt() ?? 1).clamp(
         1,
         moleEpisodes.length,
@@ -127,6 +136,12 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
 
   Future<void> _continueAfterEpisode() async {
     if (_isSyncing || _isStarting) return;
+    if (widget.apiClient != null &&
+        _assignmentId == null &&
+        !_serverQuestCompleted) {
+      await _startServerQuest();
+      if (!mounted || _assignmentId == null) return;
+    }
     if (_assignmentId != null) {
       setState(() {
         _isSyncing = true;
@@ -135,18 +150,21 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
       try {
         final result = await widget.apiClient!.post(
           '/assignments/$_assignmentId/answer',
-          body: {'stepNo': _episodeIndex + 1, 'selectedOptionCode': 'VERIFIED'},
+          body: {
+            'stepNo': _episodeIndex + 1,
+            'selectedOptionCode': _episode.questions.last.correctCode,
+          },
         );
         if (!mounted) return;
         if (result['outcome'] != 'SUCCESS') {
-          setState(
-            () => _syncNote = 'Сервер не принял результат. Попробуй ещё раз.',
-          );
+          setState(() => _syncNote = questRecoveryMessage(result));
           return;
         }
         if (result['questCompleted'] == true) {
-          _rewardAmount = result['rewardAmount'] as int?;
-          _balanceAfter = result['balanceAfter'] as int?;
+          _rewardAmount = (result['rewardAmount'] as num?)?.toInt();
+          _balanceAfter = (result['balanceAfter'] as num?)?.toInt();
+          _serverQuestCompleted = true;
+          _assignmentId = null;
         }
         setState(() => _syncNote = 'Результат сохранён.');
       } on ApiException catch (error) {

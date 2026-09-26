@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/child_difficulty.dart';
 import '../onboarding/widgets/back_circle_button.dart';
 import '../theme/app_theme.dart';
-
-enum ChildDifficulty { beginner, advanced }
 
 class ChildSettingsSnapshot {
   const ChildSettingsSnapshot({
@@ -30,6 +29,21 @@ class ChildSettingsSnapshot {
     music: music ?? this.music,
     largeText: largeText ?? this.largeText,
   );
+
+  factory ChildSettingsSnapshot.fromJson(Map<String, dynamic> json) =>
+      ChildSettingsSnapshot(
+        difficulty: childDifficultyFromApi(json['difficulty']),
+        sound: json['soundEnabled'] != false,
+        music: json['musicEnabled'] != false,
+        largeText: json['largeTextEnabled'] == true,
+      );
+
+  Map<String, dynamic> toUpdateJson() => {
+    'difficulty': difficulty.apiValue,
+    'soundEnabled': sound,
+    'musicEnabled': music,
+    'largeTextEnabled': largeText,
+  };
 }
 
 class ChildSettingsScreen extends StatefulWidget {
@@ -53,10 +67,66 @@ class ChildSettingsScreen extends StatefulWidget {
 
 class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
   late ChildSettingsSnapshot _settings = widget.initialSettings;
+  bool _saving = false;
+  String? _error;
 
-  void _update(ChildSettingsSnapshot next) {
-    setState(() => _settings = next);
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final api = widget.apiClient;
+    if (api == null) return;
+    try {
+      final value = ChildSettingsSnapshot.fromJson(
+        await api.get('/child/settings'),
+      );
+      if (!mounted) return;
+      setState(() {
+        _settings = value;
+        _error = null;
+      });
+      widget.onSettingsChanged(value);
+    } on ApiException {
+      if (mounted) {
+        setState(() => _error = 'Не удалось загрузить настройки.');
+      }
+    }
+  }
+
+  Future<void> _update(ChildSettingsSnapshot next) async {
+    if (_saving) return;
+    final previous = _settings;
+    setState(() {
+      _settings = next;
+      _saving = true;
+      _error = null;
+    });
     widget.onSettingsChanged(next);
+    final api = widget.apiClient;
+    if (api == null) {
+      if (mounted) setState(() => _saving = false);
+      return;
+    }
+    try {
+      final saved = ChildSettingsSnapshot.fromJson(
+        await api.put('/child/settings', body: next.toUpdateJson()),
+      );
+      if (!mounted) return;
+      setState(() => _settings = saved);
+      widget.onSettingsChanged(saved);
+    } on ApiException {
+      if (!mounted) return;
+      setState(() {
+        _settings = previous;
+        _error = 'Не удалось сохранить. Изменение отменено.';
+      });
+      widget.onSettingsChanged(previous);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -94,36 +164,18 @@ class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
                 const SizedBox(height: 14),
                 _Section(
                   title: 'Обучение',
-                  child: DropdownButtonFormField<ChildDifficulty>(
-                    initialValue: _settings.difficulty,
-                    // Without isExpanded the field sizes to its longest label
-                    // and overflows the card instead of wrapping inside it.
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Сложность заданий',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: ChildDifficulty.beginner,
-                        child: Text(
-                          'Начинающий · больше подсказок',
-                          overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    children: [
+                      for (final difficulty in ChildDifficulty.values)
+                        _DifficultySettingTile(
+                          difficulty: difficulty,
+                          selected: _settings.difficulty == difficulty,
+                          enabled: !_saving,
+                          onTap: () => _update(
+                            _settings.copyWith(difficulty: difficulty),
+                          ),
                         ),
-                      ),
-                      DropdownMenuItem(
-                        value: ChildDifficulty.advanced,
-                        child: Text(
-                          'Продвинутый · больше условий',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
                     ],
-                    onChanged: (value) {
-                      if (value != null) {
-                        _update(_settings.copyWith(difficulty: value));
-                      }
-                    },
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -135,15 +187,19 @@ class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Звуки'),
                         value: _settings.sound,
-                        onChanged: (value) =>
-                            _update(_settings.copyWith(sound: value)),
+                        onChanged: _saving
+                            ? null
+                            : (value) =>
+                                  _update(_settings.copyWith(sound: value)),
                       ),
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Музыка'),
                         value: _settings.music,
-                        onChanged: (value) =>
-                            _update(_settings.copyWith(music: value)),
+                        onChanged: _saving
+                            ? null
+                            : (value) =>
+                                  _update(_settings.copyWith(music: value)),
                       ),
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
@@ -152,12 +208,22 @@ class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
                           'Увеличивает текст в учебных экранах',
                         ),
                         value: _settings.largeText,
-                        onChanged: (value) =>
-                            _update(_settings.copyWith(largeText: value)),
+                        onChanged: _saving
+                            ? null
+                            : (value) =>
+                                  _update(_settings.copyWith(largeText: value)),
                       ),
                     ],
                   ),
                 ),
+                if (_error != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.crimsonDark),
+                  ),
+                ],
                 const SizedBox(height: 18),
                 OutlinedButton.icon(
                   onPressed: widget.onSwitchAudience,
@@ -173,6 +239,39 @@ class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _DifficultySettingTile extends StatelessWidget {
+  const _DifficultySettingTile({
+    required this.difficulty,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final ChildDifficulty difficulty;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: ListTile(
+        enabled: enabled,
+        contentPadding: EdgeInsets.zero,
+        onTap: selected ? null : onTap,
+        leading: Icon(
+          selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+          color: selected ? AppColors.crimson : AppColors.inkMuted,
+        ),
+        title: Text(difficulty.title),
+        subtitle: Text(difficulty.description),
       ),
     );
   }

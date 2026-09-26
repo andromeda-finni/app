@@ -91,7 +91,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
             [childUserId],
           ),
           pool.query(
-            `SELECT id, kind, name, price FROM shop_items
+            `SELECT id, kind, name, price, energy_delta, joy_delta FROM shop_items
               WHERE active AND kind IN ('NEED','WANT') ORDER BY kind, price`,
           ),
           pool.query(
@@ -135,7 +135,6 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
             `SELECT q.id, q.title, q.reward_amount,
                     a.id AS assignment_id, a.status AS assignment_status
                FROM quest_definitions q
-               JOIN child_profiles cp ON cp.user_id = $1 AND cp.difficulty = q.difficulty
                LEFT JOIN LATERAL (
                  SELECT id, status FROM assignments
                   WHERE child_user_id = $1 AND origin = 'SYSTEM' AND quest_id = q.id

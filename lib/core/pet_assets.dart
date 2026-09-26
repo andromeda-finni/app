@@ -19,12 +19,12 @@ const _furFolder = <String, String>{
 
 /// Shown before a fur colour has been chosen. It deliberately matches the
 /// first (grey) option, so choosing grey never swaps the cat to another pose.
-const kBaseCatAsset = 'assets/Cat/Red_collar/base/striped.png';
+const kBaseCatAsset = 'assets/Cat/Red_collar/base/striped.webp';
 
 String catAsset({required String? furOptionId, PetMood mood = PetMood.base}) {
   final fur = _furFolder[furOptionId];
   if (fur == null) return kBaseCatAsset;
-  return 'assets/Cat/Red_collar/${_moodFolder[mood]}/$fur.png';
+  return 'assets/Cat/Red_collar/${_moodFolder[mood]}/$fur.webp';
 }
 
 // A pet event (illness) takes 45 health off, so "unwell" has to start above

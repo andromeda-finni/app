@@ -44,6 +44,10 @@ class _TurnipGameScreenState extends State<TurnipGameScreen>
   String? _assignmentId;
   int? _rewardAmount;
   String? _syncNote;
+  bool _isSyncing = false;
+  bool _serverQuestCompleted = false;
+  bool _rewardWasAlreadyGranted = false;
+  Future<void>? _startFuture;
 
   @override
   void initState() {
@@ -52,7 +56,7 @@ class _TurnipGameScreenState extends State<TurnipGameScreen>
     if (widget.apiClient == null) {
       _syncNote = 'Тренировочный режим: результат не меняет кошелёк.';
     } else {
-      unawaited(_startServerQuest());
+      _startFuture = _startServerQuest();
     }
     _shakeController = AnimationController(
       vsync: this,
@@ -155,7 +159,13 @@ class _TurnipGameScreenState extends State<TurnipGameScreen>
         key: const ValueKey('turnip-completed'),
         rewardAmount: _rewardAmount,
         statusNote: _syncNote,
+        isSyncing: _isSyncing,
+        rewardWasAlreadyGranted: _rewardWasAlreadyGranted,
         onReplay: _replay,
+        onRetry:
+            widget.apiClient != null && !_serverQuestCompleted && !_isSyncing
+            ? _submitHarvest
+            : null,
         onExit: canExit ? _exit : null,
       ),
     };
@@ -192,7 +202,17 @@ class _TurnipGameScreenState extends State<TurnipGameScreen>
         '/quests/$turnipQuestId/start',
       );
       if (!mounted) return;
-      setState(() => _assignmentId = result['assignmentId'] as String?);
+      setState(() {
+        if (result['completed'] == true) {
+          _serverQuestCompleted = true;
+          _assignmentId = null;
+          _syncNote =
+              'Награда за это задание уже получена. Сейчас это тренировка.';
+        } else {
+          _assignmentId = result['assignmentId'] as String?;
+          _syncNote = null;
+        }
+      });
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _syncNote = questProblemMessage(error));
@@ -202,27 +222,46 @@ class _TurnipGameScreenState extends State<TurnipGameScreen>
   /// The harvest is the quest's only step; the server verifies it and pays
   /// the reward once.
   Future<void> _submitHarvest() async {
+    if (_isSyncing || widget.apiClient == null || _serverQuestCompleted) return;
+    await _startFuture;
+    if (!mounted || _serverQuestCompleted) return;
+    if (_assignmentId == null) {
+      _startFuture = _startServerQuest();
+      await _startFuture;
+    }
     final assignmentId = _assignmentId;
-    if (assignmentId == null) return;
-    setState(() => _syncNote = 'Сохраняем результат…');
+    if (!mounted || assignmentId == null || _serverQuestCompleted) return;
+    setState(() {
+      _isSyncing = true;
+      _syncNote = 'Сохраняем результат…';
+    });
     try {
       final result = await widget.apiClient!.post(
         '/assignments/$assignmentId/answer',
-        body: {'stepNo': 1, 'selectedOptionCode': 'VERIFIED'},
+        body: {
+          'stepNo': 1,
+          'selectedOptionCode': TurnipCharacter.values
+              .map((character) => character.serverCode)
+              .join(','),
+        },
       );
       if (!mounted) return;
       setState(() {
         if (result['questCompleted'] == true) {
           _assignmentId = null;
           _rewardAmount = (result['rewardAmount'] as num?)?.toInt();
+          _rewardWasAlreadyGranted = result['rewardAlreadyGranted'] == true;
+          _serverQuestCompleted = true;
           _syncNote = null;
         } else {
-          _syncNote = 'Сервер не принял результат. Попробуй ещё раз.';
+          _syncNote = questRecoveryMessage(result);
         }
       });
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _syncNote = questProblemMessage(error));
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
     }
   }
 

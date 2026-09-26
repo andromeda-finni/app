@@ -76,6 +76,10 @@ String economyErrorMessage(ApiException error) => switch (error.code) {
     'Сначала оплати обязательные траты из раздела «Надо».',
   'active_event_must_be_resolved' =>
     'Перед завершением дня нужно решить случайное событие.',
+  'plan_must_allocate_the_full_available_amount' =>
+    'Распредели все монеты между «Надо», «Хочу» и Копилкой.',
+  final code when code.startsWith('need_amount_must_be_at_least_') =>
+    'На обязательные траты нужно отложить не меньше ${code.split('_').last} монет.',
   'food_reserve_is_unavailable_for_wants' ||
   'food_reserve_is_unavailable_for_frost' ||
   'food_reserve_is_unavailable_for_savings' ||

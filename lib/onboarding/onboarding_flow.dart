@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/auth_storage.dart';
+import '../core/child_difficulty.dart';
 import '../theme/app_theme.dart';
+import 'difficulty_choice_screen.dart';
 import 'onboarding_data.dart';
 import 'onboarding_step1_screen.dart';
 import 'onboarding_step2_screen.dart';
@@ -33,12 +35,16 @@ class OnboardingFlow extends StatefulWidget {
     this.authStorage,
     this.initialStep = 1,
     this.initialData,
+    this.initialDifficulty,
+    this.onDifficultySaved,
   });
 
   final ValueChanged<OnboardingData> onFinished;
   final ApiClient? apiClient;
   final int initialStep;
   final OnboardingData? initialData;
+  final ChildDifficulty? initialDifficulty;
+  final ValueChanged<ChildDifficulty>? onDifficultySaved;
 
   /// Test-only injection point — `AuthStorage`'s default backend is a real
   /// platform-channel secure-storage plugin, which hangs forever in a plain
@@ -49,7 +55,7 @@ class OnboardingFlow extends StatefulWidget {
   State<OnboardingFlow> createState() => _OnboardingFlowState();
 }
 
-enum _RegistrationState { loading, ready, error }
+enum _RegistrationState { choosing, loading, ready, error }
 
 class _OnboardingFlowState extends State<OnboardingFlow> {
   late final ApiClient _api = widget.apiClient ?? ApiClient();
@@ -59,25 +65,39 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   late int _currentStep;
   _RegistrationState _registrationState = _RegistrationState.loading;
   bool _advancing = false;
+  ChildDifficulty? _difficulty;
 
   @override
   void initState() {
     super.initState();
     _data = widget.initialData ?? OnboardingData();
     _currentStep = widget.initialStep;
+    _difficulty = widget.initialDifficulty;
     _register();
   }
 
-  Future<void> _register() async {
-    setState(() => _registrationState = _RegistrationState.loading);
+  Future<void> _register([ChildDifficulty? selected]) async {
+    if (selected != null) _difficulty = selected;
     try {
       // Reuse an existing token if one is already saved (e.g. the app was
       // killed after account creation but before the pet was created) —
       // otherwise every retry here would orphan a fresh, pet-less account.
       final existingToken = await _authStorage.readToken();
       if (existingToken == null) {
-        final result = await _api.post('/auth/child/register', auth: false);
+        if (_difficulty == null) {
+          if (mounted) {
+            setState(() => _registrationState = _RegistrationState.choosing);
+          }
+          return;
+        }
+        setState(() => _registrationState = _RegistrationState.loading);
+        final result = await _api.post(
+          '/auth/child/register',
+          auth: false,
+          body: {'difficulty': _difficulty!.apiValue},
+        );
         await _authStorage.saveToken(result['token'] as String);
+        widget.onDifficultySaved?.call(_difficulty!);
       }
       if (!mounted) return;
       setState(() => _registrationState = _RegistrationState.ready);
@@ -99,6 +119,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   @override
   Widget build(BuildContext context) {
     switch (_registrationState) {
+      case _RegistrationState.choosing:
+        return DifficultyChoiceScreen(
+          selected: _difficulty,
+          onSelected: (value) => setState(() => _difficulty = value),
+          onContinue: _difficulty == null ? null : () => _register(_difficulty),
+        );
       case _RegistrationState.loading:
         return const Scaffold(
           backgroundColor: AppColors.parchment,
@@ -124,7 +150,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
                   StoryButton(
                     label: 'Повторить',
                     expand: false,
-                    onPressed: _register,
+                    onPressed: () => _register(_difficulty),
                   ),
                 ],
               ),

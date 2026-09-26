@@ -175,7 +175,7 @@ void main() {
     final data = _state(withGoal: true);
     (data['artifacts'] as List<dynamic>).firstWhere(
       (item) => item['id'] == 'boots',
-    )['image_asset'] = 'assets/images/morozko_chest.png';
+    )['image_asset'] = 'assets/images/morozko_chest.webp';
     data['activeFrostChest'] = {
       'id': 'frost-1',
       'principal_amount': 10,
@@ -202,7 +202,7 @@ void main() {
             widget is Image &&
             widget.image is AssetImage &&
             (widget.image as AssetImage).assetName ==
-                'assets/images/morozko_chest.png',
+                'assets/images/morozko_chest.webp',
       ),
       findsNWidgets(2),
     );

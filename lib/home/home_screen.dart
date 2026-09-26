@@ -4,15 +4,19 @@ import '../core/api_client.dart';
 import '../core/pet_assets.dart';
 import '../day_summary/day_summary.dart';
 import '../day_summary/day_summary_screen.dart';
+import '../economy/economy_action_ui.dart';
 import '../theme/app_theme.dart';
 import 'models/active_period.dart';
 import 'models/active_pet_event.dart';
+import 'models/artifact.dart';
 import 'models/pet.dart';
 import 'models/parent_task.dart';
+import 'models/recent_day.dart';
 import 'widgets/budget_plan_card.dart';
 import 'widgets/collection_card.dart';
 import 'widgets/day_actions_card.dart';
 import 'widgets/pet_stats_card.dart';
+import 'widgets/recent_days_card.dart';
 import 'widgets/parent_tasks_card.dart';
 
 enum _LoadState { loading, ready, error }
@@ -44,6 +48,8 @@ class _HomeScreenState extends State<HomeScreen> {
   ActivePeriod? _period;
   ActivePetEvent? _event;
   List<ParentTask> _parentTasks = const [];
+  List<Artifact> _artifacts = const [];
+  List<RecentDay> _recentDays = const [];
   Map<String, int> _wallets = const {};
   bool _hasGoal = false;
   bool _dayActionBusy = false;
@@ -89,6 +95,23 @@ class _HomeScreenState extends State<HomeScreen> {
             return ParentTask.fromJson(Map<String, dynamic>.from(value));
           })
           .toList(growable: false);
+      final inventoryValue = economy['inventory'];
+      final recentDaysValue = economy['recentDays'];
+      if (inventoryValue is! List || recentDaysValue is! List) {
+        throw const FormatException('inventory and recentDays must be lists');
+      }
+      final artifacts = inventoryValue
+          .map(
+            (value) =>
+                Artifact.fromJson(Map<String, dynamic>.from(value as Map)),
+          )
+          .toList(growable: false);
+      final recentDays = recentDaysValue
+          .map(
+            (value) =>
+                RecentDay.fromJson(Map<String, dynamic>.from(value as Map)),
+          )
+          .toList(growable: false);
       final wallets = {
         for (final entry in walletJson.entries)
           entry.key: (entry.value as num?)?.toInt() ?? 0,
@@ -101,6 +124,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _period = periodJson == null ? null : ActivePeriod.fromJson(periodJson);
         _event = eventJson == null ? null : ActivePetEvent.fromJson(eventJson);
         _parentTasks = parentTasks;
+        _artifacts = artifacts;
+        _recentDays = recentDays;
         _hasGoal = economy['activeGoal'] is Map;
         _state = _LoadState.ready;
       });
@@ -139,12 +164,9 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await action();
       await _load();
-    } on ApiException {
+    } on ApiException catch (error) {
       if (mounted) {
-        setState(
-          () => _dayActionError =
-              'Не получилось выполнить действие. Попробуйте ещё раз.',
-        );
+        setState(() => _dayActionError = economyErrorMessage(error));
       }
     } finally {
       if (mounted) setState(() => _dayActionBusy = false);
@@ -191,6 +213,13 @@ class _HomeScreenState extends State<HomeScreen> {
     () => widget.apiClient.post('/child/tasks/$assignmentId/submit'),
   );
 
+  Future<void> _equipArtifact(String? inventoryId) => _runDayAction(
+    () => widget.apiClient.post(
+      '/pet/equip',
+      body: {'inventoryItemId': inventoryId},
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     switch (_state) {
@@ -223,6 +252,8 @@ class _HomeScreenState extends State<HomeScreen> {
           period: _period,
           event: _event,
           parentTasks: _parentTasks,
+          artifacts: _artifacts,
+          recentDays: _recentDays,
           spendable: _wallets['SPENDABLE'] ?? 0,
           savings: _wallets['SAVINGS'] ?? 0,
           onRefresh: _load,
@@ -234,6 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onResolveEvent: _resolveEvent,
           onCloseDay: _closeDay,
           onSubmitParentTask: _submitParentTask,
+          onEquipArtifact: _equipArtifact,
         );
     }
   }
@@ -246,6 +278,8 @@ class _Content extends StatelessWidget {
     required this.period,
     required this.event,
     required this.parentTasks,
+    required this.artifacts,
+    required this.recentDays,
     required this.spendable,
     required this.savings,
     required this.onRefresh,
@@ -256,6 +290,7 @@ class _Content extends StatelessWidget {
     required this.onResolveEvent,
     required this.onCloseDay,
     required this.onSubmitParentTask,
+    required this.onEquipArtifact,
     this.dayActionError,
   });
 
@@ -264,6 +299,8 @@ class _Content extends StatelessWidget {
   final ActivePeriod? period;
   final ActivePetEvent? event;
   final List<ParentTask> parentTasks;
+  final List<Artifact> artifacts;
+  final List<RecentDay> recentDays;
   final int spendable;
   final int savings;
   final Future<void> Function() onRefresh;
@@ -275,6 +312,7 @@ class _Content extends StatelessWidget {
   final VoidCallback onResolveEvent;
   final VoidCallback onCloseDay;
   final ValueChanged<String> onSubmitParentTask;
+  final ValueChanged<String?> onEquipArtifact;
 
   @override
   Widget build(BuildContext context) {
@@ -343,7 +381,15 @@ class _Content extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 14),
-          const CollectionCard(),
+          CollectionCard(
+            items: artifacts,
+            busy: dayActionBusy,
+            onEquip: onEquipArtifact,
+          ),
+          if (recentDays.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            RecentDaysCard(days: recentDays),
+          ],
         ],
       ),
     );
@@ -386,7 +432,7 @@ class _Header extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/icons/leaf.png', width: 26, height: 26),
+            Image.asset('assets/icons/leaf.webp', width: 26, height: 26),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
@@ -400,7 +446,7 @@ class _Header extends StatelessWidget {
             Transform.flip(
               flipX: true,
               child: Image.asset(
-                'assets/icons/leaf.png',
+                'assets/icons/leaf.webp',
                 width: 26,
                 height: 26,
               ),
@@ -450,11 +496,11 @@ class _CoinPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('assets/icons/coin.png', width: 22, height: 22),
+            Image.asset('assets/icons/coin.webp', width: 22, height: 22),
             const SizedBox(width: 6),
             Text('$spendable', style: AppTextStyles.counterValue),
             const SizedBox(width: 10),
-            Image.asset('assets/icons/pig.png', width: 22, height: 22),
+            Image.asset('assets/icons/pig.webp', width: 22, height: 22),
             const SizedBox(width: 6),
             Text('$savings', style: AppTextStyles.counterValue),
           ],

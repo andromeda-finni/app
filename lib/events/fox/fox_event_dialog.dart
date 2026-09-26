@@ -595,8 +595,8 @@ class _FoxPortrait extends StatelessWidget {
             maxHeight: imageSize,
             child: Image.asset(
               mood == FoxMood.sly
-                  ? 'assets/Fox/fox_sly.png'
-                  : 'assets/Fox/fox_friendly.png',
+                  ? 'assets/Fox/fox_sly.webp'
+                  : 'assets/Fox/fox_friendly.webp',
               width: imageSize,
               height: imageSize,
               fit: BoxFit.contain,
@@ -632,7 +632,7 @@ class _CoinChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
-              'assets/icons/coin.png',
+              'assets/icons/coin.webp',
               width: 24,
               height: 24,
               excludeFromSemantics: true,

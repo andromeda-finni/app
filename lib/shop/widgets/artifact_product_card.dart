@@ -166,7 +166,7 @@ class _Price extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Image.asset('assets/icons/coin.png', width: 24, height: 24),
+      Image.asset('assets/icons/coin.webp', width: 24, height: 24),
       const SizedBox(width: 5),
       Text('$price', style: AppTextStyles.cardRowLabel),
     ],

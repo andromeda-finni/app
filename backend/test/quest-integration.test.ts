@@ -110,27 +110,52 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
     const turnipDone = await answer(
       turnipStart.json().assignmentId as string,
       1,
-      "VERIFIED",
+      "grandmother,granddaughter,zhuchka,cat,mouse",
       progression.headers,
     );
     assert.equal(turnipDone.statusCode, 200, turnipDone.body);
     assert.equal(turnipDone.json().questCompleted, true);
     assert.equal(turnipDone.json().rewardAmount, 10);
+    const turnipReplay = await answer(
+      turnipStart.json().assignmentId as string,
+      1,
+      "grandmother,granddaughter,zhuchka,cat,mouse",
+      progression.headers,
+    );
+    assert.equal(turnipReplay.statusCode, 200, turnipReplay.body);
+    assert.equal(turnipReplay.json().rewardAlreadyGranted, true);
+    assert.equal(turnipReplay.json().balanceAfter, turnipDone.json().balanceAfter);
+
+    const completedTurnipStart = await start("Q_TURNIP_HARVEST", progression.headers);
+    assert.equal(completedTurnipStart.statusCode, 200, completedTurnipStart.body);
+    assert.equal(completedTurnipStart.json().completed, true);
+    assert.equal(completedTurnipStart.json().rewardAlreadyGranted, true);
 
     const firstStart = await start("Q_MOLE_FINE_PRINT", progression.headers);
     assert.equal(firstStart.statusCode, 201, firstStart.body);
     assert.equal(firstStart.json().nextStepNo, 1);
     const moleAssignmentId = firstStart.json().assignmentId as string;
 
-    assert.equal((await answer(moleAssignmentId, 1, "VERIFIED", progression.headers)).statusCode, 200);
+    assert.equal((await answer(moleAssignmentId, 1, "12", progression.headers)).statusCode, 200);
+    // A late duplicate with stale/wrong input cannot erase a success that the
+    // child already earned, otherwise resume would send them backwards.
+    const staleDuplicate = await answer(moleAssignmentId, 1, "8", progression.headers);
+    assert.equal(staleDuplicate.statusCode, 200, staleDuplicate.body);
+    assert.equal(staleDuplicate.json().outcome, "SUCCESS");
     const resumed = await start("Q_MOLE_FINE_PRINT", progression.headers);
     assert.equal(resumed.statusCode, 200, resumed.body);
     assert.equal(resumed.json().assignmentId, moleAssignmentId);
     assert.equal(resumed.json().resumed, true);
     assert.equal(resumed.json().nextStepNo, 2);
 
+    const moleAnswerCodes = ["", "12", "9", "ask", "19", "seller"];
     for (let stepNo = 2; stepNo <= 5; stepNo++) {
-      const result = await answer(moleAssignmentId, stepNo, "VERIFIED", progression.headers);
+      const result = await answer(
+        moleAssignmentId,
+        stepNo,
+        moleAnswerCodes[stepNo]!,
+        progression.headers,
+      );
       assert.equal(result.statusCode, 200, result.body);
       if (stepNo === 5) {
         assert.equal(result.json().questCompleted, true);
@@ -146,7 +171,7 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
       ["Q_FIRST_BUDGET", "A"],
       ["Q_SAVING_JAR", "B"],
       ["Q_SAFE_CHOICE", "B"],
-      ["Q_TURNIP_HARVEST", "VERIFIED"],
+      ["Q_TURNIP_HARVEST", "grandmother,granddaughter,zhuchka,cat,mouse"],
     ] as const;
     const assignments = new Map<string, string>();
     for (const [questId] of questCodes) {

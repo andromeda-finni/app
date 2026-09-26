@@ -3,17 +3,17 @@ const int kExchangeRate = 2; // 1 тугрик = 2 монетки
 
 abstract final class TugrikiAssets {
   static const root = 'assets/minigames/tugriki';
-  static const square = '$root/square.png';
-  static const vorobeyNormal = '$root/vorobey_1.png';
-  static const vorobeyHappy = '$root/vorobey_2.png';
-  static const foreignMoney = '$root/foreign_money.png';
-  static const foreignMoneyFront = '$root/foreign_money_front.png';
-  static const foreignMoneyBag = '$root/foreign_money_bag.png';
+  static const square = '$root/square.webp';
+  static const vorobeyNormal = '$root/vorobey_1.webp';
+  static const vorobeyHappy = '$root/vorobey_2.webp';
+  static const foreignMoney = '$root/foreign_money.webp';
+  static const foreignMoneyFront = '$root/foreign_money_front.webp';
+  static const foreignMoneyBag = '$root/foreign_money_bag.webp';
 
-  static const homeCoin = 'assets/icons/coin.png';
-  static const catPlayful = 'assets/Cat/Base/playful.png';
-  static const catStriped = 'assets/Cat/Red_collar/base/striped.png';
-  static const paperBg = 'assets/backgrounds/paper.png';
+  static const homeCoin = 'assets/icons/coin.webp';
+  static const catPlayful = 'assets/Cat/Base/playful.webp';
+  static const catStriped = 'assets/Cat/Red_collar/base/striped.webp';
+  static const paperBg = 'assets/backgrounds/paper.webp';
 }
 
 /// Товар на сказочном рынке соседнего государства
@@ -42,7 +42,7 @@ abstract final class MarketCatalog {
     name: 'Булочка',
     iconEmoji: '🥐',
     priceTugriki: 6,
-    assetIcon: 'assets/icons/sweet.png',
+    assetIcon: 'assets/icons/sweet.webp',
   );
 
   static const soup = MarketGood(
@@ -50,7 +50,7 @@ abstract final class MarketCatalog {
     name: 'Суп',
     iconEmoji: '🍲',
     priceTugriki: 4,
-    assetIcon: 'assets/icons/bowl.png',
+    assetIcon: 'assets/icons/bowl.webp',
   );
 
   static const juice = MarketGood(
@@ -58,7 +58,7 @@ abstract final class MarketCatalog {
     name: 'Сок',
     iconEmoji: '🧃',
     priceTugriki: 2,
-    assetIcon: 'assets/icons/eat.png',
+    assetIcon: 'assets/icons/eat.webp',
   );
 
   static const bunVariant2 = MarketGood(
@@ -66,7 +66,7 @@ abstract final class MarketCatalog {
     name: 'Булочка',
     iconEmoji: '🥐',
     priceTugriki: 3,
-    assetIcon: 'assets/icons/sweet.png',
+    assetIcon: 'assets/icons/sweet.webp',
   );
 
   static const fruits = MarketGood(
@@ -74,7 +74,7 @@ abstract final class MarketCatalog {
     name: 'Фрукты',
     iconEmoji: '🍎',
     priceTugriki: 3,
-    assetIcon: 'assets/icons/eat.png',
+    assetIcon: 'assets/icons/eat.webp',
   );
 
   static const pie = MarketGood(
@@ -82,7 +82,7 @@ abstract final class MarketCatalog {
     name: 'Пирожок',
     iconEmoji: '🥧',
     priceTugriki: 2,
-    assetIcon: 'assets/icons/sweet.png',
+    assetIcon: 'assets/icons/sweet.webp',
   );
 }
 

@@ -45,6 +45,8 @@ Map<String, dynamic> _economyState({
   Object? goal = _goal,
   Object? event,
   Object? parentTasks = const <Object>[],
+  Object? inventory = const <Object>[],
+  Object? recentDays = const <Object>[],
   int spendable = 40,
   int savings = 10,
 }) => {
@@ -54,6 +56,8 @@ Map<String, dynamic> _economyState({
   'activeGoal': goal,
   'activeEvent': event,
   'parentTasks': parentTasks,
+  'inventory': inventory,
+  'recentDays': recentDays,
 };
 
 /// Builds the screen over a stub backend. [onRequest] observes every call.
@@ -63,6 +67,8 @@ Widget _screen({
   Object? goal = _goal,
   Object? event,
   Object? parentTasks = const <Object>[],
+  Object? inventory = const <Object>[],
+  Object? recentDays = const <Object>[],
   int spendable = 40,
   int savings = 10,
   VoidCallback? onChooseGoal,
@@ -80,6 +86,8 @@ Widget _screen({
           goal: goal,
           event: event,
           parentTasks: parentTasks,
+          inventory: inventory,
+          recentDays: recentDays,
           spendable: spendable,
           savings: savings,
         ),
@@ -173,7 +181,7 @@ void main() {
           expect(
             catAsset(furOptionId: fur, mood: mood),
             matches(
-              RegExp(r'^assets/Cat/Red_collar/\w+/(striped|red|white)\.png$'),
+              RegExp(r'^assets/Cat/Red_collar/\w+/(striped|red|white)\.webp$'),
             ),
           );
         }
@@ -203,7 +211,7 @@ void main() {
     final images = tester
         .widgetList<Image>(find.byType(Image))
         .map((image) => (image.image as AssetImage).assetName);
-    expect(images, contains('assets/Cat/Red_collar/happy/striped.png'));
+    expect(images, contains('assets/Cat/Red_collar/happy/striped.webp'));
   });
 
   testWidgets('offers to start a period when none is running', (tester) async {
@@ -435,6 +443,42 @@ void main() {
       calls,
       contains('POST /child/tasks/33333333-3333-3333-3333-333333333333/submit'),
     );
+  });
+
+  testWidgets('owned artifacts are shown and can be equipped from home', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    String? equipBody;
+    await _pump(
+      tester,
+      _screen(
+        inventory: const [
+          {
+            'id': '44444444-4444-4444-4444-444444444444',
+            'item_id': 'boots',
+            'name': 'Сапоги-скороходы',
+            'rarity': 'LEGENDARY',
+            'equipped': false,
+          },
+        ],
+        onRequest: (request, body) {
+          calls.add('${request.method} ${request.url.path}');
+          if (request.url.path == '/pet/equip') equipBody = body;
+        },
+      ),
+    );
+
+    expect(find.text('Сапоги-скороходы'), findsOneWidget);
+    await tester.tap(
+      find.byKey(
+        const ValueKey('artifact-44444444-4444-4444-4444-444444444444'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(calls, contains('POST /pet/equip'));
+    expect(equipBody, contains('44444444-4444-4444-4444-444444444444'));
   });
 
   testWidgets('a failed load offers a retry', (tester) async {

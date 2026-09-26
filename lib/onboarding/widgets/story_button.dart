@@ -85,7 +85,7 @@ class StoryButton extends StatelessWidget {
   }
 }
 
-/// `arrow_left.png` has generous transparent export margins. The overflow box
+/// `arrow_left.webp` has generous transparent export margins. The overflow box
 /// enlarges the source inside a small fixed slot so the painted branch reads
 /// at button scale without altering or duplicating the asset.
 class _ButtonFlourish extends StatelessWidget {
@@ -101,7 +101,7 @@ class _ButtonFlourish extends StatelessWidget {
           maxWidth: 48,
           maxHeight: 32,
           child: Image.asset(
-            'assets/icons/arrow_left.png',
+            'assets/icons/arrow_left.webp',
             width: 48,
             height: 32,
             fit: BoxFit.contain,

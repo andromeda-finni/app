@@ -31,7 +31,7 @@ class TurnipPlayfield extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               Image.asset(
-                'assets/games/turnip/garden_background.png',
+                'assets/games/turnip/garden_background.webp',
                 fit: BoxFit.cover,
                 alignment: const Alignment(-0.25, 0),
               ),
@@ -254,7 +254,7 @@ class _ChainTarget extends StatelessWidget {
                 _ChainSlot(
                   size: slotSize,
                   label: 'Дедушка',
-                  assetPath: 'assets/games/turnip/grandpa_pulling.png',
+                  assetPath: 'assets/games/turnip/grandpa_pulling.webp',
                   filled: true,
                 ),
                 for (

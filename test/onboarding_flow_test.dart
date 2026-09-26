@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:andromeda_app/core/api_client.dart';
+import 'package:andromeda_app/onboarding/difficulty_choice_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_data.dart';
 import 'package:andromeda_app/onboarding/onboarding_flow.dart';
 import 'package:andromeda_app/onboarding/onboarding_step1_screen.dart';
@@ -129,10 +130,12 @@ void main() {
   });
 
   testWidgets(
-    'registers the child and shows step 1 once the network call succeeds',
+    'asks for difficulty before registration and persists the choice',
     (tester) async {
+      Map<String, dynamic>? registrationBody;
       final client = MockClient((request) async {
         expect(request.url.path, '/auth/child/register');
+        registrationBody = jsonDecode(request.body) as Map<String, dynamic>;
         return http.Response(jsonEncode({'userId': 'u1', 'token': 'tok'}), 201);
       });
 
@@ -146,12 +149,47 @@ void main() {
         ),
       );
 
-      // Loading state first, then step 1 once registration resolves.
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
       await tester.pumpAndSettle();
+      expect(find.byType(DifficultyChoiceScreen), findsOneWidget);
+      expect(find.byType(OnboardingStep1Screen), findsNothing);
+
+      await tester.tap(find.text('Самостоятельно'));
+      await tester.pump();
+      await tester.tap(find.text('Продолжить'));
+      await tester.pumpAndSettle();
+
       expect(find.byType(OnboardingStep1Screen), findsOneWidget);
+      expect(registrationBody, {'difficulty': 'ADVANCED'});
     },
   );
+
+  testWidgets('difficulty choice fits a small phone with enlarged text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(1.5)),
+            child: DifficultyChoiceScreen(
+              selected: null,
+              onSelected: (_) {},
+              onContinue: null,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Как тебе удобнее играть?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('shows a retry-capable error state when registration fails', (
     tester,
@@ -172,6 +210,12 @@ void main() {
         ),
       ),
     );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DifficultyChoiceScreen), findsOneWidget);
+    await tester.tap(find.text('С подсказками'));
+    await tester.pump();
+    await tester.tap(find.text('Продолжить'));
     await tester.pumpAndSettle();
 
     // First attempt failed: an error message and a retry button, not a

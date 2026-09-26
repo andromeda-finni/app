@@ -173,7 +173,7 @@ class _BudgetProgress extends StatelessWidget {
                   )
                 else
                   Image.asset(
-                    'assets/icons/coin.png',
+                    'assets/icons/coin.webp',
                     width: 30,
                     height: 30,
                     excludeFromSemantics: true,

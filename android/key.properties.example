@@ -1,0 +1,6 @@
+# Copy to key.properties (ignored by Git) and replace every value.
+# Keep the keystore outside the repository or in a CI secret store.
+storeFile=/absolute/path/to/andromeda-release.jks
+storePassword=replace_me
+keyAlias=andromeda
+keyPassword=replace_me

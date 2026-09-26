@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/home/main_shell.dart';
 import 'package:andromeda_app/main.dart';
+import 'package:andromeda_app/onboarding/difficulty_choice_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_step1_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_step2_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_step3_screen.dart';
@@ -24,9 +25,15 @@ http.Response _jsonResponse(Object body, int statusCode) => http.Response(
 );
 
 void main() {
-  testWidgets('no saved token -> shows onboarding', (tester) async {
+  testWidgets('no saved token -> chooses difficulty before onboarding', (
+    tester,
+  ) async {
     final authStorage = FakeAuthStorage();
+    var registerCalls = 0;
+    Map<String, dynamic>? registrationBody;
     final client = MockClient((request) async {
+      registerCalls++;
+      registrationBody = jsonDecode(request.body) as Map<String, dynamic>;
       return _jsonResponse({'userId': 'u1', 'token': 'tok'}, 201);
     });
 
@@ -43,7 +50,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byType(DifficultyChoiceScreen), findsOneWidget);
+    expect(find.byType(OnboardingStep1Screen), findsNothing);
+    expect(registerCalls, 0);
+
+    await tester.tap(find.text('С подсказками'));
+    await tester.pump();
+    await tester.tap(find.text('Продолжить'));
+    await tester.pumpAndSettle();
+
     expect(find.byType(OnboardingStep1Screen), findsOneWidget);
+    expect(registerCalls, 1);
+    expect(registrationBody, {'difficulty': 'SIMPLE'});
   });
 
   testWidgets('saved token + completed onboarding -> shows main shell', (
@@ -201,6 +219,15 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DifficultyChoiceScreen), findsOneWidget);
+      expect(registerCalls, 0);
+      expect(await authStorage.readToken(), isNull);
+
+      await tester.tap(find.text('Самостоятельно'));
+      await tester.pump();
+      await tester.tap(find.text('Продолжить'));
       await tester.pumpAndSettle();
 
       expect(find.byType(OnboardingStep1Screen), findsOneWidget);
