@@ -3,7 +3,9 @@
 class ActivePeriod {
   const ActivePeriod({
     required this.id,
+    required this.sequenceNo,
     required this.requiredNeedAmount,
+    required this.remainingReserve,
     required this.budgetPlanId,
     required this.budgetPlanStatus,
     required this.availableAmount,
@@ -13,9 +15,11 @@ class ActivePeriod {
   });
 
   final String id;
+  final int sequenceNo;
 
   /// The floor the server enforces on the must-haves share.
   final int requiredNeedAmount;
+  final int remainingReserve;
   final String? budgetPlanId;
   final String? budgetPlanStatus;
   final int availableAmount;
@@ -33,7 +37,9 @@ class ActivePeriod {
     if (id is! String) return null;
     return ActivePeriod(
       id: id,
+      sequenceNo: _int(json['sequence_no']),
       requiredNeedAmount: _int(json['required_need_amount']),
+      remainingReserve: _int(json['remaining_reserve']),
       budgetPlanId: json['budget_plan_id'] as String?,
       budgetPlanStatus: json['budget_plan_status'] as String?,
       availableAmount: _int(json['available_amount']),

@@ -114,7 +114,7 @@ class _BudgetPlanCardState extends State<BudgetPlanCard> {
   Widget build(BuildContext context) {
     final period = widget.period;
     return _CardShell(
-      title: 'План на период',
+      title: 'План на день',
       icon: Icons.assignment_outlined,
       child: period == null
           ? _NoPeriod(busy: _busy, onStart: _start, error: _error)
@@ -192,7 +192,7 @@ class _NoPeriod extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Новый период — это новые монетки и новый план, как их потратить.',
+          'Новый игровой день принесёт 30 монет. Сначала реши, как ими распорядиться.',
           style: AppTextStyles.swatchLabel,
         ),
         if (error != null) ...[
@@ -204,7 +204,7 @@ class _NoPeriod extends StatelessWidget {
         ],
         const SizedBox(height: 14),
         _PrimaryButton(
-          label: 'Начать период',
+          label: 'Начать новый игровой день',
           busy: busy,
           onPressed: busy ? null : onStart,
         ),

@@ -67,6 +67,7 @@ flutter:
     - assets/backgrounds/town.png
     - assets/backgrounds/shop.png
     - assets/backgrounds/paper.png
+    - assets/backgrounds/home_room.png
     - assets/backgrounds/meadow_foreground.png
     - assets/backgrounds/scene_transition.png
     - assets/icons/arrow_left.png
@@ -78,6 +79,7 @@ flutter:
     - assets/icons/chest.png
     - assets/icons/bowl.png
     - assets/icons/eat.png
+    - assets/icons/leaf_small.png
     - assets/images/morozko_chest.png
     # Every mood folder is in use: the home screen swaps the pet's drawing to
     # match its stats (see lib/core/pet_assets.dart).

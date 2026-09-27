@@ -70,9 +70,12 @@ class _StatRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadii.sm),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            children: [
-              Container(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact =
+                  constraints.maxWidth < 340 ||
+                  MediaQuery.textScalerOf(context).scale(16) > 21;
+              final badge = Container(
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
@@ -80,50 +83,65 @@ class _StatRow extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(stat.icon, size: 20, color: Colors.white),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 86,
-                child: Text(
-                  stat.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.cardRowLabel,
+              );
+              final bar = ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: fraction),
+                  duration: const Duration(milliseconds: 450),
+                  curve: Curves.easeOut,
+                  builder: (context, value, _) => LinearProgressIndicator(
+                    value: value,
+                    minHeight: 14,
+                    backgroundColor: AppColors.parchmentDark,
+                    valueColor: AlwaysStoppedAnimation(stat.color),
+                  ),
                 ),
-              ),
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: fraction),
-                    duration: const Duration(milliseconds: 450),
-                    curve: Curves.easeOut,
-                    builder: (context, value, _) => LinearProgressIndicator(
-                      value: value,
-                      minHeight: 14,
-                      backgroundColor: AppColors.parchmentDark,
-                      valueColor: AlwaysStoppedAnimation(stat.color),
+              );
+              final percentage = Text(
+                '${stat.value}%',
+                textAlign: TextAlign.right,
+                style: AppTextStyles.counterValue,
+              );
+              if (compact) {
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        badge,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            stat.label,
+                            style: AppTextStyles.cardRowLabel,
+                          ),
+                        ),
+                        percentage,
+                      ],
+                    ),
+                    const SizedBox(height: 9),
+                    bar,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  badge,
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 86,
+                    child: Text(
+                      stat.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.cardRowLabel,
                     ),
                   ),
-                ),
-              ),
-              SizedBox(
-                width: 64,
-                // "100%" must never break onto two lines; at a large text scale
-                // it shrinks to fit instead.
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    '${stat.value}%',
-                    maxLines: 1,
-                    softWrap: false,
-                    textAlign: TextAlign.right,
-                    style: AppTextStyles.counterValue,
-                  ),
-                ),
-              ),
-            ],
+                  Expanded(child: bar),
+                  SizedBox(width: 56, child: percentage),
+                ],
+              );
+            },
           ),
         ),
       ),

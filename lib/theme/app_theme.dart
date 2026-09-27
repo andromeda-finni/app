@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 /// Illustrations and drop caps carry the fairy-tale character; functional
 /// text stays in a highly readable serif face.
 abstract final class AppColors {
-  static const canvas = Color(0xFFFFF9EF);
+  static const canvas = Color(0xFFF7F2E9);
   static const canvasWarm = Color(0xFFFCF2E1);
   static const parchment = Color(0xFFF7EBD8);
   static const parchmentDark = Color(0xFFEAD8BA);
-  static const crimson = Color(0xFFAD2B23);
-  static const crimsonDark = Color(0xFF842019);
+  static const crimson = Color(0xFF8B2635);
+  static const crimsonDark = Color(0xFF6F1E2A);
   static const crimsonFaded = Color(0xFFE5B8AF);
-  static const ink = Color(0xFF352923);
+  static const ink = Color(0xFF2C2523);
   static const inkMuted = Color(0xFF75675C);
   static const fieldBorder = Color(0xFFD4C2A5);
   static const leafGreen = Color(0xFF526B45);

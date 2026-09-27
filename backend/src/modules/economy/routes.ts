@@ -38,7 +38,8 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
       const [petRes, walletsRes, dayRes, eventRes, insuranceRes, goalRes, frostRes, shopRes, artifactRes, inventoryRes, transactionsRes, historyRes, questsRes, tasksRes] =
         await Promise.all([
           pool.query(
-            `SELECT pet_name, fur_option_id, energy_level, joy_level, health_level, evolution_stage
+            `SELECT pet_name, fur_option_id, accessory_option_id, energy_level,
+                    joy_level, health_level, evolution_stage
                FROM pets WHERE child_user_id = $1`,
             [childUserId],
           ),
@@ -77,7 +78,8 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
             [childUserId],
           ),
           pool.query(
-            `SELECT peo.id, peo.amount_due, ped.title, ped.description
+            `SELECT peo.id, peo.event_definition_id, peo.amount_due,
+                    peo.triggered_at, ped.title, ped.description
                FROM pet_event_occurrences peo
                JOIN pet_event_definitions ped ON ped.id = peo.event_definition_id
               WHERE peo.child_user_id = $1 AND peo.status = 'ACTIVE'`,
@@ -97,8 +99,8 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
           ),
           pool.query(
             `SELECT g.id, g.target_item_id, g.target_amount, g.status,
-                    s.name,
-                    GREATEST(g.target_amount - w.balance, 0) AS remaining_amount
+                    s.name, w.balance::int AS saved_amount,
+                    GREATEST(g.target_amount - w.balance, 0)::int AS remaining_amount
                FROM financial_goals g
                JOIN shop_items s ON s.id = g.target_item_id
                JOIN wallets w ON w.child_user_id = g.child_user_id AND w.kind = 'SAVINGS'

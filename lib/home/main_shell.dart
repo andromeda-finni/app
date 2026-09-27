@@ -35,6 +35,7 @@ class _MainShellState extends State<MainShell> {
   int _savingsRevision = 0;
   int _mapRevision = 0;
   StoreMode _storeMode = StoreMode.normal;
+  bool _planningRequired = false;
   ChildSettingsSnapshot _settings = const ChildSettingsSnapshot();
 
   void _openSettings() {
@@ -85,6 +86,24 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _selectTab(int index) {
+    if (_planningRequired && (index == 1 || index == 2)) {
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Сначала составим план'),
+          content: const Text(
+            'Распредели монеты на сегодня — после этого откроются карта и магазин.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Хорошо'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     setState(() {
       if (index == 0) _homeRevision++;
       // Re-read quest progress so a game finished elsewhere opens the next node.
@@ -111,10 +130,14 @@ class _MainShellState extends State<MainShell> {
             HomeScreen(
               key: ValueKey('home-$_homeRevision'),
               apiClient: widget.apiClient,
-              onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
+              onOpenShop: () => _openGoalStore(StoreMode.selectGoal),
               onOpenQuests: () => _selectTab(1),
               onOpenSettings: _openSettings,
               onOpenInsurance: _openInsurance,
+              onPlanningRequiredChanged: (required) {
+                if (_planningRequired == required || !mounted) return;
+                setState(() => _planningRequired = required);
+              },
             ),
             QuestMapScreen(
               key: ValueKey('map-$_mapRevision'),

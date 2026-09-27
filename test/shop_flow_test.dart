@@ -164,12 +164,10 @@ void main() {
     });
     await _pumpShell(tester, client);
 
-    await tester.scrollUntilVisible(
-      find.text('Начать период'),
-      500,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Начать период'));
+    final startDay = find.byKey(const Key('open-budget-plan'));
+    await tester.ensureVisible(startDay);
+    await tester.pumpAndSettle();
+    await tester.tap(startDay);
     await tester.pumpAndSettle();
 
     expect(mutationCalls, 0);

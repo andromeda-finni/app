@@ -6,8 +6,9 @@ import '../../theme/app_theme.dart';
 /// shelf reads as "there is room for three things here" rather than as a
 /// broken or still-loading card.
 class CollectionCard extends StatelessWidget {
-  const CollectionCard({super.key, this.slots = 3});
+  const CollectionCard({super.key, this.items = const [], this.slots = 3});
 
+  final List<String> items;
   final int slots;
 
   @override
@@ -33,7 +34,12 @@ class CollectionCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [for (var i = 0; i < slots; i++) const _EmptySlot()],
+            children: [
+              for (var i = 0; i < slots; i++)
+                i < items.length
+                    ? _CollectionSlot(name: items[i])
+                    : const _EmptySlot(),
+            ],
           ),
           const SizedBox(height: 8),
           Container(
@@ -46,12 +52,55 @@ class CollectionCard extends StatelessWidget {
           const SizedBox(height: 12),
           Center(
             child: Text(
-              'Артефакты появятся после квестов и покупок.',
+              items.isEmpty
+                  ? 'Артефакты появятся после квестов и покупок.'
+                  : 'Собрано: ${items.length}',
               textAlign: TextAlign.center,
               style: AppTextStyles.swatchLabel,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CollectionSlot extends StatelessWidget {
+  const _CollectionSlot({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: name,
+      image: true,
+      child: Container(
+        width: 62,
+        height: 68,
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: AppColors.infoBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.coinGold),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.auto_awesome, color: AppColors.coinGold, size: 25),
+            const SizedBox(height: 3),
+            Text(
+              name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.stepCounter.copyWith(
+                color: AppColors.ink,
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
