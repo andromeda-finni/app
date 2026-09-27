@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:andromeda_app/core/api_client.dart';
+import 'package:andromeda_app/games/ivan/ivan_game_models.dart';
+import 'package:andromeda_app/games/ivan/ivan_game_screen.dart';
 import 'package:andromeda_app/games/turnip/turnip_game_screen.dart';
 import 'package:andromeda_app/map/quest_map_data.dart';
 import 'package:andromeda_app/map/quest_map_screen.dart';
@@ -64,11 +66,21 @@ void main() {
       expect(unlockedIndexFor(const {'Q_TURNIP_HARVEST'}), indexOf('mole'));
     });
 
-    test('finishing the mole opens the path up to Tugriki', () {
-      // Story-only nodes in between have nothing to complete, so they must not
-      // block the child from reaching Tugriki.
+    test('finishing the mole opens Ivan', () {
       expect(
         unlockedIndexFor(const {'Q_TURNIP_HARVEST', 'Q_MOLE_FINE_PRINT'}),
+        indexOf('ivan'),
+      );
+    });
+
+    test('finishing either Ivan track opens the path up to Tugriki', () {
+      expect(
+        unlockedIndexFor(const {
+          'Q_TURNIP_HARVEST',
+          'Q_MOLE_FINE_PRINT',
+          'Q_IVAN_ROAD_EASY_1',
+          'Q_IVAN_ROAD_EASY_2',
+        }),
         indexOf('tugriki'),
       );
     });
@@ -78,6 +90,8 @@ void main() {
         unlockedIndexFor(const {
           'Q_TURNIP_HARVEST',
           'Q_MOLE_FINE_PRINT',
+          'Q_IVAN_ROAD_HARD_1',
+          'Q_IVAN_ROAD_HARD_2',
           'Q_TUGRIKI_CURRENCY',
         }),
         questMapNodes.length - 1,
@@ -86,9 +100,9 @@ void main() {
 
     test('every playable node maps to a server quest', () {
       for (final node in questMapNodes.where((n) => n.isPlayable)) {
-        expect(node.destination.questId, isNotNull, reason: node.id);
+        expect(node.destination.questIds, isNotEmpty, reason: node.id);
       }
-      expect(playableQuestCount, 3);
+      expect(playableQuestCount, 4);
     });
   });
 
@@ -96,7 +110,7 @@ void main() {
     await tester.pumpWidget(_map());
     await tester.pumpAndSettle();
 
-    expect(find.text('Пройдено 0 из 3'), findsOneWidget);
+    expect(find.text('Пройдено 0 из 4'), findsOneWidget);
     // As a tab the map has no back arrow: there is nothing to go back to.
     expect(find.byTooltip('Назад'), findsNothing);
 
@@ -115,29 +129,29 @@ void main() {
     expect(find.byType(TurnipGameScreen), findsOneWidget);
   });
 
-  testWidgets('server progress opens the path up to Tugriki', (tester) async {
+  testWidgets('server progress opens Ivan before Tugriki', (tester) async {
     await tester.pumpWidget(
       _map(completed: const ['Q_TURNIP_HARVEST', 'Q_MOLE_FINE_PRINT']),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Пройдено 2 из 3'), findsOneWidget);
+    expect(find.text('Пройдено 2 из 4'), findsOneWidget);
 
-    await _openNode(tester, 'tugriki');
+    await _openNode(tester, 'ivan');
     expect(find.text('Играть'), findsOneWidget);
-    await tester.tap(find.byTooltip('Закрыть'));
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('Играть'));
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 500));
+    }
+    expect(find.byType(IvanGameScreen), findsOneWidget);
+    expect(find.textContaining('Привет, Мурзик'), findsOneWidget);
+  });
 
-    await _openNode(tester, 'bakery');
+  test('a completed Ivan track is recognised as one map quest', () {
     expect(
-      find.text('Сценарий готов · мини-игра появится позже'),
-      findsOneWidget,
+      isIvanTrackComplete(const {'Q_IVAN_ROAD_EASY_1', 'Q_IVAN_ROAD_EASY_2'}),
+      isTrue,
     );
-    await tester.tap(find.byTooltip('Закрыть'));
-    await tester.pump(const Duration(milliseconds: 500));
-
-    await _openNode(tester, 'badger');
-    expect(find.text('Сначала пройди предыдущее задание'), findsOneWidget);
   });
 
   for (final width in [320.0, 360.0, 412.0]) {

@@ -1,18 +1,31 @@
 import 'package:flutter/widgets.dart';
 
+import '../games/ivan/ivan_game_models.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../minigames/mole/mole_game_data.dart';
 import '../minigames/tugriki/tugriki_game_data.dart';
 
-enum QuestMapDestination { upcoming, turnip, mole, tugriki }
+enum QuestMapDestination { upcoming, turnip, mole, ivan, tugriki }
 
 extension QuestMapDestinationQuest on QuestMapDestination {
   /// Server quest behind a playable node; story-only nodes have none.
   String? get questId => switch (this) {
     QuestMapDestination.turnip => turnipQuestId,
     QuestMapDestination.mole => kMoleQuestId,
+    QuestMapDestination.ivan => null,
     QuestMapDestination.tugriki => kTugrikiQuestId,
     QuestMapDestination.upcoming => null,
+  };
+
+  Set<String> get questIds => switch (this) {
+    QuestMapDestination.ivan => ivanQuestIds,
+    _ when questId != null => {questId!},
+    _ => const {},
+  };
+
+  bool isCompletedBy(Set<String> completedQuestIds) => switch (this) {
+    QuestMapDestination.ivan => isIvanTrackComplete(completedQuestIds),
+    _ => questId != null && completedQuestIds.contains(questId),
   };
 }
 
@@ -109,6 +122,7 @@ const questMapNodes = <QuestMapNode>[
     topics: ['Бюджет', 'Покупки', 'Остаток'],
     heroBounds: Rect.fromLTWH(40, 945, 400, 300),
     pathIndex: 4,
+    destination: QuestMapDestination.ivan,
   ),
   QuestMapNode(
     order: 4,
@@ -170,8 +184,11 @@ const questMapNodes = <QuestMapNode>[
 /// complete, so they never block the path.
 int unlockedIndexFor(Set<String> completedQuestIds) {
   for (var i = 0; i < questMapNodes.length; i++) {
-    final questId = questMapNodes[i].destination.questId;
-    if (questId != null && !completedQuestIds.contains(questId)) return i;
+    final destination = questMapNodes[i].destination;
+    if (destination != QuestMapDestination.upcoming &&
+        !destination.isCompletedBy(completedQuestIds)) {
+      return i;
+    }
   }
   return questMapNodes.length - 1;
 }

@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../core/child_difficulty.dart';
 import '../core/pet_assets.dart';
+import '../games/ivan/ivan_game_models.dart';
+import '../games/ivan/ivan_game_screen.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../games/turnip/turnip_game_screen.dart';
 import '../minigames/mole/mole_game_screen.dart';
@@ -57,6 +59,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   late int _currentPathIndex;
   late int _unlockedIndex;
   int _completedCount = 0;
+  Set<String> _completedQuestIds = const {};
   // Neutral until the server answers: the child names the pet themselves.
   String _petName = 'Питомец';
   String? _furOptionId;
@@ -102,8 +105,9 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       if (!mounted) return;
       final unlocked = unlockedIndexFor(completed);
       setState(() {
+        _completedQuestIds = completed;
         _completedCount = questMapNodes
-            .where((n) => completed.contains(n.destination.questId))
+            .where((node) => node.destination.isCompletedBy(completed))
             .length;
         if (name is String && name.trim().isNotEmpty) _petName = name;
         if (fur is String) _furOptionId = fur;
@@ -309,6 +313,21 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       QuestMapDestination.mole => navigator.push<void>(
         MaterialPageRoute(
           builder: (_) => MoleGameScreen(apiClient: widget.apiClient),
+        ),
+      ),
+      QuestMapDestination.ivan => navigator.push<void>(
+        MaterialPageRoute(
+          builder: (gameContext) => IvanGameScreen(
+            initialLevel: nextIvanLevel(
+              completedQuestIds: _completedQuestIds,
+              preferredDifficulty: widget.difficulty == ChildDifficulty.advanced
+                  ? IvanDifficulty.hard
+                  : IvanDifficulty.easy,
+            ),
+            apiClient: widget.apiClient,
+            petName: _petName,
+            onExit: () => Navigator.of(gameContext).pop(),
+          ),
         ),
       ),
       QuestMapDestination.tugriki => navigator.push<void>(

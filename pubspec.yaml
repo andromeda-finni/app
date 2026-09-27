@@ -115,6 +115,7 @@ flutter:
     - assets/games/turnip/mouse.webp
     - assets/games/turnip/team_pulling.webp
     - assets/games/turnip/success_harvest.webp
+    - assets/games/ivan/
 
   # Bundled locally so typography is stable offline. PT Serif carries all
   # functional copy; Barocco Initial is reserved for decorative drop caps.

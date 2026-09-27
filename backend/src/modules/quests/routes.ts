@@ -5,48 +5,7 @@ import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, paramsSchema, shortIdSchema, uuidSchema } from "../../lib/schema.js";
 import { ECONOMY_RULES } from "../economy/rules.js";
-
-interface UiSpec {
-  correctOptionCode?: string;
-  answerValidation?: {
-    kind?: string;
-    expectedSequence?: string[];
-    budget?: number;
-    itemPrices?: Record<string, number>;
-  };
-  [key: string]: unknown;
-}
-
-function answerMatches(uiSpec: UiSpec | null, selectedOptionCode?: string): boolean {
-  const validation = uiSpec?.answerValidation;
-  if (validation?.kind === "ORDERED_SEQUENCE") {
-    const expected = validation.expectedSequence;
-    if (!expected?.length || !selectedOptionCode) return false;
-    return selectedOptionCode === expected.join(",");
-  }
-
-  if (validation?.kind === "BUDGET_SELECTION") {
-    const budget = validation.budget;
-    const itemPrices = validation.itemPrices;
-    if (!Number.isInteger(budget) || (budget ?? 0) < 0 || !itemPrices || !selectedOptionCode) {
-      return false;
-    }
-    const selectedIds = selectedOptionCode.split(",").filter(Boolean);
-    if (selectedIds.length === 0 || new Set(selectedIds).size !== selectedIds.length) {
-      return false;
-    }
-    let total = 0;
-    for (const itemId of selectedIds) {
-      const price = itemPrices[itemId];
-      if (!Number.isInteger(price) || (price ?? -1) < 0) return false;
-      total += price!;
-    }
-    return total <= budget!;
-  }
-
-  return typeof uiSpec?.correctOptionCode === "string" &&
-    uiSpec.correctOptionCode === selectedOptionCode;
-}
+import { answerMatches, type UiSpec } from "./validation.js";
 
 export async function questRoutes(app: FastifyInstance): Promise<void> {
   // Difficulty controls the amount of guidance inside a game. The story/map
@@ -87,13 +46,18 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         const child = childRes.rows[0];
         if (!child) throw new HttpError(404, "child_profile_not_found");
 
-        const questRes = await client.query<{ reward_amount: number }>(
-          `SELECT reward_amount FROM quest_definitions
+        const questRes = await client.query<{ reward_amount: number; difficulty: string }>(
+          `SELECT reward_amount, difficulty FROM quest_definitions
             WHERE id = $1 AND active`,
           [questId],
         );
         const quest = questRes.rows[0];
         if (!quest) throw new HttpError(404, "quest_not_found");
+        const startsIvanTrack =
+          questId === "Q_IVAN_ROAD_EASY_1" || questId === "Q_IVAN_ROAD_HARD_1";
+        if (startsIvanTrack && quest.difficulty !== child.difficulty) {
+          throw new HttpError(409, "quest_difficulty_mismatch");
+        }
 
         const blockedRes = await client.query<{ prerequisite_quest_id: string }>(
           `SELECT qp.prerequisite_quest_id
