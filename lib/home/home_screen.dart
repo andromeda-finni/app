@@ -6,6 +6,7 @@ import '../day_summary/day_summary.dart';
 import '../day_summary/day_summary_screen.dart';
 import '../economy/economy_action_ui.dart';
 import '../theme/app_theme.dart';
+import 'home_tour.dart';
 import 'models/active_period.dart';
 import 'models/active_pet_event.dart';
 import 'models/artifact.dart';
@@ -30,6 +31,8 @@ class HomeScreen extends StatefulWidget {
     required this.onChooseGoal,
     required this.onOpenShop,
     this.onOpenSettings,
+    this.tourTargets,
+    this.onTourReady,
   });
 
   final ApiClient apiClient;
@@ -37,6 +40,8 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback onOpenShop;
 
   final VoidCallback? onOpenSettings;
+  final HomeTourTargets? tourTargets;
+  final VoidCallback? onTourReady;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -128,6 +133,9 @@ class _HomeScreenState extends State<HomeScreen> {
         _recentDays = recentDays;
         _hasGoal = economy['activeGoal'] is Map;
         _state = _LoadState.ready;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onTourReady?.call();
       });
     } catch (_) {
       if (!mounted) return;
@@ -266,6 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onCloseDay: _closeDay,
           onSubmitParentTask: _submitParentTask,
           onEquipArtifact: _equipArtifact,
+          tourTargets: widget.tourTargets,
         );
     }
   }
@@ -292,6 +301,7 @@ class _Content extends StatelessWidget {
     required this.onSubmitParentTask,
     required this.onEquipArtifact,
     this.dayActionError,
+    this.tourTargets,
   });
 
   final Pet pet;
@@ -313,6 +323,7 @@ class _Content extends StatelessWidget {
   final VoidCallback onCloseDay;
   final ValueChanged<String> onSubmitParentTask;
   final ValueChanged<String?> onEquipArtifact;
+  final HomeTourTargets? tourTargets;
 
   @override
   Widget build(BuildContext context) {
@@ -320,6 +331,7 @@ class _Content extends StatelessWidget {
       color: AppColors.crimson,
       onRefresh: onRefresh,
       child: ListView(
+        controller: tourTargets?.scrollController,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           _Header(
@@ -327,49 +339,62 @@ class _Content extends StatelessWidget {
             spendable: spendable,
             savings: savings,
             onOpenSettings: onOpenSettings,
+            tourTargets: tourTargets,
           ),
           const SizedBox(height: 8),
-          _PetPortrait(pet: pet),
+          KeyedSubtree(
+            key: tourTargets?.pet,
+            child: _PetPortrait(pet: pet),
+          ),
           const SizedBox(height: 16),
-          PetStatsCard(
-            stats: [
-              PetStat(
-                label: 'Сытость',
-                icon: Icons.restaurant,
-                color: AppColors.leafGreen,
-                value: pet.satiety,
-              ),
-              PetStat(
-                label: 'Радость',
-                icon: Icons.sentiment_satisfied_alt,
-                color: const Color(0xFFD9A038),
-                value: pet.joy,
-              ),
-              PetStat(
-                label: 'Здоровье',
-                icon: Icons.favorite,
-                color: const Color(0xFF3E8ED0),
-                value: pet.health,
-              ),
-            ],
+          KeyedSubtree(
+            key: tourTargets?.stats,
+            child: PetStatsCard(
+              stats: [
+                PetStat(
+                  label: 'Сытость',
+                  icon: Icons.restaurant,
+                  color: AppColors.leafGreen,
+                  value: pet.satiety,
+                ),
+                PetStat(
+                  label: 'Радость',
+                  icon: Icons.sentiment_satisfied_alt,
+                  color: const Color(0xFFD9A038),
+                  value: pet.joy,
+                ),
+                PetStat(
+                  label: 'Здоровье',
+                  icon: Icons.favorite,
+                  color: const Color(0xFF3E8ED0),
+                  value: pet.health,
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 14),
-          BudgetPlanCard(
-            period: period,
-            onConfirm: onConfirmPlan,
-            onStartPeriod: onStartPeriod,
+          KeyedSubtree(
+            key: tourTargets?.plan,
+            child: BudgetPlanCard(
+              period: period,
+              onConfirm: onConfirmPlan,
+              onStartPeriod: onStartPeriod,
+            ),
           ),
           if (period != null) ...[
             const SizedBox(height: 14),
-            DayActionsCard(
-              period: period!,
-              event: event,
-              spendable: spendable,
-              busy: dayActionBusy,
-              error: dayActionError,
-              onResolveEvent: onResolveEvent,
-              onOpenShop: onOpenShop,
-              onCloseDay: onCloseDay,
+            KeyedSubtree(
+              key: tourTargets?.event,
+              child: DayActionsCard(
+                period: period!,
+                event: event,
+                spendable: spendable,
+                busy: dayActionBusy,
+                error: dayActionError,
+                onResolveEvent: onResolveEvent,
+                onOpenShop: onOpenShop,
+                onCloseDay: onCloseDay,
+              ),
             ),
           ],
           if (parentTasks.isNotEmpty) ...[
@@ -402,73 +427,112 @@ class _Header extends StatelessWidget {
     this.onOpenSettings,
     required this.spendable,
     required this.savings,
+    this.tourTargets,
   });
 
   final Pet pet;
   final VoidCallback? onOpenSettings;
   final int spendable;
   final int savings;
+  final HomeTourTargets? tourTargets;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final settings = onOpenSettings == null
+        ? null
+        : KeyedSubtree(
+            key: tourTargets?.settings,
+            child: IconButton(
+              tooltip: 'Настройки',
+              onPressed: onOpenSettings,
+              icon: const Icon(Icons.settings_outlined),
+              color: AppColors.ink,
+            ),
+          );
+    final wallet = KeyedSubtree(
+      key: tourTargets?.wallet,
+      child: _CoinPill(spendable: spendable, savings: savings),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scaledBody = MediaQuery.textScalerOf(context).scale(16);
+        final stackControls = constraints.maxWidth < 360 && scaledBody > 24;
+        return Column(
           children: [
-            // Takes the slot the reference gives a back button: the home tab
-            // is a root, so the useful action here is the child's settings.
-            if (onOpenSettings != null)
-              IconButton(
-                tooltip: 'Настройки',
-                onPressed: onOpenSettings,
-                icon: const Icon(Icons.settings_outlined),
-                color: AppColors.ink,
+            if (stackControls) ...[
+              if (settings != null)
+                Align(alignment: Alignment.centerLeft, child: settings),
+              Align(alignment: Alignment.centerRight, child: wallet),
+            ] else
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Takes the slot the reference gives a back button: the
+                  // home tab is a root, so settings are useful here.
+                  settings ?? const SizedBox.shrink(),
+                  const Spacer(),
+                  wallet,
+                ],
               ),
-            const Spacer(),
-            _CoinPill(spendable: spendable, savings: savings),
+            KeyedSubtree(
+              key: tourTargets?.identity,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/icons/leaf.webp',
+                        width: 26,
+                        height: 26,
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          pet.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.dropCap.copyWith(fontSize: 34),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Transform.flip(
+                        flipX: true,
+                        child: Image.asset(
+                          'assets/icons/leaf.webp',
+                          width: 26,
+                          height: 26,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardBg,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: AppColors.fieldBorder.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    child: Text(
+                      'Стадия ${pet.evolutionStage} из ${Pet.maxStage} · ${pet.stageName}',
+                      style: AppTextStyles.swatchLabel.copyWith(
+                        color: AppColors.ink,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
-        ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset('assets/icons/leaf.webp', width: 26, height: 26),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                pet.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.dropCap.copyWith(fontSize: 34),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Transform.flip(
-              flipX: true,
-              child: Image.asset(
-                'assets/icons/leaf.webp',
-                width: 26,
-                height: 26,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColors.cardBg,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: AppColors.fieldBorder.withValues(alpha: 0.7),
-            ),
-          ),
-          child: Text(
-            'Стадия ${pet.evolutionStage} из ${Pet.maxStage} · ${pet.stageName}',
-            style: AppTextStyles.swatchLabel.copyWith(color: AppColors.ink),
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

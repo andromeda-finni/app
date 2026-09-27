@@ -2,15 +2,17 @@ import 'package:flutter/widgets.dart';
 
 import '../games/turnip/turnip_game_models.dart';
 import '../minigames/mole/mole_game_data.dart';
+import '../minigames/bakery/bakery_game_data.dart';
 import '../minigames/tugriki/tugriki_game_data.dart';
 
-enum QuestMapDestination { upcoming, turnip, mole, tugriki }
+enum QuestMapDestination { upcoming, turnip, mole, bakery, tugriki }
 
 extension QuestMapDestinationQuest on QuestMapDestination {
   /// Server quest behind a playable node; story-only nodes have none.
   String? get questId => switch (this) {
     QuestMapDestination.turnip => turnipQuestId,
     QuestMapDestination.mole => kMoleQuestId,
+    QuestMapDestination.bakery => kBakeryQuestId,
     QuestMapDestination.tugriki => kTugrikiQuestId,
     QuestMapDestination.upcoming => null,
   };
@@ -139,6 +141,7 @@ const questMapNodes = <QuestMapNode>[
     topics: ['Расходы', 'Выручка', 'Прибыль'],
     heroBounds: Rect.fromLTWH(420, 245, 365, 330),
     pathIndex: 9,
+    destination: QuestMapDestination.bakery,
     catFacesRight: true,
   ),
   QuestMapNode(

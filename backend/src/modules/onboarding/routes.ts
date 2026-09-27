@@ -9,6 +9,7 @@ interface OnboardingStatusRow {
   difficulty: "SIMPLE" | "ADVANCED";
   onboarding_step: number;
   onboarding_completed_at: Date | null;
+  home_tour_completed_at: Date | null;
   pet_name: string | null;
   fur_option_id: string | null;
 }
@@ -22,6 +23,7 @@ function statusResponse(row: OnboardingStatusRow) {
     difficulty: row.difficulty,
     currentStep: row.onboarding_step,
     completed: row.onboarding_completed_at !== null,
+    homeTourCompleted: row.home_tour_completed_at !== null,
     pet:
       row.pet_name === null
         ? null
@@ -39,6 +41,7 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
     async (req) => {
       const res = await pool.query<OnboardingStatusRow>(
         `SELECT cp.difficulty, cp.onboarding_step, cp.onboarding_completed_at,
+                cp.home_tour_completed_at,
                 p.pet_name, p.fur_option_id
            FROM child_profiles cp
            LEFT JOIN pets p ON p.child_user_id = cp.user_id
@@ -48,6 +51,30 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
       const row = res.rows[0];
       if (!row) throw new HttpError(404, "child_profile_not_found");
       return statusResponse(row);
+    },
+  );
+
+  app.put(
+    "/onboarding/home-tour",
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: bodySchema({}, []),
+    },
+    async (req) => {
+      const result = await pool.query(
+        `UPDATE child_profiles
+            SET home_tour_completed_at = COALESCE(home_tour_completed_at, now()),
+                updated_at = CASE
+                  WHEN home_tour_completed_at IS NULL THEN now()
+                  ELSE updated_at
+                END
+          WHERE user_id = $1`,
+        [req.authUser!.id],
+      );
+      if (result.rowCount === 0) {
+        throw new HttpError(404, "child_profile_not_found");
+      }
+      return { homeTourCompleted: true };
     },
   );
 

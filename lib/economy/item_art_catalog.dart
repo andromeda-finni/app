@@ -14,12 +14,23 @@ const Map<String, String> localItemArtwork = {
 
 /// Child-friendly descriptions of artifact effects shown in the store.
 ///
-/// Only effects the server actually applies belong here: a card must never
-/// promise a bonus the economy does not grant. Add an entry together with the
-/// backend rule that implements it.
+/// These describe the designed bonuses so a child can understand the value of
+/// a dream before choosing it. Some bonuses are still catalog-only and must be
+/// wired to the backend separately before they affect gameplay.
 const Map<String, String> localArtifactBenefitDescriptions = {
-  // quests/routes.ts raises the daily paid-quest limit while boots are worn.
-  'boots': 'Пока надеты, открывают четвёртое задание за день.',
+  'saucer': 'Перед заданием показывает, сколько энергии потратит питомец.',
+  'vial': 'Один раз автоматически отменяет негативное событие.',
+  'tablecloth': 'Два дня не даёт сытости питомца опуститься ниже 40%.',
+  'horseshoe':
+      'На следующее утро возвращает 10% монет за обязательные покупки.',
+  'shield':
+      'Перед опасной сделкой показывает признаки риска и один раз даёт '
+      'отменить ошибку.',
+  'purse':
+      'Если в конце дня осталось хотя бы 10 монет, утром добавляет 2 монеты.',
+  'boots':
+      'Снижает расход энергии на задания на 10% и открывает четвёртое '
+      'задание за день.',
 };
 
 String? resolveItemArtwork({String? itemId, String? imageAsset}) {

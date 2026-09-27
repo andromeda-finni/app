@@ -8,6 +8,7 @@ import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/home/main_shell.dart';
 import 'package:andromeda_app/main.dart';
 import 'package:andromeda_app/onboarding/difficulty_choice_screen.dart';
+import 'package:andromeda_app/onboarding/onboarding_data.dart';
 import 'package:andromeda_app/onboarding/onboarding_step1_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_step2_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_step3_screen.dart';
@@ -25,6 +26,25 @@ http.Response _jsonResponse(Object body, int statusCode) => http.Response(
 );
 
 void main() {
+  test('onboarding status carries the persisted home-tour flag', () {
+    final completed = OnboardingResumeState.fromJson({
+      'currentStep': 4,
+      'completed': true,
+      'homeTourCompleted': true,
+      'difficulty': 'SIMPLE',
+      'pet': {'petName': 'Рыжик', 'furOptionId': 'FUR_GRAY'},
+    });
+    final legacy = OnboardingResumeState.fromJson({
+      'currentStep': 4,
+      'completed': true,
+      'difficulty': 'SIMPLE',
+      'pet': {'petName': 'Рыжик', 'furOptionId': 'FUR_GRAY'},
+    });
+
+    expect(completed.homeTourCompleted, isTrue);
+    expect(legacy.homeTourCompleted, isFalse);
+  });
+
   testWidgets('no saved token -> chooses difficulty before onboarding', (
     tester,
   ) async {
@@ -79,6 +99,7 @@ void main() {
       return _jsonResponse({
         'currentStep': 4,
         'completed': true,
+        'homeTourCompleted': true,
         'pet': {'petName': 'Рыжик', 'furOptionId': 'FUR_GRAY'},
       }, 200);
     });
@@ -255,6 +276,7 @@ void main() {
       return _jsonResponse({
         'currentStep': 4,
         'completed': true,
+        'homeTourCompleted': true,
         'pet': {'petName': 'Грошик', 'furOptionId': 'FUR_GRAY'},
       }, 200);
     });

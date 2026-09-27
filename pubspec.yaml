@@ -97,6 +97,7 @@ flutter:
     - assets/Cat/Base/playful.webp
     - assets/minigames/tugriki/
     - assets/minigames/mole/
+    - assets/minigames/bakery/
     - assets/Fox/fox_friendly.webp
     - assets/Fox/fox_sly.webp
     - assets/games/turnip/garden_background.webp
@@ -150,4 +151,3 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
-

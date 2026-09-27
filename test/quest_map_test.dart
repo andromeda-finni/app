@@ -64,12 +64,12 @@ void main() {
       expect(unlockedIndexFor(const {'Q_TURNIP_HARVEST'}), indexOf('mole'));
     });
 
-    test('finishing the mole opens the path up to Tugriki', () {
+    test('finishing the mole opens the path up to the bakery', () {
       // Story-only nodes in between have nothing to complete, so they must not
       // block the child from reaching Tugriki.
       expect(
         unlockedIndexFor(const {'Q_TURNIP_HARVEST', 'Q_MOLE_FINE_PRINT'}),
-        indexOf('tugriki'),
+        indexOf('bakery'),
       );
     });
 
@@ -78,6 +78,7 @@ void main() {
         unlockedIndexFor(const {
           'Q_TURNIP_HARVEST',
           'Q_MOLE_FINE_PRINT',
+          'Q_BAKERY_PROFIT',
           'Q_TUGRIKI_CURRENCY',
         }),
         questMapNodes.length - 1,
@@ -88,7 +89,7 @@ void main() {
       for (final node in questMapNodes.where((n) => n.isPlayable)) {
         expect(node.destination.questId, isNotNull, reason: node.id);
       }
-      expect(playableQuestCount, 3);
+      expect(playableQuestCount, 4);
     });
   });
 
@@ -96,7 +97,7 @@ void main() {
     await tester.pumpWidget(_map());
     await tester.pumpAndSettle();
 
-    expect(find.text('Пройдено 0 из 3'), findsOneWidget);
+    expect(find.text('Пройдено 0 из 4'), findsOneWidget);
     // As a tab the map has no back arrow: there is nothing to go back to.
     expect(find.byTooltip('Назад'), findsNothing);
 
@@ -115,24 +116,23 @@ void main() {
     expect(find.byType(TurnipGameScreen), findsOneWidget);
   });
 
-  testWidgets('server progress opens the path up to Tugriki', (tester) async {
+  testWidgets('server progress opens the bakery before Tugriki', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _map(completed: const ['Q_TURNIP_HARVEST', 'Q_MOLE_FINE_PRINT']),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Пройдено 2 из 3'), findsOneWidget);
+    expect(find.text('Пройдено 2 из 4'), findsOneWidget);
 
     await _openNode(tester, 'tugriki');
-    expect(find.text('Играть'), findsOneWidget);
+    expect(find.text('Сначала пройди предыдущее задание'), findsOneWidget);
     await tester.tap(find.byTooltip('Закрыть'));
     await tester.pump(const Duration(milliseconds: 500));
 
     await _openNode(tester, 'bakery');
-    expect(
-      find.text('Сценарий готов · мини-игра появится позже'),
-      findsOneWidget,
-    );
+    expect(find.text('Играть'), findsOneWidget);
     await tester.tap(find.byTooltip('Закрыть'));
     await tester.pump(const Duration(milliseconds: 500));
 

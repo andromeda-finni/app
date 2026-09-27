@@ -29,7 +29,7 @@ import { childSettingsRoutes } from "./modules/childSettings/routes.js";
  * traffic and then 500ing on the first query that hits a missing column.
  * Bump this whenever a migration the code depends on is added.
  */
-const REQUIRED_SCHEMA_VERSION = "0029_child_display_settings.sql";
+const REQUIRED_SCHEMA_VERSION = "0031_bakery_quest.sql";
 
 const LOOPBACK_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 

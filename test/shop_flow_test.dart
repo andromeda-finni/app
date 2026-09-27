@@ -130,12 +130,11 @@ void main() {
       'boots',
     };
     expect(localItemArtwork.keys.toSet(), artifactIds);
-    // Descriptions exist only for effects the server really applies.
+    expect(localArtifactBenefitDescriptions.keys.toSet(), artifactIds);
     expect(
-      artifactIds.containsAll(localArtifactBenefitDescriptions.keys),
-      isTrue,
+      localArtifactBenefitDescriptions.values,
+      everyElement(isNot(isEmpty)),
     );
-    expect(localArtifactBenefitDescriptions.keys, contains('boots'));
   });
 
   testWidgets('every catalog artwork is bundled and can be loaded', (
@@ -383,7 +382,8 @@ void main() {
       find.descendant(
         of: firstCard,
         matching: find.text(
-          'Пока надеты, открывают четвёртое задание за день.',
+          'Снижает расход энергии на задания на 10% и открывает четвёртое '
+          'задание за день.',
         ),
       ),
       findsOneWidget,

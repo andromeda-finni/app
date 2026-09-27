@@ -8,6 +8,7 @@ import '../core/child_difficulty.dart';
 import '../core/pet_assets.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../games/turnip/turnip_game_screen.dart';
+import '../minigames/bakery/bakery_game_screen.dart';
 import '../minigames/mole/mole_game_screen.dart';
 import '../minigames/tugriki/tugriki_game_screen.dart';
 import '../theme/app_theme.dart';
@@ -309,6 +310,15 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       QuestMapDestination.mole => navigator.push<void>(
         MaterialPageRoute(
           builder: (_) => MoleGameScreen(apiClient: widget.apiClient),
+        ),
+      ),
+      QuestMapDestination.bakery => navigator.push<void>(
+        MaterialPageRoute(
+          builder: (gameContext) => BakeryGameScreen(
+            difficulty: widget.difficulty,
+            apiClient: widget.apiClient,
+            onExit: () => Navigator.of(gameContext).pop(),
+          ),
         ),
       ),
       QuestMapDestination.tugriki => navigator.push<void>(
