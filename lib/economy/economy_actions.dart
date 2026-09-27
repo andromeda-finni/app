@@ -55,11 +55,21 @@ class EconomyActions {
   Future<bool> execute(
     EconomyOperation operation,
     Future<bool> Function(EconomyConfirmation) confirm,
+  ) async => await executeWithResult(operation, confirm) != null;
+
+  /// Runs an operation and returns the authoritative server result.
+  ///
+  /// Callers that only need applied/cancelled semantics should use [execute].
+  /// Purchase surfaces use the response to explain the balance and pet effect
+  /// without calculating server-owned state on the client.
+  Future<Map<String, dynamic>?> executeWithResult(
+    EconomyOperation operation,
+    Future<bool> Function(EconomyConfirmation) confirm,
   ) async {
-    if (_running) return false;
+    if (_running) return null;
     _running = true;
     try {
-      if (!await confirm(operation.confirmation)) return false;
+      if (!await confirm(operation.confirmation)) return null;
       final body = Map<String, dynamic>.from(operation.body);
       // These endpoints have natural identifiers for replay protection.
       if (operation.path == '/goals' ||
@@ -68,8 +78,7 @@ class EconomyActions {
           operation.path.contains('/withdraw-early')) {
         body.remove('idempotencyKey');
       }
-      await api.post(operation.path, body: body);
-      return true;
+      return await api.post(operation.path, body: body);
     } finally {
       _running = false;
     }

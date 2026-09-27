@@ -69,6 +69,12 @@ flutter:
     - assets/backgrounds/paper.webp
     - assets/backgrounds/meadow_foreground.webp
     - assets/backgrounds/scene_transition.webp
+    - assets/shop/category_needs-v2.webp
+    - assets/shop/category_wants-v2.webp
+    - assets/shop/category_dreams-v2.webp
+    - assets/shop/title_sign.webp
+    - assets/shop/items/apple.webp
+    - assets/shop/items/carrot.webp
     - assets/map/quest_map_scenarios_v03.webp
     - assets/icons/arrow_left.webp
     - assets/icons/sweet.webp
@@ -150,4 +156,3 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
-

@@ -30,11 +30,13 @@ class HomeScreen extends StatefulWidget {
     required this.onChooseGoal,
     required this.onOpenShop,
     this.onOpenSettings,
+    this.focusPlan = false,
   });
 
   final ApiClient apiClient;
   final VoidCallback onChooseGoal;
   final VoidCallback onOpenShop;
+  final bool focusPlan;
 
   final VoidCallback? onOpenSettings;
 
@@ -54,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _hasGoal = false;
   bool _dayActionBusy = false;
   String? _dayActionError;
+  final _planKey = GlobalKey();
 
   @override
   void initState() {
@@ -129,6 +132,18 @@ class _HomeScreenState extends State<HomeScreen> {
         _hasGoal = economy['activeGoal'] is Map;
         _state = _LoadState.ready;
       });
+      if (widget.focusPlan) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final target = _planKey.currentContext;
+          if (!mounted || target == null) return;
+          Scrollable.ensureVisible(
+            target,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+            alignment: 0.08,
+          );
+        });
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _state = _LoadState.error);
@@ -266,6 +281,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onCloseDay: _closeDay,
           onSubmitParentTask: _submitParentTask,
           onEquipArtifact: _equipArtifact,
+          planKey: _planKey,
         );
     }
   }
@@ -291,6 +307,7 @@ class _Content extends StatelessWidget {
     required this.onCloseDay,
     required this.onSubmitParentTask,
     required this.onEquipArtifact,
+    required this.planKey,
     this.dayActionError,
   });
 
@@ -313,6 +330,7 @@ class _Content extends StatelessWidget {
   final VoidCallback onCloseDay;
   final ValueChanged<String> onSubmitParentTask;
   final ValueChanged<String?> onEquipArtifact;
+  final GlobalKey planKey;
 
   @override
   Widget build(BuildContext context) {
@@ -354,10 +372,13 @@ class _Content extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          BudgetPlanCard(
-            period: period,
-            onConfirm: onConfirmPlan,
-            onStartPeriod: onStartPeriod,
+          KeyedSubtree(
+            key: planKey,
+            child: BudgetPlanCard(
+              period: period,
+              onConfirm: onConfirmPlan,
+              onStartPeriod: onStartPeriod,
+            ),
           ),
           if (period != null) ...[
             const SizedBox(height: 14),

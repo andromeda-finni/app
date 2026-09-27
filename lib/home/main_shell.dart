@@ -40,6 +40,7 @@ class _MainShellState extends State<MainShell> {
   int _storeRevision = 0;
   int _savingsRevision = 0;
   int _mapRevision = 0;
+  bool _focusHomePlan = false;
   StoreMode _storeMode = StoreMode.normal;
   late ChildSettingsSnapshot _settings;
 
@@ -99,6 +100,14 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  void _openPlan() {
+    setState(() {
+      _focusHomePlan = true;
+      _homeRevision++;
+      _index = 0;
+    });
+  }
+
   void _selectTab(int index) {
     setState(() {
       if (index == 0) _homeRevision++;
@@ -111,6 +120,7 @@ class _MainShellState extends State<MainShell> {
       }
       if (index == 3) _savingsRevision++;
       _index = index;
+      if (index != 0) _focusHomePlan = false;
     });
   }
 
@@ -130,6 +140,7 @@ class _MainShellState extends State<MainShell> {
               onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
               onOpenShop: () => _selectTab(2),
               onOpenSettings: _openSettings,
+              focusPlan: _focusHomePlan,
             ),
             QuestMapScreen(
               key: ValueKey('map-$_mapRevision'),
@@ -145,6 +156,8 @@ class _MainShellState extends State<MainShell> {
               mode: _storeMode,
               onBack: () => setState(() => _index = _storeReturnIndex),
               onGoalSelected: _goalSelected,
+              onOpenPlan: _openPlan,
+              onOpenQuests: () => _selectTab(1),
             ),
             SavingsScreen(
               key: ValueKey('savings-$_savingsRevision'),
