@@ -53,25 +53,29 @@ Map<String, dynamic> _draftDay({
   'savings_amount': savings,
 };
 
-Map<String, dynamic> _economy({Map<String, dynamic>? pet, Object? activeDay}) =>
-    {
-      'pet': pet ?? _pet(),
-      'wallets': {'SPENDABLE': 42, 'SAVINGS': 18},
-      'activeDay': activeDay,
-      'activeGoal': {
-        'name': 'Воздушный змей',
-        'target_amount': 100,
-        'saved_amount': 18,
-      },
-      'activeEvent': null,
-      'inventory': [
-        {'name': 'Гусли-самогуды'},
-      ],
-    };
+Map<String, dynamic> _economy({
+  Map<String, dynamic>? pet,
+  Object? activeDay,
+  Map<String, dynamic>? activeEvent,
+}) => {
+  'pet': pet ?? _pet(),
+  'wallets': {'SPENDABLE': 42, 'SAVINGS': 18},
+  'activeDay': activeDay,
+  'activeGoal': {
+    'name': 'Воздушный змей',
+    'target_amount': 100,
+    'saved_amount': 18,
+  },
+  'activeEvent': activeEvent,
+  'inventory': [
+    {'name': 'Гусли-самогуды'},
+  ],
+};
 
 Widget _screen({
   required Future<http.Response> Function(http.Request request) handler,
   double textScale = 1,
+  VoidCallback? onOpenInsurance,
 }) {
   final client = MockClient(handler);
   return MaterialApp(
@@ -84,6 +88,7 @@ Widget _screen({
             authStorage: FakeAuthStorage(initialToken: 'tok'),
             baseUrl: 'http://test',
           ),
+          onOpenInsurance: onOpenInsurance,
         ),
       ),
     ),
@@ -174,6 +179,51 @@ void main() {
     await tester.tap(find.byKey(const Key('pet-care-back')));
     await tester.pumpAndSettle();
     expect(find.text('Моя мечта'), findsOneWidget);
+  });
+
+  testWidgets('active event remains reachable from the new home', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _screen(
+        handler: (_) async => _json(
+          _economy(
+            activeDay: _draftDay(),
+            activeEvent: {
+              'id': 'event-1',
+              'event_definition_id': 'POOR_PAW',
+              'amount_due': 10,
+              'triggered_at': '2026-09-27T10:00:00.000Z',
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('pet-event-banner')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('pet-event-banner')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ой! Грошик уколол лапку!'), findsOneWidget);
+    expect(find.byKey(const Key('pet-event-resolve')), findsOneWidget);
+  });
+
+  testWidgets('plantain table keeps insurance navigation', (tester) async {
+    var insuranceOpened = false;
+    await _pump(
+      tester,
+      _screen(
+        handler: (_) async => _json(_economy(activeDay: _draftDay())),
+        onOpenInsurance: () => insuranceOpened = true,
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('open-pet-care')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Стол подорожника'));
+
+    expect(insuranceOpened, isTrue);
   });
 
   testWidgets('renaming persists through PUT /pet', (tester) async {
