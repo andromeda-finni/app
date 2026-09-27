@@ -97,21 +97,6 @@ abstract final class AppTextStyles {
     height: 1.42,
   );
 
-  static const TextStyle screenTitle = TextStyle(
-    fontFamily: _fontFamily,
-    color: AppColors.ink,
-    fontSize: 24,
-    height: 1.2,
-    fontWeight: FontWeight.bold,
-  );
-
-  static const TextStyle supporting = TextStyle(
-    fontFamily: _fontFamily,
-    color: AppColors.inkMuted,
-    fontSize: 15,
-    height: 1.4,
-  );
-
   static const TextStyle swatchLabel = TextStyle(
     fontFamily: AppFonts.body,
     color: AppColors.inkMuted,
@@ -169,6 +154,10 @@ abstract final class AppTextStyles {
 }
 
 abstract final class AppTheme {
+  static const gold = AppColors.coinGold;
+  static const forestGreen = Color(0xFF2F5D3A);
+  static const parchment = AppColors.parchment;
+
   static ThemeData get light => ThemeData(
     colorScheme: ColorScheme.fromSeed(
       seedColor: AppColors.crimson,
@@ -190,21 +179,5 @@ abstract final class AppTheme {
         fontSize: 15,
       ),
     ),
-  );
-}
-
-/// Shared semantic theme tokens for the fairy-tale game surfaces.
-abstract final class AppTheme {
-  static const gold = Color(0xFFD99524);
-  static const forestGreen = Color(0xFF2F5D3A);
-  static const parchment = AppColors.parchment;
-
-  static ThemeData get light => ThemeData(
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: AppColors.crimson,
-      surface: AppColors.parchment,
-    ),
-    scaffoldBackgroundColor: AppColors.parchment,
-    fontFamily: AppFonts.family,
   );
 }

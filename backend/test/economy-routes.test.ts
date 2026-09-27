@@ -17,6 +17,12 @@ test("GET /economy/state returns the complete two-screen read model", async () =
     if (text.includes("FROM auth_credentials")) {
       return { rows: [{ user_id: "child-1", role: "CHILD" }], rowCount: 1 };
     }
+    if (text.includes("FROM child_profiles")) {
+      return { rows: [{ mode: "STANDARD" }], rowCount: 1 };
+    }
+    if (text.includes("UPDATE financial_goals")) {
+      return { rows: [], rowCount: 0 };
+    }
     if (text.includes("FROM pets WHERE")) {
       return {
         rows: [
@@ -41,7 +47,7 @@ test("GET /economy/state returns the complete two-screen read model", async () =
         rowCount: 2,
       };
     }
-    if (text.includes("FROM game_periods")) {
+    if (text.includes("FROM game_periods gp")) {
       return {
         rows: [
           {
@@ -63,8 +69,25 @@ test("GET /economy/state returns the complete two-screen read model", async () =
     if (text.includes("FROM pet_event_occurrences")) {
       return { rows: [], rowCount: 0 };
     }
+    if (text.includes("FROM insurance_policies")) {
+      return { rows: [], rowCount: 0 };
+    }
+    if (text.includes("FROM frost_chests")) {
+      return { rows: [], rowCount: 0 };
+    }
+    if (text.includes("FROM shop_items")) {
+      return { rows: [], rowCount: 0 };
+    }
     if (text.includes("FROM inventory_items")) {
       return { rows: [{ name: "Гусли-самогуды" }], rowCount: 1 };
+    }
+    if (
+      text.includes("FROM transactions") ||
+      text.includes("FROM period_results") ||
+      text.includes("FROM quest_definitions") ||
+      text.includes("FROM assignments")
+    ) {
+      return { rows: [], rowCount: 0 };
     }
     throw new Error(`Unexpected query in test: ${text}`);
   }) as typeof pool.query;
@@ -79,6 +102,25 @@ test("GET /economy/state returns the complete two-screen read model", async () =
 
     assert.equal(response.statusCode, 200);
     assert.deepEqual(response.json(), {
+      mode: "STANDARD",
+      rules: {
+        dailyIncome: 30,
+        foodReserve: 10,
+        daysPerWeek: 7,
+        questRewards: [10, 12, 15],
+        dailyQuestLimit: 3,
+        bootsQuestLimit: 4,
+        parentRewardLimit: 10,
+        eventProbability: 0.7,
+        firstEventDay: 2,
+        minimumEventCost: 2,
+        maximumEventCost: 20,
+        insurancePremium: 5,
+        frostMinimum: 10,
+        frostMaximum: 50,
+        frostStep: 10,
+        frostDays: 5,
+      },
       pet: {
         pet_name: "Финни",
         fur_option_id: "FUR_GRAY",
@@ -93,6 +135,8 @@ test("GET /economy/state returns the complete two-screen read model", async () =
         sequence_no: 4,
         budget_plan_status: "DRAFT",
         remaining_reserve: 10,
+        week: 1,
+        day_of_week: 4,
       },
       activeGoal: {
         name: "Воздушный змей",
@@ -100,7 +144,15 @@ test("GET /economy/state returns the complete two-screen read model", async () =
         saved_amount: 12,
       },
       activeEvent: null,
+      activeInsurance: null,
+      activeFrostChest: null,
+      shopItems: [],
+      artifacts: [],
       inventory: [{ name: "Гусли-самогуды" }],
+      quests: [],
+      parentTasks: [],
+      recentTransactions: [],
+      recentDays: [],
     });
   } finally {
     pool.query = originalQuery;
