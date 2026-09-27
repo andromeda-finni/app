@@ -24,6 +24,7 @@ class HomeScreen extends StatefulWidget {
     required this.onChooseGoal,
     this.onOpenQuests,
     this.onOpenSettings,
+    this.onOpenInsurance,
   });
 
   final ApiClient apiClient;
@@ -31,6 +32,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback? onOpenQuests;
 
   final VoidCallback? onOpenSettings;
+  final VoidCallback? onOpenInsurance;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -103,10 +105,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     await widget.apiClient.post('/periods');
-    PetEventOccurrence? rolledEvent;
+    PetEventRollResult? rollResult;
     var rollFailed = false;
     try {
-      rolledEvent = await _eventService.roll();
+      rollResult = await _eventService.roll();
     } catch (_) {
       // The day already exists, so always refresh it even when the optional
       // random-event check is temporarily unavailable.
@@ -120,7 +122,11 @@ class _HomeScreenState extends State<HomeScreen> {
           content: Text('День начался, но событие пока не удалось проверить.'),
         ),
       );
-    } else if (rolledEvent != null) {
+    } else if (rollResult?.insuranceNotice case final String notice) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(notice), duration: const Duration(seconds: 5)),
+      );
+    } else if (rollResult?.event != null) {
       await _openEvent();
     }
   }
@@ -195,6 +201,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return _Content(
           pet: _pet!,
           onOpenSettings: widget.onOpenSettings,
+          onOpenInsurance: widget.onOpenInsurance,
           period: _period,
           activeEvent: _activeEvent,
           spendable: _wallets['SPENDABLE'] ?? 0,
@@ -212,6 +219,7 @@ class _Content extends StatelessWidget {
   const _Content({
     required this.pet,
     this.onOpenSettings,
+    this.onOpenInsurance,
     required this.period,
     required this.activeEvent,
     required this.spendable,
@@ -224,6 +232,7 @@ class _Content extends StatelessWidget {
 
   final Pet pet;
   final VoidCallback? onOpenSettings;
+  final VoidCallback? onOpenInsurance;
   final ActivePeriod? period;
   final PetEventOccurrence? activeEvent;
   final int spendable;
@@ -255,7 +264,7 @@ class _Content extends StatelessWidget {
           ),
           if (activeEvent != null) ...[
             const SizedBox(height: 10),
-            PetEventBanner(event: activeEvent!, onPressed: onOpenEvent),
+            PetEventBanner(event: activeEvent!, petName: pet.name, onPressed: onOpenEvent),
           ],
           const SizedBox(height: 16),
           PetStatsCard(
@@ -279,6 +288,7 @@ class _Content extends StatelessWidget {
                     ? const Color(0xFF3E8ED0)
                     : const Color(0xFFE39422),
                 value: pet.health,
+                onTap: onOpenInsurance,
               ),
             ],
           ),
@@ -463,7 +473,7 @@ class _PetPortrait extends StatelessWidget {
               Positioned(
                 right: 32,
                 bottom: 28,
-                child: PetEventIndicator(onPressed: onOpenEvent),
+                child: PetEventIndicator(petName: pet.name, onPressed: onOpenEvent),
               ),
             ],
           ],

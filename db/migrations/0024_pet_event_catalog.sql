@@ -21,6 +21,15 @@ UPDATE pet_event_definitions
    SET active = false
  WHERE id NOT IN ('POOR_PAW', 'SICK', 'HUNGRY', 'COLD_NIGHT', 'ROOF_LEAK', 'BEAVER_DAM');
 
+-- An old prototype occurrence must not keep the single-active-event slot
+-- blocked with content the current client is forbidden to display.
+UPDATE pet_event_occurrences
+   SET event_definition_id = 'POOR_PAW', amount_due = 10
+ WHERE status = 'ACTIVE'
+   AND event_definition_id NOT IN (
+     'POOR_PAW', 'SICK', 'HUNGRY', 'COLD_NIGHT', 'ROOF_LEAK', 'BEAVER_DAM'
+   );
+
 UPDATE pet_event_occurrences peo
    SET amount_due = ped.cost_amount
   FROM pet_event_definitions ped

@@ -18,6 +18,7 @@ export type TransactionEventType =
   | "FROST_BONUS"
   | "GOAL_REDEMPTION"
   | "PET_EVENT_PAYMENT"
+  | "INSURANCE_PREMIUM"
   | "SCAM_OFFER_LOSS";
 
 export interface PostTransactionInput {

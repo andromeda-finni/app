@@ -90,7 +90,7 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
                  + COALESCE((SELECT SUM(-t.delta_amount)
                                FROM transactions t
                               WHERE t.child_user_id = $1
-                                AND t.event_type = 'PET_EVENT_PAYMENT'
+                                AND t.event_type IN ('PET_EVENT_PAYMENT', 'INSURANCE_PREMIUM')
                                 AND t.occurred_at >= gp.opened_at), 0) AS spent
                  FROM game_periods gp WHERE gp.id = $2`,
               [childUserId, period.id],

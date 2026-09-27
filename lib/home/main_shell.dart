@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../economy/savings_screen.dart';
+import '../insurance/insurance_screen.dart';
 import '../quest_map/quest_map_screen.dart';
 import '../settings/child_settings_screen.dart';
 import '../shop/shop_screen.dart';
@@ -52,6 +53,19 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  Future<void> _openInsurance() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => InsuranceScreen(apiClient: widget.apiClient),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _homeRevision++;
+      _storeRevision++;
+    });
+  }
+
   void _openGoalStore(StoreMode mode) {
     setState(() {
       _storeReturnIndex = _index;
@@ -100,6 +114,7 @@ class _MainShellState extends State<MainShell> {
               onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
               onOpenQuests: () => _selectTab(1),
               onOpenSettings: _openSettings,
+              onOpenInsurance: _openInsurance,
             ),
             QuestMapScreen(
               key: ValueKey('map-$_mapRevision'),

@@ -18,6 +18,11 @@ abstract final class AppColors {
   static const cardBg = Color(0xFFFFFBF4);
   static const coinGold = Color(0xFFD99524);
   static const infoBg = Color(0xFFFFF1D5);
+  static const forestDeep = Color(0xFF2E7D32);
+  static const parchmentLight = Color(0xFFFFF8E1);
+  static const amber = Color(0xFFFFA000);
+  static const protectionTint = Color(0xFFE8F5E9);
+  static const neutralTint = Color(0xFFF0ECE5);
 }
 
 abstract final class AppSpacing {

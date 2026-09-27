@@ -1,6 +1,13 @@
 import '../core/api_client.dart';
 import '../events/pet_event_models.dart';
 
+class PetEventRollResult {
+  const PetEventRollResult({this.event, this.insuranceNotice});
+
+  final PetEventOccurrence? event;
+  final String? insuranceNotice;
+}
+
 class PetEventService {
   PetEventService(this._api);
 
@@ -11,15 +18,18 @@ class PetEventService {
     return json == null ? null : PetEventOccurrence.fromJson(json);
   }
 
-  /// Returns the active occurrence only when this roll created a new event.
-  Future<PetEventOccurrence?> roll() async {
+  /// Returns either a billable occurrence or the outcome of one-day cover.
+  Future<PetEventRollResult> roll() async {
     final result = await _api.post('/pet-events/roll');
-    if (result['triggered'] != true) return null;
+    final notice = result['insuranceNotice'] as String?;
+    if (result['triggered'] != true) {
+      return PetEventRollResult(insuranceNotice: notice);
+    }
     final active = await getActive();
     if (active == null) {
       throw const FormatException('triggered pet event is not active');
     }
-    return active;
+    return PetEventRollResult(event: active, insuranceNotice: notice);
   }
 
   Future<PetEventResolution> resolve(String occurrenceId) async {

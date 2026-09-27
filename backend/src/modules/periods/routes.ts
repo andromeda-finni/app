@@ -287,6 +287,12 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
               AND occurred_at >= $2`,
           [childUserId, period.opened_at],
         );
+        const insuranceSpentRes = await client.query<{ total: string }>(
+          `SELECT COALESCE(SUM(premium_amount), 0) AS total
+             FROM insurance_policies
+            WHERE child_user_id = $1 AND purchased_period_id = $2`,
+          [childUserId, periodId],
+        );
         const savingsRes = await client.query<{ deposits: string; withdrawals: string }>(
           `SELECT
              COALESCE(SUM(delta_amount) FILTER (WHERE event_type = 'SAVINGS_DEPOSIT'), 0) AS deposits,
@@ -297,7 +303,8 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
 
         const actualNeed =
           Number(needSpentRes.rows[0]?.total ?? 0) +
-          Number(eventSpentRes.rows[0]?.total ?? 0);
+          Number(eventSpentRes.rows[0]?.total ?? 0) +
+          Number(insuranceSpentRes.rows[0]?.total ?? 0);
         const actualWant = Number(wantSpentRes.rows[0]?.total ?? 0);
         const netSavings =
           Number(savingsRes.rows[0]?.deposits ?? 0) - Number(savingsRes.rows[0]?.withdrawals ?? 0);

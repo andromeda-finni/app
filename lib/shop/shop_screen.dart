@@ -5,6 +5,7 @@ import '../economy/economy_action_ui.dart';
 import '../economy/economy_actions.dart';
 import '../economy/economy_state.dart';
 import '../economy/item_artwork.dart';
+import '../insurance/insurance_screen.dart';
 import '../theme/app_theme.dart';
 
 enum StoreMode { normal, selectGoal, browseGoals }
@@ -105,6 +106,15 @@ class _ShopScreenState extends State<ShopScreen> {
     if (selected && mounted) widget.onGoalSelected();
   }
 
+  Future<void> _openInsurance() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => InsuranceScreen(apiClient: widget.apiClient),
+      ),
+    );
+    if (mounted) await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading && _economy == null) {
@@ -175,6 +185,12 @@ class _ShopScreenState extends State<ShopScreen> {
               onBuy: _buy,
             ),
             const SizedBox(height: 16),
+            _InsuranceEntry(
+              insured: economy.isInsuredForNextDay,
+              enabled: economy.day?.planConfirmed == true,
+              onOpen: _openInsurance,
+            ),
+            const SizedBox(height: 16),
             _PurchaseCatalog(
               title: 'Хочу',
               subtitle: 'Игрушки, сладости и необязательные покупки',
@@ -208,6 +224,66 @@ class _ShopScreenState extends State<ShopScreen> {
       ),
     );
   }
+}
+
+class _InsuranceEntry extends StatelessWidget {
+  const _InsuranceEntry({
+    required this.insured,
+    required this.enabled,
+    required this.onOpen,
+  });
+
+  final bool insured;
+  final bool enabled;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) => _Card(
+    child: Semantics(
+      container: true,
+      label: insured
+          ? 'Стол подорожника. Защита на завтра активна.'
+          : 'Стол подорожника. Защита на завтра стоит 5 монет.',
+      child: Row(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: const BoxDecoration(
+              color: AppColors.protectionTint,
+              shape: BoxShape.circle,
+            ),
+            padding: const EdgeInsets.all(9),
+            child: Image.asset('assets/icons/leaf.png'),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Стол подорожника',
+                  style: AppTextStyles.sectionTitle,
+                ),
+                Text(
+                  insured
+                      ? 'Защита на завтра активна'
+                      : 'Здоровье и защита · 5 монет',
+                  style: AppTextStyles.supporting,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          OutlinedButton(
+            key: const Key('open-insurance'),
+            onPressed: enabled ? onOpen : null,
+            child: Text(insured ? 'Открыть' : 'Подойти'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _Header extends StatelessWidget {

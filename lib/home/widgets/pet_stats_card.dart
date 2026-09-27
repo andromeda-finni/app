@@ -10,6 +10,7 @@ class PetStat {
     required this.icon,
     required this.color,
     required this.value,
+    this.onTap,
   });
 
   final String label;
@@ -18,6 +19,7 @@ class PetStat {
 
   /// 0-100, as the backend stores it.
   final int value;
+  final VoidCallback? onTap;
 }
 
 class PetStatsCard extends StatelessWidget {
@@ -59,64 +61,70 @@ class _StatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final fraction = (stat.value / 100).clamp(0.0, 1.0);
     return Semantics(
-      label: '${stat.label}: ${stat.value} процентов',
+      label:
+          '${stat.label}: ${stat.value} процентов${stat.onTap == null ? '' : '. Открыть Стол подорожника'}',
+      button: stat.onTap != null,
       excludeSemantics: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: stat.color,
-                shape: BoxShape.circle,
+      child: InkWell(
+        onTap: stat.onTap,
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: stat.color,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(stat.icon, size: 20, color: Colors.white),
               ),
-              child: Icon(stat.icon, size: 20, color: Colors.white),
-            ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 86,
-              child: Text(
-                stat.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.cardRowLabel,
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 86,
+                child: Text(
+                  stat.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.cardRowLabel,
+                ),
               ),
-            ),
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0, end: fraction),
-                  duration: const Duration(milliseconds: 450),
-                  curve: Curves.easeOut,
-                  builder: (context, value, _) => LinearProgressIndicator(
-                    value: value,
-                    minHeight: 14,
-                    backgroundColor: AppColors.parchmentDark,
-                    valueColor: AlwaysStoppedAnimation(stat.color),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: fraction),
+                    duration: const Duration(milliseconds: 450),
+                    curve: Curves.easeOut,
+                    builder: (context, value, _) => LinearProgressIndicator(
+                      value: value,
+                      minHeight: 14,
+                      backgroundColor: AppColors.parchmentDark,
+                      valueColor: AlwaysStoppedAnimation(stat.color),
+                    ),
                   ),
                 ),
               ),
-            ),
-            SizedBox(
-              width: 64,
-              // "100%" must never break onto two lines; at a large text scale
-              // it shrinks to fit instead.
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: Text(
-                  '${stat.value}%',
-                  maxLines: 1,
-                  softWrap: false,
-                  textAlign: TextAlign.right,
-                  style: AppTextStyles.counterValue,
+              SizedBox(
+                width: 64,
+                // "100%" must never break onto two lines; at a large text scale
+                // it shrinks to fit instead.
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '${stat.value}%',
+                    maxLines: 1,
+                    softWrap: false,
+                    textAlign: TextAlign.right,
+                    style: AppTextStyles.counterValue,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

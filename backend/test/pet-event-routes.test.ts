@@ -50,6 +50,9 @@ test("rolling a pet event changes health atomically and rolls back on failure", 
       if (text.includes("FROM game_periods")) {
         return { rows: [{ id: "day-2", sequence_no: 2 }], rowCount: 1 };
       }
+      if (text.includes("FROM insurance_policies")) {
+        return { rows: [], rowCount: 0 };
+      }
       if (text.includes("UPDATE game_periods")) {
         return { rows: [], rowCount: 1 };
       }
@@ -230,6 +233,9 @@ test("no new pet event while an earlier one is unpaid or on the first day", asyn
       if (text.includes("FROM game_periods")) {
         return { rows: [{ id: "day", sequence_no: daySequence }], rowCount: 1 };
       }
+      if (text.includes("FROM insurance_policies")) {
+        return { rows: [], rowCount: 0 };
+      }
       if (text.includes("SELECT 1 FROM pet_event_occurrences")) {
         // The blocking check must also cover an ACTIVE event from an earlier
         // day, which is what uq_pet_event_active_pet would otherwise reject.
@@ -257,6 +263,107 @@ test("no new pet event while an earlier one is unpaid or on the first day", asyn
     const firstDay = await roll();
     assert.deepEqual(firstDay.json(), { triggered: false });
     assert.equal(inserted, false);
+  } finally {
+    Math.random = originalRandom;
+    pool.query = originalQuery;
+    pool.connect = originalConnect;
+    await app.close();
+  }
+});
+
+test("next-day insurance covers an event or expires after a calm day", async () => {
+  process.env["APP_DATABASE_URL"] =
+    "postgres://test:test@localhost:5432/test?sslmode=disable";
+  const [{ pool }, { petEventRoutes }] = await Promise.all([
+    import("../src/lib/db.js"),
+    import("../src/modules/petEvents/routes.js"),
+  ]);
+  const app = Fastify();
+  const originalQuery = pool.query;
+  const originalConnect = pool.connect;
+  const originalRandom = Math.random;
+  let statements: string[] = [];
+  let healthParams: unknown[] | undefined;
+
+  pool.query = (async (text: string) => {
+    if (text.includes("FROM auth_credentials")) {
+      return { rows: [{ user_id: "child-1", role: "CHILD" }], rowCount: 1 };
+    }
+    return { rows: [], rowCount: 1 };
+  }) as typeof pool.query;
+
+  pool.connect = (async () => ({
+    query: async (text: string, params: unknown[] = []) => {
+      statements.push(text);
+      if (text === "BEGIN" || text === "COMMIT" || text === "ROLLBACK") {
+        return { rows: [], rowCount: null };
+      }
+      if (text.includes("SELECT id FROM pets")) {
+        return { rows: [{ id: "pet-1" }], rowCount: 1 };
+      }
+      if (text.includes("FROM game_periods")) {
+        return { rows: [{ id: "day-2", sequence_no: 2 }], rowCount: 1 };
+      }
+      if (text.includes("FROM insurance_policies")) {
+        return { rows: [{ id: "policy-1" }], rowCount: 1 };
+      }
+      if (text.includes("SELECT 1 FROM pet_event_occurrences")) {
+        return { rows: [], rowCount: 0 };
+      }
+      if (text.includes("FROM pet_event_definitions")) {
+        return {
+          rows: [{ id: "SICK", cost_amount: 15, trigger_weight: 10 }],
+          rowCount: 1,
+        };
+      }
+      if (text.includes("UPDATE pets SET health_level")) {
+        healthParams = params;
+        return { rows: [], rowCount: 1 };
+      }
+      if (text.includes("UPDATE insurance_policies")) {
+        return { rows: [], rowCount: 1 };
+      }
+      throw new Error(`Unexpected transaction query in test: ${text}`);
+    },
+    release: () => undefined,
+  })) as unknown as typeof pool.connect;
+
+  try {
+    await app.register(petEventRoutes);
+    const headers = { authorization: "Bearer token" };
+
+    Math.random = () => 0;
+    const covered = await app.inject({
+      method: "POST",
+      url: "/pet-events/roll",
+      headers,
+    });
+    assert.equal(covered.statusCode, 200, covered.body);
+    assert.deepEqual(covered.json(), {
+      triggered: false,
+      coveredByInsurance: true,
+      insuranceNotice:
+        "Страховка оплатила уход: после прохладного дня здоровье сохранилось!",
+    });
+    assert.ok(statements.some((sql) => sql.includes("status = 'USED'")));
+    assert.ok(!statements.some((sql) => sql.includes("INSERT INTO pet_event_occurrences")));
+    assert.deepEqual(healthParams, [100, "child-1"]);
+
+    statements = [];
+    Math.random = () => 1;
+    const calm = await app.inject({
+      method: "POST",
+      url: "/pet-events/roll",
+      headers,
+    });
+    assert.equal(calm.statusCode, 200, calm.body);
+    assert.deepEqual(calm.json(), {
+      triggered: false,
+      coveredByInsurance: false,
+      insuranceNotice:
+        "Сегодня был спокойный день: защита не пригодилась, срок её действия завершился.",
+    });
+    assert.ok(statements.some((sql) => sql.includes("status = 'EXPIRED'")));
   } finally {
     Math.random = originalRandom;
     pool.query = originalQuery;

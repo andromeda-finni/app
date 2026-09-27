@@ -60,6 +60,14 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
           return { triggered: false };
         }
 
+        const policyRes = await client.query<{ id: string }>(
+          `SELECT id FROM insurance_policies
+            WHERE child_user_id = $1 AND coverage_sequence_no = $2 AND status = 'ACTIVE'
+            FOR UPDATE`,
+          [childUserId, period.sequence_no],
+        );
+        const policy = policyRes.rows[0];
+
         // Two separate rules: at most one event per game day, and never a new
         // one while an earlier day's bill is still unpaid — the latter is also
         // what uq_pet_event_active_pet enforces, so skipping it here would turn
@@ -72,7 +80,23 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
         );
         if ((blockingRes.rowCount ?? 0) > 0) return { triggered: false };
 
-        if (Math.random() > ECONOMY_RULES.eventProbability) return { triggered: false };
+        if (Math.random() > ECONOMY_RULES.eventProbability) {
+          if (policy) {
+            await client.query(
+              `UPDATE insurance_policies
+                  SET status = 'EXPIRED', resolved_at = now()
+                WHERE id = $1`,
+              [policy.id],
+            );
+            return {
+              triggered: false,
+              coveredByInsurance: false,
+              insuranceNotice:
+                "Сегодня был спокойный день: защита не пригодилась, срок её действия завершился.",
+            };
+          }
+          return { triggered: false };
+        }
 
         const defsRes = await client.query<{
           id: string;
@@ -97,7 +121,38 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
           ],
         );
         const chosen = pickWeighted(defsRes.rows, (d) => d.trigger_weight);
-        if (!chosen) return { triggered: false };
+        if (!chosen) {
+          if (policy) {
+            await client.query(
+              `UPDATE insurance_policies
+                  SET status = 'EXPIRED', resolved_at = now()
+                WHERE id = $1`,
+              [policy.id],
+            );
+          }
+          return { triggered: false };
+        }
+
+        if (policy) {
+          await client.query(
+            `UPDATE insurance_policies
+                SET status = 'USED', covered_event_definition_id = $1,
+                    resolved_at = now()
+              WHERE id = $2`,
+            [chosen.id, policy.id],
+          );
+          await client.query(
+            `UPDATE pets SET health_level = $1, updated_at = now()
+              WHERE child_user_id = $2`,
+            [PET_HEALTH_FULL, childUserId],
+          );
+          return {
+            triggered: false,
+            coveredByInsurance: true,
+            insuranceNotice:
+              "Страховка оплатила уход: после прохладного дня здоровье сохранилось!",
+          };
+        }
 
         const occRes = await client.query<{ id: string }>(
           `INSERT INTO pet_event_occurrences (child_user_id, pet_id, event_definition_id, period_id, amount_due)

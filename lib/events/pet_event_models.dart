@@ -27,6 +27,12 @@ class PetEventDefinition {
     'BEAVER_DAM' => 'Лесной сбор Бобру',
     _ => title,
   };
+
+  String localizedDescription(String petName) =>
+      description.replaceAll('Финни', petName);
+
+  String localizedFeedback(String petName) =>
+      feedback.replaceAll('Финни', petName);
 }
 
 const petEventCatalog = <String, PetEventDefinition>{

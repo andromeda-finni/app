@@ -35,7 +35,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
         [childUserId],
       );
 
-      const [petRes, walletsRes, dayRes, eventRes, goalRes, frostRes, shopRes, artifactRes, inventoryRes, transactionsRes, historyRes, questsRes, tasksRes] =
+      const [petRes, walletsRes, dayRes, eventRes, insuranceRes, goalRes, frostRes, shopRes, artifactRes, inventoryRes, transactionsRes, historyRes, questsRes, tasksRes] =
         await Promise.all([
           pool.query(
             `SELECT pet_name, fur_option_id, energy_level, joy_level, health_level, evolution_stage
@@ -50,13 +50,27 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
             `SELECT gp.id, gp.sequence_no, gp.required_need_amount,
                     bp.id AS budget_plan_id, bp.status AS budget_plan_status, bp.available_amount,
                     bp.need_amount, bp.want_amount, bp.savings_amount,
-                    GREATEST(0, gp.required_need_amount
-                      - COALESCE((SELECT SUM(p.total_price) FROM purchases p
-                          JOIN transactions t ON t.id = p.transaction_id
-                          WHERE p.child_user_id = $1 AND p.item_kind = 'NEED' AND t.occurred_at >= gp.opened_at), 0)
-                      - COALESCE((SELECT SUM(-t.delta_amount) FROM transactions t
-                          WHERE t.child_user_id = $1 AND t.event_type = 'PET_EVENT_PAYMENT' AND t.occurred_at >= gp.opened_at), 0)
-                    )::int AS remaining_reserve
+                    (COALESCE((SELECT SUM(p.total_price) FROM purchases p
+                         JOIN transactions t ON t.id = p.transaction_id
+                         WHERE p.child_user_id = $1 AND p.item_kind = 'NEED'
+                           AND t.occurred_at >= gp.opened_at), 0)
+                      + COALESCE((SELECT SUM(-t.delta_amount) FROM transactions t
+                         WHERE t.child_user_id = $1 AND t.event_type = 'PET_EVENT_PAYMENT'
+                           AND t.occurred_at >= gp.opened_at), 0)
+                      + COALESCE((SELECT SUM(ip.premium_amount) FROM insurance_policies ip
+                         WHERE ip.child_user_id = $1 AND ip.purchased_period_id = gp.id), 0)
+                    )::int AS actual_need_amount,
+                    GREATEST(0, gp.required_need_amount - (
+                      COALESCE((SELECT SUM(p.total_price) FROM purchases p
+                         JOIN transactions t ON t.id = p.transaction_id
+                         WHERE p.child_user_id = $1 AND p.item_kind = 'NEED'
+                           AND t.occurred_at >= gp.opened_at), 0)
+                      + COALESCE((SELECT SUM(-t.delta_amount) FROM transactions t
+                         WHERE t.child_user_id = $1 AND t.event_type = 'PET_EVENT_PAYMENT'
+                           AND t.occurred_at >= gp.opened_at), 0)
+                      + COALESCE((SELECT SUM(ip.premium_amount) FROM insurance_policies ip
+                         WHERE ip.child_user_id = $1 AND ip.purchased_period_id = gp.id), 0)
+                    ))::int AS remaining_reserve
                FROM game_periods gp
                JOIN budget_plans bp ON bp.period_id = gp.id
               WHERE gp.child_user_id = $1 AND gp.status = 'ACTIVE'`,
@@ -67,6 +81,18 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
                FROM pet_event_occurrences peo
                JOIN pet_event_definitions ped ON ped.id = peo.event_definition_id
               WHERE peo.child_user_id = $1 AND peo.status = 'ACTIVE'`,
+            [childUserId],
+          ),
+          pool.query(
+            `SELECT id, coverage_sequence_no, premium_amount, status,
+                    covered_event_definition_id, purchased_at, resolved_at
+               FROM insurance_policies
+              WHERE child_user_id = $1 AND status = 'ACTIVE'
+                AND coverage_sequence_no = COALESCE((
+                  SELECT sequence_no + 1 FROM game_periods
+                   WHERE child_user_id = $1 AND status = 'ACTIVE'
+                ), -1)
+              LIMIT 1`,
             [childUserId],
           ),
           pool.query(
@@ -179,6 +205,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
         wallets: Object.fromEntries(walletsRes.rows.map((row) => [row.kind, row.balance])),
         activeDay: day ?? null,
         activeEvent: eventRes.rows[0] ?? null,
+        activeInsurance: insuranceRes.rows[0] ?? null,
         activeGoal: goalRes.rows[0] ?? null,
         activeFrostChest: frost ?? null,
         shopItems: shopRes.rows,

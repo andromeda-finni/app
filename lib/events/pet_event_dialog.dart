@@ -156,7 +156,7 @@ class _PetEventDialogState extends State<PetEventDialog>
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
-                      definition.description,
+                      definition.localizedDescription(widget.petName),
                       textAlign: TextAlign.center,
                       style: AppTextStyles.story,
                     ),
@@ -186,7 +186,7 @@ class _PetEventDialogState extends State<PetEventDialog>
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        definition.feedback,
+                        definition.localizedFeedback(widget.petName),
                         key: const Key('pet-event-feedback'),
                         textAlign: TextAlign.center,
                         style: AppTextStyles.story.copyWith(
@@ -196,7 +196,7 @@ class _PetEventDialogState extends State<PetEventDialog>
                       ),
                     ] else if (_insufficient) ...[
                       Text(
-                        'Монет пока не хватает. Ничего страшного — событие останется здесь, а Финни будет ждать твоей помощи.',
+                        'Монет пока не хватает. Ничего страшного — событие останется здесь, а ${widget.petName} будет ждать твоей помощи.',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.supporting,
                       ),
