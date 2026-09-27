@@ -78,9 +78,17 @@ UPDATE shop_items
    AND id NOT IN ('saucer', 'vial', 'tablecloth', 'horseshoe', 'shield', 'purse', 'boots');
 
 INSERT INTO pet_event_definitions (id, title, description, cost_amount) VALUES
-  ('SICK', 'Питомец заболел', 'Нужно купить лекарство', 15),
-  ('HUNGRY', 'Питомец проголодался', 'Нужно срочно покормить', 10)
-ON CONFLICT (id) DO NOTHING;
+  ('POOR_PAW', 'Уколол лапку', 'Финни бегал по лесу за бабочкой и наступил на колючку. Нужен целебный подорожник и бинтик.', 10),
+  ('SICK', 'Питомец простудился', 'На полянке прошел холодный дождь, Финни чихает и дрожит. Нужен липовый мед и теплый шарфик.', 15),
+  ('HUNGRY', 'Внезапный аппетит', 'Запасы орехов кончились, а после активных игр в лесу Финни очень проголодался. Нужна горячая похлебка.', 10),
+  ('COLD_NIGHT', 'Печка остыла', 'Ночью обещают лесные заморозки. Нужна охапка сухих дров у Дровосека, чтобы в домике было тепло.', 8),
+  ('ROOF_LEAK', 'Прохудилась крыша', 'Ночью сильный ветер сдул пару веток с крыши, и теперь капает на пол. Нужна смола и береста для ремонта.', 14),
+  ('BEAVER_DAM', 'Лесной сбор Бобру', 'Бобры укрепили плотину и починили мостик к Лесной Ярмарке. Все жители леса сдают монетки на общее дело.', 7)
+ON CONFLICT (id) DO UPDATE SET
+  title = EXCLUDED.title,
+  description = EXCLUDED.description,
+  cost_amount = EXCLUDED.cost_amount,
+  active = true;
 
 INSERT INTO scam_offer_definitions
   (id, npc_character_code, pitch_text, promised_amount, cost_if_accepted, decline_feedback, accept_feedback) VALUES

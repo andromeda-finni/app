@@ -98,6 +98,7 @@ class _MainShellState extends State<MainShell> {
               key: ValueKey('home-$_homeRevision'),
               apiClient: widget.apiClient,
               onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
+              onOpenQuests: () => _selectTab(1),
               onOpenSettings: _openSettings,
             ),
             QuestMapScreen(

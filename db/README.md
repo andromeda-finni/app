@@ -24,7 +24,7 @@ set -a && source .env && set +a
 - **Бюджетный цикл**: `game_periods`, `budget_plans`, `period_results`.
 - **Задания**: `assignments` (системные квесты + родительские поручения в одной таблице), `quest_step_progress`.
 - **Цели/инвентарь**: `financial_goals`, `inventory_items` (+ слот экипировки прямо на `pets`).
-- **Случайные события питомца**: `pet_event_definitions`, `pet_event_occurrences` — решаются оплатой монетами (сперва SPENDABLE, при нехватке — SAVINGS).
+- **Случайные события питомца**: `pet_event_definitions`, `pet_event_occurrences` — решаются оплатой из кошелька `SPENDABLE`; накопления на выбранную цель не списываются.
 
 ## Безопасность
 

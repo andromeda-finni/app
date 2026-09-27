@@ -10,7 +10,7 @@ import 'package:andromeda_app/home/main_shell.dart';
 
 import 'support/fake_auth_storage.dart';
 
-http.Response _jsonResponse(Object body, [int statusCode = 200]) =>
+http.Response _jsonResponse(Object? body, [int statusCode = 200]) =>
     http.Response(
       jsonEncode(body),
       statusCode,
@@ -88,7 +88,11 @@ void main() {
     final data = _state(withGoal: true);
     await _pumpShell(
       tester,
-      MockClient((request) async => _jsonResponse(data)),
+      MockClient(
+        (request) async => _jsonResponse(
+          request.url.path == '/pet-events/active' ? null : data,
+        ),
+      ),
     );
 
     await tester.tap(find.text('Магазин'));
@@ -118,7 +122,11 @@ void main() {
     };
     await _pumpShell(
       tester,
-      MockClient((request) async => _jsonResponse(data)),
+      MockClient(
+        (request) async => _jsonResponse(
+          request.url.path == '/pet-events/active' ? null : data,
+        ),
+      ),
     );
 
     await tester.tap(find.text('Копилка'));
@@ -146,7 +154,11 @@ void main() {
     final data = _state(withGoal: false)..['activeDay'] = null;
     var mutationCalls = 0;
     final client = MockClient((request) async {
-      if (request.method == 'GET') return _jsonResponse(data);
+      if (request.method == 'GET') {
+        return _jsonResponse(
+          request.url.path == '/pet-events/active' ? null : data,
+        );
+      }
       mutationCalls++;
       return _jsonResponse({});
     });
@@ -172,7 +184,11 @@ void main() {
     var data = _state(withGoal: false);
     var goalCalls = 0;
     final client = MockClient((request) async {
-      if (request.method == 'GET') return _jsonResponse(data);
+      if (request.method == 'GET') {
+        return _jsonResponse(
+          request.url.path == '/pet-events/active' ? null : data,
+        );
+      }
       expect(request.url.path, '/goals');
       goalCalls++;
       data = _state(withGoal: true);
@@ -217,7 +233,11 @@ void main() {
     final data = _state(withGoal: true);
     var purchaseCalls = 0;
     final client = MockClient((request) async {
-      if (request.method == 'GET') return _jsonResponse(data);
+      if (request.method == 'GET') {
+        return _jsonResponse(
+          request.url.path == '/pet-events/active' ? null : data,
+        );
+      }
       expect(request.url.path, '/purchases');
       purchaseCalls++;
       return _jsonResponse({'balanceAfter': 22}, 201);

@@ -11,6 +11,7 @@ import { ECONOMY_RULES } from "../economy/rules.js";
 // the bill puts it back.
 const PET_EVENT_HEALTH_DROP = 45;
 const PET_HEALTH_FULL = 100;
+const PET_HEALTH_MIN = 10;
 
 export async function petEventRoutes(app: FastifyInstance): Promise<void> {
   app.get(
@@ -18,7 +19,8 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [requireAuth, requireRole("CHILD")] },
     async (req) => {
       const res = await pool.query(
-        `SELECT peo.id, peo.amount_due, peo.triggered_at, ped.title, ped.description
+        `SELECT peo.id, peo.event_definition_id, peo.amount_due, peo.triggered_at,
+                ped.title, ped.description
            FROM pet_event_occurrences peo
            JOIN pet_event_definitions ped ON ped.id = peo.event_definition_id
           WHERE peo.child_user_id = $1 AND peo.status = 'ACTIVE'`,
@@ -117,9 +119,10 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
         // The occurrence and its visible health effect are one domain change:
         // either both commit, or both roll back.
         await client.query(
-          `UPDATE pets SET health_level = GREATEST(0, health_level - $1), updated_at = now()
-            WHERE child_user_id = $2`,
-          [PET_EVENT_HEALTH_DROP, childUserId],
+          `UPDATE pets
+              SET health_level = GREATEST($1, health_level - $2), updated_at = now()
+            WHERE child_user_id = $3`,
+          [PET_HEALTH_MIN, PET_EVENT_HEALTH_DROP, childUserId],
         );
 
         return { triggered: true, occurrenceId: occRes.rows[0]!.id };
@@ -173,7 +176,12 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
 
         // Bills come out of the day's must-have reserve in SPENDABLE; savings
         // belong to the chosen goal and are never tapped for them.
-        return { ok: true, paidFromSavings: false };
+        return {
+          ok: true,
+          paidFromSavings: false,
+          spendableBalance: transaction.balanceAfter,
+          healthLevel: PET_HEALTH_FULL,
+        };
       });
     },
   );

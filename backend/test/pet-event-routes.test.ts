@@ -16,6 +16,7 @@ test("rolling a pet event changes health atomically and rolls back on failure", 
   const originalRandom = Math.random;
   let failHealthUpdate = false;
   let statements: string[] = [];
+  let healthParams: unknown[] | undefined;
 
   pool.query = (async (text: string) => {
     if (text.includes("FROM auth_credentials")) {
@@ -28,7 +29,7 @@ test("rolling a pet event changes health atomically and rolls back on failure", 
   }) as typeof pool.query;
 
   const transactionClient = {
-    query: async (text: string) => {
+    query: async (text: string, params: unknown[] = []) => {
       statements.push(text);
       if (text === "BEGIN" || text === "COMMIT" || text === "ROLLBACK") {
         return { rows: [], rowCount: null };
@@ -59,6 +60,11 @@ test("rolling a pet event changes health atomically and rolls back on failure", 
         if (failHealthUpdate) throw new Error("health update failed");
         return { rows: [], rowCount: 1 };
       }
+      if (text.includes("SET health_level = GREATEST")) {
+        healthParams = params;
+        if (failHealthUpdate) throw new Error("health update failed");
+        return { rows: [], rowCount: 1 };
+      }
       throw new Error(`Unexpected transaction query in test: ${text}`);
     },
     release: () => undefined,
@@ -80,8 +86,9 @@ test("rolling a pet event changes health atomically and rolls back on failure", 
     assert.equal(statements.at(-1), "COMMIT");
     assert.ok(
       statements.findIndex((sql) => sql.includes("INSERT INTO pet_event_occurrences")) <
-        statements.findIndex((sql) => sql.includes("UPDATE pets SET health_level")),
+        statements.findIndex((sql) => sql.includes("SET health_level = GREATEST")),
     );
+    assert.deepEqual(healthParams, [10, 45, "child-1"]);
 
     statements = [];
     failHealthUpdate = true;
@@ -95,6 +102,98 @@ test("rolling a pet event changes health atomically and rolls back on failure", 
     assert.ok(!statements.includes("COMMIT"));
   } finally {
     Math.random = originalRandom;
+    pool.query = originalQuery;
+    pool.connect = originalConnect;
+    await app.close();
+  }
+});
+
+test("active event exposes its catalog id and resolving spends only SPENDABLE", async () => {
+  process.env["APP_DATABASE_URL"] =
+    "postgres://test:test@localhost:5432/test?sslmode=disable";
+  const [{ pool }, { petEventRoutes }] = await Promise.all([
+    import("../src/lib/db.js"),
+    import("../src/modules/petEvents/routes.js"),
+  ]);
+  const app = Fastify();
+  const originalQuery = pool.query;
+  const originalConnect = pool.connect;
+  const occurrenceId = "11111111-1111-1111-1111-111111111111";
+  const statements: string[] = [];
+
+  pool.query = (async (text: string) => {
+    if (text.includes("FROM auth_credentials")) {
+      return { rows: [{ user_id: "child-1", role: "CHILD" }], rowCount: 1 };
+    }
+    if (text.startsWith("UPDATE auth_credentials")) {
+      return { rows: [], rowCount: 1 };
+    }
+    if (text.includes("peo.status = 'ACTIVE'")) {
+      return {
+        rows: [{
+          id: occurrenceId,
+          event_definition_id: "POOR_PAW",
+          amount_due: 10,
+          title: "Уколол лапку",
+          description: "Описание",
+        }],
+        rowCount: 1,
+      };
+    }
+    throw new Error(`Unexpected pool query in test: ${text}`);
+  }) as typeof pool.query;
+
+  pool.connect = (async () => ({
+    query: async (text: string) => {
+      statements.push(text);
+      if (text === "BEGIN" || text === "COMMIT" || text === "ROLLBACK") {
+        return { rows: [], rowCount: null };
+      }
+      if (text.includes("SELECT amount_due FROM pet_event_occurrences")) {
+        return { rows: [{ amount_due: 10 }], rowCount: 1 };
+      }
+      if (text.includes("SELECT balance FROM wallets")) {
+        assert.match(text, /kind = \$2/);
+        return { rows: [{ balance: 15 }], rowCount: 1 };
+      }
+      if (text.includes("INSERT INTO transactions")) {
+        assert.match(text, /wallet_kind/);
+        return { rows: [{ id: "txn-1" }], rowCount: 1 };
+      }
+      if (
+        text.includes("UPDATE wallets") ||
+        text.includes("UPDATE pet_event_occurrences") ||
+        text.includes("UPDATE pets SET health_level")
+      ) {
+        return { rows: [], rowCount: 1 };
+      }
+      throw new Error(`Unexpected transaction query in test: ${text}`);
+    },
+    release: () => undefined,
+  })) as unknown as typeof pool.connect;
+
+  try {
+    await app.register(petEventRoutes);
+    const headers = { authorization: "Bearer token" };
+    const active = await app.inject({ method: "GET", url: "/pet-events/active", headers });
+    assert.equal(active.statusCode, 200);
+    assert.equal(active.json().event_definition_id, "POOR_PAW");
+
+    const resolved = await app.inject({
+      method: "POST",
+      url: `/pet-events/${occurrenceId}/resolve`,
+      headers,
+    });
+    assert.equal(resolved.statusCode, 200, resolved.body);
+    assert.deepEqual(resolved.json(), {
+      ok: true,
+      paidFromSavings: false,
+      spendableBalance: 5,
+      healthLevel: 100,
+    });
+    assert.ok(statements.some((sql) => sql.includes("wallet_kind")));
+    assert.ok(statements.every((sql) => !sql.includes("SAVINGS")));
+  } finally {
     pool.query = originalQuery;
     pool.connect = originalConnect;
     await app.close();

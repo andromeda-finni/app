@@ -38,6 +38,15 @@ class Pet {
     );
   }
 
+  Pet copyWith({int? health}) => Pet(
+    name: name,
+    furOptionId: furOptionId,
+    satiety: satiety,
+    joy: joy,
+    health: health ?? this.health,
+    evolutionStage: evolutionStage,
+  );
+
   PetMood get mood => moodFor(satiety: satiety, joy: joy, health: health);
 
   String get assetPath => catAsset(furOptionId: furOptionId, mood: mood);

@@ -16,7 +16,7 @@ import 'support/fake_auth_storage.dart';
 
 /// http.Response(String, int)'s default encoding is Latin1, which throws on
 /// non-ASCII bytes like Cyrillic — always encode mock JSON bodies as UTF-8.
-http.Response _jsonResponse(Object body, int statusCode) => http.Response(
+http.Response _jsonResponse(Object? body, int statusCode) => http.Response(
   jsonEncode(body),
   statusCode,
   headers: {'content-type': 'application/json; charset=utf-8'},
@@ -54,6 +54,9 @@ void main() {
         return _jsonResponse({
           'pet': {'pet_name': 'Рыжик'},
         }, 200);
+      }
+      if (request.url.path == '/pet-events/active') {
+        return _jsonResponse(null, 200);
       }
       expect(request.url.path, '/onboarding/status');
       return _jsonResponse({
@@ -219,6 +222,9 @@ void main() {
         return _jsonResponse({
           'pet': {'pet_name': 'Грошик'},
         }, 200);
+      }
+      if (request.url.path == '/pet-events/active') {
+        return _jsonResponse(null, 200);
       }
       calls++;
       if (calls == 1) return http.Response('', 500);

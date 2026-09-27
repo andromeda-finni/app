@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/pet_assets.dart';
+import '../events/pet_event_dialog.dart';
+import '../events/pet_event_indicator.dart';
+import '../events/pet_event_models.dart';
+import '../services/pet_event_service.dart';
 import '../theme/app_theme.dart';
 import 'models/active_period.dart';
 import 'models/pet.dart';
@@ -18,11 +22,13 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.apiClient,
     required this.onChooseGoal,
+    this.onOpenQuests,
     this.onOpenSettings,
   });
 
   final ApiClient apiClient;
   final VoidCallback onChooseGoal;
+  final VoidCallback? onOpenQuests;
 
   final VoidCallback? onOpenSettings;
 
@@ -31,11 +37,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  late final PetEventService _eventService = PetEventService(widget.apiClient);
   _LoadState _state = _LoadState.loading;
   Pet? _pet;
   ActivePeriod? _period;
+  PetEventOccurrence? _activeEvent;
   Map<String, int> _wallets = const {};
   bool _hasGoal = false;
+  bool _eventDialogOpen = false;
 
   @override
   void initState() {
@@ -49,7 +58,14 @@ class _HomeScreenState extends State<HomeScreen> {
       // The current backend exposes one read model for all child-facing
       // economy state. Reading it once also keeps the balance and active day
       // consistent with each other while the screen appears.
-      final economy = await widget.apiClient.get('/economy/state');
+      final responses = await Future.wait<Object?>([
+        widget.apiClient.get('/economy/state'),
+        // This endpoint is intentionally read independently of economy/state:
+        // an unresolved occurrence must be restored on every cold start.
+        _eventService.getActive(),
+      ]);
+      final economy = responses[0] as Map<String, dynamic>;
+      final activeEvent = responses[1] as PetEventOccurrence?;
       final petJson = Map<String, dynamic>.from(
         economy['pet'] as Map? ?? const {},
       );
@@ -71,6 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _pet = pet;
         _wallets = wallets;
         _period = periodJson == null ? null : ActivePeriod.fromJson(periodJson);
+        _activeEvent = activeEvent;
         _hasGoal = economy['activeGoal'] is Map;
         _state = _LoadState.ready;
       });
@@ -86,7 +103,26 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     await widget.apiClient.post('/periods');
+    PetEventOccurrence? rolledEvent;
+    var rollFailed = false;
+    try {
+      rolledEvent = await _eventService.roll();
+    } catch (_) {
+      // The day already exists, so always refresh it even when the optional
+      // random-event check is temporarily unavailable.
+      rollFailed = true;
+    }
     await _load();
+    if (!mounted) return;
+    if (rollFailed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('День начался, но событие пока не удалось проверить.'),
+        ),
+      );
+    } else if (rolledEvent != null) {
+      await _openEvent();
+    }
   }
 
   Future<void> _confirmPlan(int need, int want, int savings) async {
@@ -98,6 +134,36 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     await widget.apiClient.post('/periods/${period.id}/budget-plan/confirm');
     await _load();
+  }
+
+  Future<void> _openEvent() async {
+    final event = _activeEvent;
+    final pet = _pet;
+    if (event == null || pet == null || _eventDialogOpen) return;
+    _eventDialogOpen = true;
+    final result = await showPetEventDialog(
+      context,
+      event: event,
+      petName: pet.name,
+      spendable: _wallets['SPENDABLE'] ?? 0,
+      onResolve: () => _eventService.resolve(event.id),
+    );
+    _eventDialogOpen = false;
+    if (!mounted || result == null) return;
+    switch (result.action) {
+      case PetEventDialogAction.resolved:
+        final resolution = result.resolution;
+        if (resolution == null) return;
+        setState(() {
+          _pet = pet.copyWith(health: resolution.healthLevel);
+          _wallets = {..._wallets, 'SPENDABLE': resolution.spendableBalance};
+          _activeEvent = null;
+        });
+        break;
+      case PetEventDialogAction.openQuests:
+        widget.onOpenQuests?.call();
+        break;
+    }
   }
 
   @override
@@ -130,11 +196,13 @@ class _HomeScreenState extends State<HomeScreen> {
           pet: _pet!,
           onOpenSettings: widget.onOpenSettings,
           period: _period,
+          activeEvent: _activeEvent,
           spendable: _wallets['SPENDABLE'] ?? 0,
           savings: _wallets['SAVINGS'] ?? 0,
           onRefresh: _load,
           onConfirmPlan: _confirmPlan,
           onStartPeriod: _startPeriod,
+          onOpenEvent: _openEvent,
         );
     }
   }
@@ -145,21 +213,25 @@ class _Content extends StatelessWidget {
     required this.pet,
     this.onOpenSettings,
     required this.period,
+    required this.activeEvent,
     required this.spendable,
     required this.savings,
     required this.onRefresh,
     required this.onConfirmPlan,
     required this.onStartPeriod,
+    required this.onOpenEvent,
   });
 
   final Pet pet;
   final VoidCallback? onOpenSettings;
   final ActivePeriod? period;
+  final PetEventOccurrence? activeEvent;
   final int spendable;
   final int savings;
   final Future<void> Function() onRefresh;
   final Future<void> Function(int, int, int) onConfirmPlan;
   final Future<void> Function() onStartPeriod;
+  final VoidCallback onOpenEvent;
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +248,15 @@ class _Content extends StatelessWidget {
             onOpenSettings: onOpenSettings,
           ),
           const SizedBox(height: 8),
-          _PetPortrait(pet: pet),
+          _PetPortrait(
+            pet: pet,
+            hasActiveEvent: activeEvent != null,
+            onOpenEvent: onOpenEvent,
+          ),
+          if (activeEvent != null) ...[
+            const SizedBox(height: 10),
+            PetEventBanner(event: activeEvent!, onPressed: onOpenEvent),
+          ],
           const SizedBox(height: 16),
           PetStatsCard(
             stats: [
@@ -195,7 +275,9 @@ class _Content extends StatelessWidget {
               PetStat(
                 label: 'Здоровье',
                 icon: Icons.favorite,
-                color: const Color(0xFF3E8ED0),
+                color: activeEvent == null
+                    ? const Color(0xFF3E8ED0)
+                    : const Color(0xFFE39422),
                 value: pet.health,
               ),
             ],
@@ -329,9 +411,15 @@ class _CoinPill extends StatelessWidget {
 }
 
 class _PetPortrait extends StatelessWidget {
-  const _PetPortrait({required this.pet});
+  const _PetPortrait({
+    required this.pet,
+    required this.hasActiveEvent,
+    required this.onOpenEvent,
+  });
 
   final Pet pet;
+  final bool hasActiveEvent;
+  final VoidCallback onOpenEvent;
 
   @override
   Widget build(BuildContext context) {
@@ -341,13 +429,44 @@ class _PetPortrait extends StatelessWidget {
       child: SizedBox(
         height: 260,
         // Keyed by the asset so a mood change cross-fades instead of snapping.
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child: Image.asset(
-            pet.assetPath,
-            key: ValueKey(pet.assetPath),
-            fit: BoxFit.contain,
-          ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Image.asset(
+                pet.assetPath,
+                key: ValueKey(pet.assetPath),
+                fit: BoxFit.contain,
+              ),
+            ),
+            if (hasActiveEvent) ...[
+              Positioned(
+                top: 34,
+                right: 54,
+                child: Transform.rotate(
+                  angle: -0.25,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD8D1C7),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF968B7D)),
+                    ),
+                    child: const Icon(
+                      Icons.healing_rounded,
+                      color: Color(0xFF6F665B),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 32,
+                bottom: 28,
+                child: PetEventIndicator(onPressed: onOpenEvent),
+              ),
+            ],
+          ],
         ),
       ),
     );

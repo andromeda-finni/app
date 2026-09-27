@@ -130,9 +130,9 @@ export async function transferBetweenWallets(
 
 /**
  * Debits SPENDABLE first and, if that alone can't cover `amount`, debits the
- * remainder from SAVINGS. Used for pet-event bills: "pay from your everyday
- * money, and if that's not enough, it comes out of your savings" — the game's
- * concrete lesson about having a safety net for surprise expenses.
+ * remainder from SAVINGS. Pet-event bills intentionally do not use this
+ * helper: approved events debit SPENDABLE only and never take money from the
+ * child's chosen savings goal.
  */
 export async function postSpendableThenSavings(
   client: PoolClient,
