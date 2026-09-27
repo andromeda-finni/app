@@ -37,31 +37,44 @@ export async function scamOfferRoutes(app: FastifyInstance): Promise<void> {
     async (req) => {
       const childUserId = req.authUser!.id;
 
-      const activeRes = await pool.query(
-        `SELECT 1 FROM scam_offer_occurrences WHERE child_user_id = $1 AND status = 'ACTIVE'`,
-        [childUserId],
-      );
-      if ((activeRes.rowCount ?? 0) > 0) return { triggered: false };
       if (Math.random() > TRIGGER_PROBABILITY) return { triggered: false };
 
-      const defsRes = await pool.query<{ id: string; trigger_weight: number }>(
-        `SELECT id, trigger_weight FROM scam_offer_definitions WHERE active`,
-      );
-      const chosen = pickWeighted(defsRes.rows, (d) => d.trigger_weight);
-      if (!chosen) return { triggered: false };
+      return withTransaction(async (client) => {
+        // Every roll for one child takes the same lock before checking and
+        // creating an occurrence. The partial unique index is a final safety
+        // net, not the source of an unhandled 23505 on concurrent requests.
+        const childRes = await client.query(
+          `SELECT user_id FROM child_profiles WHERE user_id = $1 FOR UPDATE`,
+          [childUserId],
+        );
+        if (!childRes.rows[0]) throw new HttpError(404, "child_profile_not_found");
 
-      const periodRes = await pool.query<{ id: string }>(
-        `SELECT id FROM game_periods WHERE child_user_id = $1 AND status = 'ACTIVE'`,
-        [childUserId],
-      );
+        const activeRes = await client.query(
+          `SELECT 1 FROM scam_offer_occurrences
+            WHERE child_user_id = $1 AND status = 'ACTIVE'`,
+          [childUserId],
+        );
+        if ((activeRes.rowCount ?? 0) > 0) return { triggered: false };
 
-      const occRes = await pool.query<{ id: string }>(
-        `INSERT INTO scam_offer_occurrences (child_user_id, period_id, offer_definition_id)
-         VALUES ($1, $2, $3) RETURNING id`,
-        [childUserId, periodRes.rows[0]?.id ?? null, chosen.id],
-      );
+        const defsRes = await client.query<{ id: string; trigger_weight: number }>(
+          `SELECT id, trigger_weight FROM scam_offer_definitions WHERE active`,
+        );
+        const chosen = pickWeighted(defsRes.rows, (definition) => definition.trigger_weight);
+        if (!chosen) return { triggered: false };
 
-      return { triggered: true, occurrenceId: occRes.rows[0]!.id };
+        const periodRes = await client.query<{ id: string }>(
+          `SELECT id FROM game_periods WHERE child_user_id = $1 AND status = 'ACTIVE'`,
+          [childUserId],
+        );
+
+        const occRes = await client.query<{ id: string }>(
+          `INSERT INTO scam_offer_occurrences (child_user_id, period_id, offer_definition_id)
+           VALUES ($1, $2, $3) RETURNING id`,
+          [childUserId, periodRes.rows[0]?.id ?? null, chosen.id],
+        );
+
+        return { triggered: true, occurrenceId: occRes.rows[0]!.id };
+      });
     },
   );
 

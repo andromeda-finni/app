@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../day_summary/day_summary.dart';
+import '../day_summary/day_summary_screen.dart';
 import '../events/pet_event_dialog.dart';
 import '../events/pet_event_indicator.dart';
 import '../events/pet_event_models.dart';
@@ -12,6 +14,7 @@ import 'widgets/budget_plan_card.dart';
 import 'widgets/dream_card.dart';
 import 'widgets/pet_name_header.dart';
 import 'widgets/pet_scene.dart';
+import 'widgets/parent_tasks_card.dart';
 
 enum _LoadState { loading, ready, error }
 
@@ -20,6 +23,7 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     required this.apiClient,
+    this.onChooseGoal,
     this.onOpenShop,
     this.onOpenQuests,
     this.onOpenSettings,
@@ -28,6 +32,7 @@ class HomeScreen extends StatefulWidget {
   });
 
   final ApiClient apiClient;
+  final VoidCallback? onChooseGoal;
   final VoidCallback? onOpenShop;
   final VoidCallback? onOpenQuests;
   final VoidCallback? onOpenSettings;
@@ -108,28 +113,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _startDay() => _runMutation(() async {
     if (_data?.activeGoal == null) {
-      widget.onOpenShop?.call();
+      widget.onChooseGoal?.call();
       return;
     }
-    await widget.apiClient.post('/periods');
-    PetEventRollResult? roll;
-    Object? rollError;
-    try {
-      roll = await _eventService.roll();
-    } catch (error) {
-      rollError = error;
-    }
+    final response = await widget.apiClient.post('/periods');
     await _load(showLoader: false);
     if (!mounted) return;
-    if (rollError != null) {
-      _showError(
-        'День начался, но событие не удалось проверить. Обнови экран чуть позже.',
-      );
-    } else if (roll?.insuranceNotice != null) {
+    final insuranceNotice = response['insuranceNotice'] as String?;
+    if (insuranceNotice != null) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(roll!.insuranceNotice!)));
+          .showSnackBar(SnackBar(content: Text(insuranceNotice)));
     }
-    if (roll?.event != null) await _openEvent(event: roll!.event);
+    if (_data?.activeEvent != null) await _openEvent();
   });
 
   PetEventOccurrence? _activeEvent(HomeEconomyState data) {
@@ -185,11 +180,23 @@ class _HomeScreenState extends State<HomeScreen> {
         final response = await widget.apiClient.post(
           '/periods/${day.id}/close',
         );
-        final feedback = response['feedback'] as String?;
+        DaySummary? summary;
+        try {
+          summary = DaySummary.fromJson(response);
+        } on FormatException {
+          summary = null;
+        }
         await _load(showLoader: false);
-        if (!mounted || feedback == null) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(feedback)));
+        if (!mounted || summary == null) return;
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (routeContext) => DaySummaryScreen(
+              summary: summary!,
+              onContinue: () => Navigator.of(routeContext).pop(),
+            ),
+          ),
+        );
       });
     } catch (_) {
       if (mounted) {
@@ -197,6 +204,11 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
   }
+
+  Future<void> _submitParentTask(String assignmentId) => _runMutation(() async {
+    await widget.apiClient.post('/child/tasks/$assignmentId/submit');
+    await _load(showLoader: false);
+  });
 
   Future<void> _openCare() async {
     final data = _data;
@@ -370,11 +382,13 @@ class _HomeScreenState extends State<HomeScreen> {
         onRename: _rename,
         onSettings: _showSettings,
         onOpenCare: _openCare,
-        onOpenGoal: widget.onOpenShop ?? _showProgress,
+        onOpenGoal: widget.onChooseGoal ?? _showProgress,
+        onOpenShop: widget.onOpenShop ?? _showProgress,
         onOpenPlan: _openPlan,
         onCloseDay: _closeDay,
         onProgress: _showProgress,
         onOpenEvent: _openEvent,
+        onSubmitParentTask: _submitParentTask,
       ),
     };
   }
@@ -390,10 +404,12 @@ class _HomeContent extends StatelessWidget {
     required this.onSettings,
     required this.onOpenCare,
     required this.onOpenGoal,
+    required this.onOpenShop,
     required this.onOpenPlan,
     required this.onCloseDay,
     required this.onProgress,
     required this.onOpenEvent,
+    required this.onSubmitParentTask,
   });
 
   final HomeEconomyState data;
@@ -404,10 +420,12 @@ class _HomeContent extends StatelessWidget {
   final VoidCallback onSettings;
   final VoidCallback onOpenCare;
   final VoidCallback onOpenGoal;
+  final VoidCallback onOpenShop;
   final VoidCallback onOpenPlan;
   final VoidCallback onCloseDay;
   final VoidCallback onProgress;
   final VoidCallback onOpenEvent;
+  final ValueChanged<String> onSubmitParentTask;
 
   @override
   Widget build(BuildContext context) {
@@ -524,7 +542,10 @@ class _HomeContent extends StatelessWidget {
                         key: const Key('finish-day'),
                         icon: Icons.nights_stay_rounded,
                         label: 'Завершить день',
-                        onTap: day?.isConfirmed == true && !busy
+                        onTap:
+                            day?.isConfirmed == true &&
+                                day?.remainingReserve == 0 &&
+                                !busy
                             ? onCloseDay
                             : null,
                       );
@@ -546,6 +567,25 @@ class _HomeContent extends StatelessWidget {
                             );
                     },
                   ),
+                  if (day?.isConfirmed == true &&
+                      day!.remainingReserve > 0) ...[
+                    const SizedBox(height: 12),
+                    _QuickAction(
+                      key: const Key('open-shop-for-needs'),
+                      icon: Icons.shopping_basket_outlined,
+                      label:
+                          'Открыть магазин · осталось ${day.remainingReserve} монет на обязательные покупки',
+                      onTap: busy ? null : onOpenShop,
+                    ),
+                  ],
+                  if (data.parentTasks.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    ParentTasksCard(
+                      tasks: data.parentTasks,
+                      busy: busy,
+                      onSubmit: onSubmitParentTask,
+                    ),
+                  ],
                 ],
               ),
             ),

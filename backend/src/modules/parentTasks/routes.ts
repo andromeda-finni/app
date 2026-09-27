@@ -6,9 +6,9 @@ import { assertActiveLink, requireAuth, requireRole } from "../../auth/plugin.js
 import { bodySchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
 import { ECONOMY_RULES } from "../economy/rules.js";
 
-// Real-life chores assigned by the parent (вынес мусор, помыл посуду, ...),
-// confirmed by the parent — from behind the app's parent-gate (PIN/math
-// captcha) on the client — before the reward is ever paid.
+// Real-life chores assigned and confirmed from an authenticated parent
+// session. The backend also verifies the active link to the exact child
+// before a task can be created or paid.
 export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: { childUserId: string; title: string; rewardAmount: number } }>(
     "/parent/tasks",
@@ -17,7 +17,12 @@ export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
       schema: bodySchema(
         {
           childUserId: uuidSchema,
-          title: { type: "string", minLength: 1, maxLength: 160 },
+          title: {
+            type: "string",
+            minLength: 1,
+            maxLength: 160,
+            pattern: "\\S",
+          },
           rewardAmount: {
             type: "integer",
             minimum: 1,
@@ -30,19 +35,28 @@ export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const parentUserId = req.authUser!.id;
       const { childUserId, title, rewardAmount } = req.body;
-      await assertActiveLink(parentUserId, childUserId);
+      const id = await withTransaction(async (client) => {
+        // Authorisation and insert share one transaction. Locking the link
+        // keeps a future revoke operation from racing between the check and
+        // creation of an assignment tied to a no-longer-active relationship.
+        const linkRes = await client.query<{ id: string }>(
+          `SELECT id FROM parent_child_links
+            WHERE parent_user_id = $1 AND child_user_id = $2 AND status = 'ACTIVE'
+            FOR SHARE`,
+          [parentUserId, childUserId],
+        );
+        const link = linkRes.rows[0];
+        if (!link) throw new HttpError(403, "parent_child_link_required");
 
-      const linkRes = await pool.query<{ id: string }>(
-        `SELECT id FROM parent_child_links WHERE parent_user_id = $1 AND child_user_id = $2 AND status = 'ACTIVE'`,
-        [parentUserId, childUserId],
-      );
-
-      const res = await pool.query<{ id: string }>(
-        `INSERT INTO assignments (child_user_id, origin, assigned_by_parent_link_id, title, reward_amount, status)
-         VALUES ($1, 'PARENT', $2, $3, $4, 'AVAILABLE') RETURNING id`,
-        [childUserId, linkRes.rows[0]!.id, title.trim(), rewardAmount],
-      );
-      reply.code(201).send({ id: res.rows[0]!.id });
+        const result = await client.query<{ id: string }>(
+          `INSERT INTO assignments
+             (child_user_id, origin, assigned_by_parent_link_id, title, reward_amount, status)
+           VALUES ($1, 'PARENT', $2, $3, $4, 'AVAILABLE') RETURNING id`,
+          [childUserId, link.id, title.trim(), rewardAmount],
+        );
+        return result.rows[0]!.id;
+      });
+      reply.code(201).send({ id });
     },
   );
 
@@ -94,9 +108,8 @@ export async function parentTaskRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  // The client is expected to have already passed the PIN/math parent-gate
-  // before calling this — the backend's guarantee is that only a PARENT
-  // token holding the ACTIVE link to this exact child can verify/pay it.
+  // A PARENT token holding the ACTIVE link to this exact child is required;
+  // the assignment row is locked so concurrent confirmations pay only once.
   app.post<{ Params: { assignmentId: string } }>(
     "/parent/tasks/:assignmentId/verify",
     {

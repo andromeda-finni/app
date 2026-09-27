@@ -37,7 +37,6 @@ class EconomyActions {
 
   Future<void> startDay() async {
     await api.post('/periods');
-    await api.post('/pet-events/roll');
   }
 
   Future<void> confirmPlan(
@@ -80,6 +79,7 @@ class EconomyActions {
     EconomyState state,
     int amount, {
     bool protectReserve = true,
+    int? reserveOverride,
   }) {
     if (state.wallet < amount) {
       return EconomyBlock(
@@ -87,7 +87,7 @@ class EconomyActions {
         EconomyDestination.quests,
       );
     }
-    final reserve = state.day?.remainingReserve ?? 0;
+    final reserve = reserveOverride ?? state.day?.remainingReserve ?? 0;
     if (protectReserve && state.wallet - amount < reserve) {
       return EconomyBlock(
         '$reserve монет нужны на обязательные траты. Сначала позаботься о питомце.',
@@ -95,6 +95,23 @@ class EconomyActions {
       );
     }
     return null;
+  }
+
+  static EconomyBlock? purchaseBlock(EconomyState state, EconomyItem item) {
+    final eventReserve = (state.event?['amount_due'] as num?)?.toInt() ?? 0;
+    if (item.kind == 'NEED' && eventReserve > 0) {
+      return spendingBlock(
+        state,
+        item.price,
+        protectReserve: true,
+        reserveOverride: eventReserve,
+      );
+    }
+    return spendingBlock(
+      state,
+      item.price,
+      protectReserve: item.kind != 'NEED',
+    );
   }
 
   static EconomyOperation purchase(
@@ -187,22 +204,25 @@ class EconomyActions {
     );
   }
 
-  static EconomyOperation openFrost(EconomyState s, int amount) =>
-      EconomyOperation(
-        '/frost-chests',
-        EconomyConfirmation(
-          title: 'Положить в Сундук Морозко?',
-          message: '$amount монет на 5 завершённых игровых дней.',
-          confirmLabel: 'Положить',
-          details: [
-            'Кошелёк: ${s.wallet} → ${s.wallet - amount}',
-            'После срока в Кошелёк вернётся ${amount + amount ~/ 10} монет.',
-            'При досрочном открытии вернётся только вложенная сумма.',
-          ],
-        ),
-        'Монеты помещены в Сундук Морозко.',
-        {'principalAmount': amount},
-      );
+  static EconomyOperation openFrost(
+    EconomyState s,
+    int amount,
+  ) => EconomyOperation(
+    '/frost-chests',
+    EconomyConfirmation(
+      title: 'Положить в Сундук Морозко?',
+      message:
+          '$amount монет на ${s.rules.frostDays} завершённых игровых дней.',
+      confirmLabel: 'Положить',
+      details: [
+        'Кошелёк: ${s.wallet} → ${s.wallet - amount}',
+        'После срока в Кошелёк вернётся ${amount + s.rules.frostBonusFor(amount)} монет.',
+        'При досрочном открытии вернётся только вложенная сумма.',
+      ],
+    ),
+    'Монеты помещены в Сундук Морозко.',
+    {'principalAmount': amount},
+  );
 
   static EconomyOperation finishFrost(EconomyState s, {required bool early}) {
     final chest = s.frost!;
@@ -220,7 +240,8 @@ class EconomyActions {
           if (early)
             'Прошло дней: ${chest['completed_days']}. Осталось: ${chest['days_remaining']}.',
           if (early)
-            'При открытии сейчас ты не получишь бонус $bonus монет (10%).',
+            'При открытии сейчас ты не получишь бонус $bonus монет '
+                '(${s.rules.frostBonusPercent}%).',
           'Кошелёк: ${s.wallet} → ${s.wallet + total}',
         ],
       ),

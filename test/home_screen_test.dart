@@ -39,12 +39,13 @@ Map<String, dynamic> _draftDay({
   int need = 0,
   int want = 0,
   int savings = 0,
+  int remainingReserve = 10,
   String status = 'DRAFT',
 }) => {
   'id': _periodId,
   'sequence_no': 3,
   'required_need_amount': 10,
-  'remaining_reserve': 10,
+  'remaining_reserve': remainingReserve,
   'budget_plan_id': 'plan-1',
   'budget_plan_status': status,
   'available_amount': available,
@@ -57,6 +58,7 @@ Map<String, dynamic> _economy({
   Map<String, dynamic>? pet,
   Object? activeDay,
   Map<String, dynamic>? activeEvent,
+  List<Map<String, dynamic>> parentTasks = const [],
 }) => {
   'pet': pet ?? _pet(),
   'wallets': {'SPENDABLE': 42, 'SAVINGS': 18},
@@ -67,6 +69,7 @@ Map<String, dynamic> _economy({
     'saved_amount': 18,
   },
   'activeEvent': activeEvent,
+  'parentTasks': parentTasks,
   'inventory': [
     {'name': 'Гусли-самогуды'},
   ],
@@ -224,6 +227,71 @@ void main() {
     await tester.tap(find.text('Стол подорожника'));
 
     expect(insuranceOpened, isTrue);
+  });
+
+  testWidgets('parent task remains actionable on the new home', (tester) async {
+    String? submittedPath;
+    final state = _economy(
+      activeDay: _draftDay(),
+      parentTasks: const [
+        {
+          'id': '33333333-3333-3333-3333-333333333333',
+          'title': 'Полить цветы',
+          'reward_amount': 7,
+          'status': 'AVAILABLE',
+        },
+      ],
+    );
+    await _pump(
+      tester,
+      _screen(
+        handler: (request) async {
+          if (request.method == 'POST') submittedPath = request.url.path;
+          return _json(state);
+        },
+      ),
+    );
+
+    expect(find.text('Полить цветы'), findsOneWidget);
+    await tester.tap(find.text('Я сделал(а)'));
+    await tester.pumpAndSettle();
+
+    expect(
+      submittedPath,
+      '/child/tasks/33333333-3333-3333-3333-333333333333/submit',
+    );
+  });
+
+  testWidgets('closing a covered day opens the summary mirror', (tester) async {
+    final state = _economy(
+      activeDay: _draftDay(status: 'CONFIRMED', remainingReserve: 0),
+    );
+    await _pump(
+      tester,
+      _screen(
+        handler: (request) async {
+          if (request.url.path.endsWith('/close')) {
+            return _json({
+              'periodId': _periodId,
+              'sequenceNo': 3,
+              'earnedAmount': 30,
+              'plan': {'need': 10, 'want': 10, 'savings': 10},
+              'actual': {'need': 10, 'want': 0, 'savings': 10},
+              'needCovered': true,
+              'planFollowed': true,
+              'feedback': 'Грошик доволен.',
+              'recommendations': <String>[],
+            });
+          }
+          return _json(state);
+        },
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('finish-day')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Свет мой, зеркальце, скажи…'), findsOneWidget);
   });
 
   testWidgets('renaming persists through PUT /pet', (tester) async {

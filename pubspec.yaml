@@ -71,6 +71,7 @@ flutter:
     - assets/backgrounds/home_room.png
     - assets/backgrounds/meadow_foreground.png
     - assets/backgrounds/scene_transition.png
+    - assets/map/quest_map_scenarios_v03.png
     - assets/icons/arrow_left.png
     - assets/icons/sweet.png
     - assets/icons/ball.png
@@ -82,6 +83,13 @@ flutter:
     - assets/icons/eat.png
     - assets/icons/leaf_small.png
     - assets/images/morozko_chest.png
+    - assets/images/artifacts/saucer.png
+    - assets/images/artifacts/vial.png
+    - assets/images/artifacts/tablecloth.png
+    - assets/images/artifacts/horseshoe.png
+    - assets/images/artifacts/shield.png
+    - assets/images/artifacts/purse.png
+    - assets/images/artifacts/boots.png
     # Every mood folder is in use: the home screen swaps the pet's drawing to
     # match its stats (see lib/core/pet_assets.dart).
     - assets/Cat/Red_collar/base/
@@ -94,6 +102,16 @@ flutter:
     - assets/minigames/mole/
     - assets/Fox/fox_friendly.png
     - assets/Fox/fox_sly.png
+    - assets/games/turnip/garden_background.png
+    - assets/games/turnip/grandpa_sad.png
+    - assets/games/turnip/grandpa_pulling.png
+    - assets/games/turnip/grandmother.png
+    - assets/games/turnip/granddaughter.png
+    - assets/games/turnip/zhuchka.png
+    - assets/games/turnip/cat.png
+    - assets/games/turnip/mouse.png
+    - assets/games/turnip/team_pulling.png
+    - assets/games/turnip/success_harvest.png
 
   # Bundled locally so typography is stable offline. PT Serif carries all
   # functional copy; Barocco Initial is reserved for decorative drop caps.
@@ -135,3 +153,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+

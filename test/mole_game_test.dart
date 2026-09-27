@@ -1,9 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
+import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/minigames/mole/mole_game_data.dart';
 import 'package:andromeda_app/minigames/mole/mole_game_screen.dart';
-import 'package:andromeda_app/quest_map/quest_map_screen.dart';
+import 'package:andromeda_app/map/quest_map_screen.dart';
+
+import 'support/fake_auth_storage.dart';
 
 void main() {
   test('mole scenario contains all five checks from the source script', () {
@@ -70,6 +77,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a resumed server assignment opens its first unfinished check', (
+    tester,
+  ) async {
+    final client = MockClient(
+      (_) async => http.Response(
+        jsonEncode({
+          'assignmentId': 'd54d3ee2-d843-43d0-a67b-ec391078a913',
+          'rewardAmount': 15,
+          'resumed': true,
+          'nextStepNo': 3,
+        }),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MoleGameScreen(
+          apiClient: ApiClient(
+            httpClient: client,
+            authStorage: FakeAuthStorage(initialToken: 'child-token'),
+            baseUrl: 'http://test',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(moleEpisodes[2].title), findsOneWidget);
+    expect(find.text('ПРОВЕРКА 3 ИЗ 5'), findsOneWidget);
+    expect(find.text(moleEpisodes.first.title), findsNothing);
+  });
+
   testWidgets('the quest map offers the mole game on a small phone', (
     tester,
   ) async {
@@ -82,7 +123,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: QuestMapScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Крот с лупой'), findsOneWidget);
+    expect(find.byKey(const Key('quest-map-hero-mole')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

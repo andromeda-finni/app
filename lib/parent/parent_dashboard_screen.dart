@@ -10,15 +10,29 @@ class ParentDashboardScreen extends StatelessWidget {
   const ParentDashboardScreen({
     super.key,
     required this.overview,
+    required this.children,
+    required this.selectedChildUserId,
+    required this.onChildSelected,
     required this.onRefresh,
     required this.onInviteChild,
     required this.onExitToRoleChoice,
+    required this.onCreateTask,
+    required this.onVerifyTask,
+    required this.busy,
+    this.error,
   });
 
   final ChildOverview overview;
+  final List<({String childUserId, String petName})> children;
+  final String selectedChildUserId;
+  final ValueChanged<String> onChildSelected;
   final Future<void> Function() onRefresh;
   final VoidCallback onInviteChild;
   final VoidCallback onExitToRoleChoice;
+  final Future<void> Function(String title, int rewardAmount) onCreateTask;
+  final ValueChanged<String> onVerifyTask;
+  final bool busy;
+  final String? error;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +51,14 @@ class ParentDashboardScreen extends StatelessWidget {
                 children: [
                   _Header(onBack: onExitToRoleChoice),
                   const SizedBox(height: 14),
+                  if (children.length > 1) ...[
+                    _ChildPicker(
+                      children: children,
+                      selectedChildUserId: selectedChildUserId,
+                      onSelected: onChildSelected,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   Text(
                     '${overview.petName}: прогресс',
                     style: const TextStyle(
@@ -98,6 +120,15 @@ class ParentDashboardScreen extends StatelessWidget {
                       detail: _dayDetail(overview.activeDay!),
                     ),
                   ],
+                  const SizedBox(height: 18),
+                  _ParentTasksSection(
+                    tasks: overview.parentTasks,
+                    rewardLimit: overview.parentRewardLimit,
+                    busy: busy,
+                    onCreate: onCreateTask,
+                    onVerify: onVerifyTask,
+                    error: error,
+                  ),
                   const SizedBox(height: 22),
                   const Text(
                     'Последние действия',
@@ -137,6 +168,210 @@ class ParentDashboardScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ParentTasksSection extends StatelessWidget {
+  const _ParentTasksSection({
+    required this.tasks,
+    required this.rewardLimit,
+    required this.busy,
+    required this.onCreate,
+    required this.onVerify,
+    this.error,
+  });
+
+  final List<Map<String, dynamic>> tasks;
+  final int rewardLimit;
+  final bool busy;
+  final Future<void> Function(String title, int rewardAmount) onCreate;
+  final ValueChanged<String> onVerify;
+  final String? error;
+
+  Future<void> _showCreateDialog(BuildContext context) async {
+    if (rewardLimit <= 0) return;
+    var title = '';
+    var reward = 1;
+    final result = await showDialog<({String title, int reward})>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Новое домашнее дело'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                autofocus: true,
+                maxLength: 160,
+                onChanged: (value) => title = value,
+                decoration: const InputDecoration(
+                  labelText: 'Что нужно сделать',
+                  hintText: 'Например, полить цветы',
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text('Награда: $reward монет'),
+              Slider(
+                value: reward.toDouble(),
+                min: 1,
+                max: rewardLimit.toDouble(),
+                divisions: rewardLimit > 1 ? rewardLimit - 1 : null,
+                label: '$reward',
+                onChanged: (value) =>
+                    setDialogState(() => reward = value.round()),
+              ),
+              Text(
+                'Лимит приложения: до $rewardLimit монет за дело.',
+                style: AppTextStyles.swatchLabel,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final trimmedTitle = title.trim();
+                if (trimmedTitle.isNotEmpty) {
+                  Navigator.pop(dialogContext, (
+                    title: trimmedTitle,
+                    reward: reward,
+                  ));
+                }
+              },
+              child: const Text('Назначить'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result != null) await onCreate(result.title, result.reward);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD9D2C6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Домашние дела',
+                  style: TextStyle(
+                    fontFamily: AppFonts.body,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Добавить дело',
+                onPressed: busy || rewardLimit <= 0
+                    ? null
+                    : () => _showCreateDialog(context),
+                icon: const Icon(Icons.add_circle_outline),
+              ),
+            ],
+          ),
+          if (tasks.isEmpty)
+            Text(
+              'Назначьте небольшое дело — награда поступит только после вашего подтверждения.',
+              style: AppTextStyles.swatchLabel,
+            )
+          else
+            for (final task in tasks)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text('${task['title'] ?? ''}'),
+                subtitle: Text(
+                  '${task['reward_amount'] ?? 0} монет · ${_parentTaskStatus('${task['status'] ?? ''}')}',
+                ),
+                trailing: task['status'] == 'AWAITING_PARENT'
+                    ? FilledButton(
+                        onPressed: busy
+                            ? null
+                            : () => onVerify('${task['id']}'),
+                        child: const Text('Подтвердить'),
+                      )
+                    : task['status'] == 'VERIFIED'
+                    ? const Icon(Icons.check_circle, color: AppColors.leafGreen)
+                    : null,
+              ),
+          if (error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              error!,
+              style: AppTextStyles.swatchLabel.copyWith(
+                color: AppColors.crimson,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+String _parentTaskStatus(String status) => switch (status) {
+  'AVAILABLE' || 'IN_PROGRESS' => 'ждёт выполнения',
+  'AWAITING_PARENT' => 'ребёнок отметил как выполненное',
+  'VERIFIED' => 'награда выдана',
+  _ => status,
+};
+
+class _ChildPicker extends StatelessWidget {
+  const _ChildPicker({
+    required this.children,
+    required this.selectedChildUserId,
+    required this.onSelected,
+  });
+
+  final List<({String childUserId, String petName})> children;
+  final String selectedChildUserId;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      key: const Key('parent-child-picker'),
+      initialValue: selectedChildUserId,
+      decoration: const InputDecoration(
+        labelText: 'Чей прогресс показать',
+        prefixIcon: Icon(Icons.family_restroom_rounded),
+      ),
+      items: [
+        for (var index = 0; index < children.length; index++)
+          DropdownMenuItem(
+            value: children[index].childUserId,
+            child: Text(_labelFor(index)),
+          ),
+      ],
+      onChanged: (value) {
+        if (value != null) onSelected(value);
+      },
+    );
+  }
+
+  String _labelFor(int index) {
+    final child = children[index];
+    final duplicateCount = children
+        .where((candidate) => candidate.petName == child.petName)
+        .length;
+    return duplicateCount > 1
+        ? '${child.petName} · ${index + 1}'
+        : child.petName;
   }
 }
 

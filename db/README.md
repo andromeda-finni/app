@@ -2,7 +2,7 @@
 
 PostgreSQL. Схема — plain SQL миграции в [`db/migrations/`](migrations/), применяются по порядку номеров и накатятся на любой Postgres 14+ (локальный Docker, self-hosted или managed — Supabase, RDS и т.д. — это обычный Postgres, миграции доедут и туда через `psql`/CLI провайдера).
 
-Итоговая схема — упрощённая версия `groshik-er.dbml` (было 46 таблиц с полным compliance/consent/audit слоем и версионированием контента под живые релизы; здесь 23 таблицы — вся игровая механика без инфраструктуры под сбор и обработку персональных данных, которых продукт не собирает).
+Итоговая схема — упрощённая версия `groshik-er.dbml` (было 46 таблиц с полным compliance/consent/audit слоем и версионированием контента под живые релизы; здесь 24 таблицы — вся игровая механика без инфраструктуры под сбор и обработку персональных данных, которых продукт не собирает).
 
 ## Локальный запуск
 
@@ -20,12 +20,11 @@ set -a && source .env && set +a
 - **Аккаунты**: `users`, `parent_profiles`, `child_profiles`, `parent_child_links` — без имени/возраста/email/телефона; `child_profiles` хранит только номер текущего шага и факт завершения онбординга.
 - **Питомец**: `pets` (один вид на всех, кастомизация через `cosmetic_options` — цвет шерсти/аксессуар).
 - **Обучающий контент**: `education_topics`, `quest_definitions`, `quest_steps`, `shop_items`.
-- **Экономика**: `wallets` (SPENDABLE/SAVINGS/FROZEN), `transactions` (единый append-only леджер), `purchases`, `frost_chests` (Сундук Морозко: 3 дня → +10%).
+- **Экономика**: `wallets` (SPENDABLE/SAVINGS/FROZEN), `transactions` (единый append-only леджер), `purchases`, `frost_chests` (Сундук Морозко: 5 завершённых игровых дней → +10%).
 - **Бюджетный цикл**: `game_periods`, `budget_plans`, `period_results`.
 - **Задания**: `assignments` (системные квесты + родительские поручения в одной таблице), `quest_step_progress`.
 - **Цели/инвентарь**: `financial_goals`, `inventory_items` (+ слот экипировки прямо на `pets`).
-- **Случайные события питомца**: `pet_event_definitions`, `pet_event_occurrences` — решаются оплатой из кошелька `SPENDABLE`; накопления на выбранную цель не списываются.
-- **Страхование**: `insurance_policies` — добровольный взнос 5 монет из `SPENDABLE` в категории `NEED`, защита ровно следующего игрового дня и зафиксированный исход `USED`/`EXPIRED`.
+- **Случайные события и защита питомца**: `pet_event_definitions`, `pet_event_occurrences`, `insurance_policies` — события решаются оплатой из `SPENDABLE`, а одноразовый подорожник защищает следующий игровой день; целевые накопления в `SAVINGS` автоматически не расходуются.
 
 ## Безопасность
 

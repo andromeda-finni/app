@@ -42,6 +42,8 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
 
   _ParentState _state = _ParentState.loading;
   ChildOverview? _overview;
+  List<({String childUserId, String petName})> _children = const [];
+  String? _selectedChildUserId;
   String? _inviteCode;
   DateTime? _inviteExpiresAt;
   String? _error;
@@ -62,15 +64,43 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
     try {
       final children = await _api.getList('/parent/children');
       if (children.isEmpty) {
-        if (mounted) setState(() => _state = _ParentState.noChildren);
+        if (mounted) {
+          setState(() {
+            _children = const [];
+            _selectedChildUserId = null;
+            _state = _ParentState.noChildren;
+          });
+        }
         return;
       }
-      final first = children.first as Map;
-      final overview = await _api.get(
-        '/parent/children/${first['childUserId']}/overview',
-      );
+      final summaries = children
+          .map((value) {
+            if (value is! Map) {
+              throw const FormatException('child summary is invalid');
+            }
+            final child = value;
+            final childUserId = child['childUserId'];
+            if (childUserId is! String || childUserId.isEmpty) {
+              throw const FormatException('childUserId is missing');
+            }
+            final petName = child['petName'];
+            return (
+              childUserId: childUserId,
+              petName: petName is String && petName.trim().isNotEmpty
+                  ? petName
+                  : 'Питомец',
+            );
+          })
+          .toList(growable: false);
+      final selectedId =
+          summaries.any((child) => child.childUserId == _selectedChildUserId)
+          ? _selectedChildUserId!
+          : summaries.first.childUserId;
+      final overview = await _api.get('/parent/children/$selectedId/overview');
       if (!mounted) return;
       setState(() {
+        _children = summaries;
+        _selectedChildUserId = selectedId;
         _overview = ChildOverview.fromJson(overview);
         _state = _ParentState.ready;
       });
@@ -87,6 +117,12 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
         _error = error.isNetworkError
             ? 'Нет связи с сервером. Проверьте подключение и попробуйте ещё раз.'
             : 'Не удалось загрузить данные ребёнка.';
+        _state = _ParentState.error;
+      });
+    } on FormatException {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Сервер вернул неполные данные ребёнка.';
         _state = _ParentState.error;
       });
     }
@@ -113,6 +149,33 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
     });
   }
 
+  Future<void> _createTask(String title, int rewardAmount) async {
+    final childUserId = _selectedChildUserId;
+    if (childUserId == null) return;
+    await _run(() async {
+      await _api.post(
+        '/parent/tasks',
+        body: {
+          'childUserId': childUserId,
+          'title': title,
+          'rewardAmount': rewardAmount,
+        },
+      );
+      await _load();
+    });
+  }
+
+  Future<void> _verifyTask(String assignmentId) => _run(() async {
+    await _api.post('/parent/tasks/$assignmentId/verify');
+    await _load();
+  });
+
+  void _selectChild(String childUserId) {
+    if (childUserId == _selectedChildUserId || _busy) return;
+    _selectedChildUserId = childUserId;
+    _load();
+  }
+
   Future<void> _run(Future<void> Function() action) async {
     setState(() {
       _busy = true;
@@ -137,9 +200,16 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
     if (_state == _ParentState.ready && _overview != null) {
       return ParentDashboardScreen(
         overview: _overview!,
+        children: _children,
+        selectedChildUserId: _selectedChildUserId!,
+        onChildSelected: _selectChild,
         onRefresh: _load,
         onInviteChild: _createInvite,
         onExitToRoleChoice: widget.onBack,
+        onCreateTask: _createTask,
+        onVerifyTask: _verifyTask,
+        busy: _busy,
+        error: _error,
       );
     }
     return Scaffold(
@@ -213,6 +283,18 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
             const SizedBox(height: 16),
           ],
           if (_error != null) _ErrorText(_error!),
+          if (_children.isNotEmpty) ...[
+            OutlinedButton(
+              onPressed: _busy ? null : _load,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.ink,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: const BorderSide(color: AppColors.fieldBorder),
+              ),
+              child: const Text('Вернуться к прогрессу детей'),
+            ),
+            const SizedBox(height: 10),
+          ],
           StoryButton(
             label: _inviteCode == null ? 'Получить код' : 'Получить новый код',
             isLoading: _busy,

@@ -17,6 +17,7 @@ import 'package:andromeda_app/home/widgets/app_nav_bar.dart';
 import 'package:andromeda_app/theme/app_theme.dart';
 
 import 'support/fake_auth_storage.dart';
+import 'support/economy_fixture.dart';
 
 /// The home tab makes real calls, so every shell in these tests gets a stub
 /// backend — the nav bar itself is what is under test.
@@ -26,6 +27,7 @@ Widget _shell({VoidCallback? onSwitchAudience}) {
     // tabs in their real loaded state instead of silently erroring.
     final body = switch (request.url.path) {
       '/economy/state' => {
+        'rules': testEconomyRules,
         'pet': {
           'pet_name': 'Мурзик',
           'fur_option_id': 'FUR_GRAY',
@@ -36,7 +38,9 @@ Widget _shell({VoidCallback? onSwitchAudience}) {
         },
         'wallets': {'SPENDABLE': 40, 'SAVINGS': 10, 'FROZEN': 0},
         'activeDay': null,
+        'activeEvent': null,
         'activeGoal': null,
+        'parentTasks': <Object>[],
         'shopItems': <Object>[],
         'artifacts': <Object>[],
       },

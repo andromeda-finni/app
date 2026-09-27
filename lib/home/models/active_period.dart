@@ -39,13 +39,15 @@ class ActivePeriod {
       id: id,
       sequenceNo: _int(json['sequence_no']),
       requiredNeedAmount: _int(json['required_need_amount']),
-      remainingReserve: _int(json['remaining_reserve']),
       budgetPlanId: json['budget_plan_id'] as String?,
       budgetPlanStatus: json['budget_plan_status'] as String?,
       availableAmount: _int(json['available_amount']),
       needAmount: _int(json['need_amount']),
       wantAmount: _int(json['want_amount']),
       savingsAmount: _int(json['savings_amount']),
+      remainingReserve: _int(
+        json['remaining_reserve'] ?? json['required_need_amount'],
+      ),
     );
   }
 }

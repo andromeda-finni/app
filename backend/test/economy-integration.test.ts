@@ -18,6 +18,10 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
   const { frostChestRoutes } = await import("../src/modules/frostChest/routes.js");
   const { economyRoutes } = await import("../src/modules/economy/routes.js");
   const { petRoutes } = await import("../src/modules/pet/routes.js");
+  const originalRandom = Math.random;
+  // This test exercises the base economy lifecycle. Event behavior has its
+  // own integration test and must not make this one probabilistic.
+  Math.random = () => 1;
   const app = Fastify({ ajv: { customOptions: { removeAdditional: false } } });
   app.setErrorHandler((error, _req, reply) => {
     if (error instanceof HttpError) reply.code(error.statusCode).send({ error: error.code });
@@ -107,7 +111,18 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
         await post('/purchases', { itemId: 'PET_MEAL', idempotencyKey: `food-${i}` }, 201);
       }
       const closed = await post(`/periods/${dayId}/close`);
-      if (i === 0) assert.equal(closed.netSavings, chosen.target_amount + 5);
+      if (i === 0) {
+        assert.equal(closed.netSavings, chosen.target_amount + 5);
+        assert.equal(closed.earnedAmount, 330);
+        assert.deepEqual(closed.plan, { need: 10, want: 5, savings: 15 });
+        assert.deepEqual(closed.actual, {
+          need: 10,
+          want: 0,
+          savings: chosen.target_amount + 5,
+        });
+        // A lost response is safe: replaying close returns the persisted result.
+        assert.deepEqual(await post(`/periods/${dayId}/close`), closed);
+      }
     }
     const before = (await state()).wallets;
     await post(`/frost-chests/${chest.id}/collect`);
@@ -115,6 +130,13 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
     assert.equal(after.SPENDABLE, before.SPENDABLE + 22);
     assert.equal(after.SAVINGS, before.SAVINGS);
     assert.equal(after.FROZEN, 0);
+    const reflectiveDay = (await post('/periods', {}, 201)).periodId;
+    await plan(reflectiveDay);
+    const missedNeed = await post(`/periods/${reflectiveDay}/close`);
+    assert.equal(missedNeed.needCovered, false);
+    assert.equal(missedNeed.planFollowed, false);
+    assert.equal(missedNeed.actual.need, 0);
+    assert.match(missedNeed.feedback, /завтра попробуем ещё раз/);
     await post(`/frost-chests/${chest.id}/collect`, {}, 404);
     const ledger = await pool.query(`SELECT w.kind, w.balance, COALESCE(SUM(t.delta_amount), 0)::int AS total FROM wallets w LEFT JOIN transactions t ON t.child_user_id = w.child_user_id AND t.wallet_kind = w.kind WHERE w.child_user_id = $1 GROUP BY w.kind, w.balance`, [userId]);
     for (const row of ledger.rows) assert.equal(row.balance, row.total);
@@ -122,6 +144,7 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
     const parent = (await app.inject({ method: 'POST', url: '/auth/parent/register', payload: {} })).json();
     assert.equal((await app.inject({ method: 'POST', url: '/goals', headers: { authorization: `Bearer ${parent.token}` }, payload: { targetItemId: 'shield' } })).statusCode, 403);
   } finally {
+    Math.random = originalRandom;
     await app.close();
     await pool.end();
   }

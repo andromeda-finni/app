@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import 'economy_action_ui.dart';
 import 'economy_actions.dart';
 import 'economy_state.dart';
+import 'item_art_catalog.dart';
 import 'item_artwork.dart';
 
 String _gameDaysLabel(int value) {
@@ -61,6 +62,9 @@ class _SavingsScreenState extends State<SavingsScreen> {
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _error = economyErrorMessage(error));
+    } on FormatException {
+      if (!mounted) return;
+      setState(() => _error = economyContractErrorMessage);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -100,7 +104,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
     if (economy == null || _busy) return;
     final amount = await _chooseAmount(
       title: deposit ? 'Пополнить копилку' : 'Вернуть в кошелёк',
-      amounts: const [5, 10],
+      amounts: economy.rules.savingsTransferAmounts,
       enabled: (amount) {
         if (!_dayReady || economy.goal == null) return false;
         if (!deposit) return economy.savings >= amount;
@@ -117,7 +121,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
     if (economy == null || _busy) return;
     final amount = await _chooseAmount(
       title: 'Сколько положить в сундук?',
-      amounts: const [10, 20, 30, 40, 50],
+      amounts: economy.rules.frostPrincipalOptions,
       enabled: (amount) =>
           _dayReady && EconomyActions.spendingBlock(economy, amount) == null,
     );
@@ -279,36 +283,64 @@ class _Header extends StatelessWidget {
   final VoidCallback onBack;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      IconButton(
-        onPressed: onBack,
-        tooltip: 'Вернуться домой',
-        icon: const Icon(Icons.arrow_back, size: 30),
-      ),
-      Expanded(child: Text('Копилка', style: AppTextStyles.screenTitle)),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.cardBg,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: AppColors.fieldBorder),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset('assets/icons/coin.png', width: 24, height: 24),
-            const SizedBox(width: 6),
-            Text('$wallet монет', style: AppTextStyles.cardRowLabel),
-          ],
-        ),
-      ),
-      IconButton(
-        tooltip: 'Настройки',
-        onPressed: onOpenSettings,
-        icon: const Icon(Icons.settings_outlined, size: 30),
-      ),
-    ],
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final compact =
+          constraints.maxWidth < 360 ||
+          MediaQuery.textScalerOf(context).scale(1) > 1.15;
+      final navigation = Row(
+        children: [
+          IconButton(
+            onPressed: onBack,
+            tooltip: 'Вернуться домой',
+            icon: const Icon(Icons.arrow_back, size: 30),
+          ),
+          Expanded(child: Text('Копилка', style: AppTextStyles.screenTitle)),
+          if (!compact) _WalletPill(wallet: wallet),
+          IconButton(
+            tooltip: 'Настройки',
+            onPressed: onOpenSettings,
+            icon: const Icon(Icons.settings_outlined, size: 30),
+          ),
+        ],
+      );
+      if (!compact) return navigation;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          navigation,
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: _WalletPill(wallet: wallet),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+class _WalletPill extends StatelessWidget {
+  const _WalletPill({required this.wallet});
+
+  final int wallet;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: AppColors.cardBg,
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: AppColors.fieldBorder),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Image.asset('assets/icons/coin.png', width: 24, height: 24),
+        const SizedBox(width: 6),
+        Text('$wallet монет', style: AppTextStyles.cardRowLabel),
+      ],
+    ),
   );
 }
 
@@ -376,7 +408,7 @@ String? _goalImageAsset(
       return artifact.imageAsset;
     }
   }
-  return null;
+  return targetId is String ? localItemArtwork[targetId] : null;
 }
 
 class _EmptyGoalCard extends StatelessWidget {
@@ -480,7 +512,12 @@ class _ActiveGoalCard extends StatelessWidget {
           if (stack) {
             return Column(
               children: [
-                ItemArtwork(imageAsset: imageAsset, size: 128),
+                ItemArtwork(
+                  itemId: goal['target_item_id'] as String?,
+                  imageAsset: imageAsset,
+                  semanticLabel: goal['name'] as String?,
+                  size: 128,
+                ),
                 const SizedBox(height: 16),
                 details,
               ],
@@ -489,7 +526,12 @@ class _ActiveGoalCard extends StatelessWidget {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              ItemArtwork(imageAsset: imageAsset, size: 132),
+              ItemArtwork(
+                itemId: goal['target_item_id'] as String?,
+                imageAsset: imageAsset,
+                semanticLabel: goal['name'] as String?,
+                size: 132,
+              ),
               const SizedBox(width: 18),
               Expanded(child: details),
             ],
@@ -557,6 +599,7 @@ class _FrostSection extends StatelessWidget {
           const SizedBox(height: 10),
           _FrostBody(
             chest: chest,
+            rules: economy.rules,
             busy: busy,
             dayReady: dayReady,
             onOpen: onOpen,
@@ -571,6 +614,7 @@ class _FrostSection extends StatelessWidget {
 class _FrostBody extends StatelessWidget {
   const _FrostBody({
     required this.chest,
+    required this.rules,
     required this.busy,
     required this.dayReady,
     required this.onOpen,
@@ -578,6 +622,7 @@ class _FrostBody extends StatelessWidget {
   });
 
   final Map<String, dynamic>? chest;
+  final EconomyRules rules;
   final bool busy;
   final bool dayReady;
   final VoidCallback onOpen;
@@ -587,8 +632,17 @@ class _FrostBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final data = chest;
     final details = data == null
-        ? _ClosedFrostDetails(enabled: !busy && dayReady, onOpen: onOpen)
-        : _OpenFrostDetails(chest: data, busy: busy, onFinish: onFinish);
+        ? _ClosedFrostDetails(
+            rules: rules,
+            enabled: !busy && dayReady,
+            onOpen: onOpen,
+          )
+        : _OpenFrostDetails(
+            chest: data,
+            rules: rules,
+            busy: busy,
+            onFinish: onFinish,
+          );
     return LayoutBuilder(
       builder: (context, constraints) {
         final stack =
@@ -622,8 +676,13 @@ class _FrostBody extends StatelessWidget {
 }
 
 class _ClosedFrostDetails extends StatelessWidget {
-  const _ClosedFrostDetails({required this.enabled, required this.onOpen});
+  const _ClosedFrostDetails({
+    required this.rules,
+    required this.enabled,
+    required this.onOpen,
+  });
 
+  final EconomyRules rules;
   final bool enabled;
   final VoidCallback onOpen;
 
@@ -631,13 +690,16 @@ class _ClosedFrostDetails extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      const Wrap(
+      Wrap(
         alignment: WrapAlignment.spaceBetween,
         runSpacing: 12,
         children: [
-          _FrostFact(label: 'Вклад', value: '10–50'),
-          _FrostFact(label: 'Срок', value: '5 дней'),
-          _FrostFact(label: 'Бонус', value: '+10%'),
+          _FrostFact(
+            label: 'Вклад',
+            value: '${rules.frostMinimum}–${rules.frostMaximum}',
+          ),
+          _FrostFact(label: 'Срок', value: '${rules.frostDays} дней'),
+          _FrostFact(label: 'Бонус', value: '+${rules.frostBonusPercent}%'),
         ],
       ),
       const SizedBox(height: 16),
@@ -657,11 +719,13 @@ class _ClosedFrostDetails extends StatelessWidget {
 class _OpenFrostDetails extends StatelessWidget {
   const _OpenFrostDetails({
     required this.chest,
+    required this.rules,
     required this.busy,
     required this.onFinish,
   });
 
   final Map<String, dynamic> chest;
+  final EconomyRules rules;
   final bool busy;
   final Future<void> Function(bool early) onFinish;
 
@@ -671,6 +735,8 @@ class _OpenFrostDetails extends StatelessWidget {
     final bonus = (chest['bonus_amount'] as num?)?.toInt() ?? 0;
     final completed = (chest['completed_days'] as num?)?.toInt() ?? 0;
     final remaining = (chest['days_remaining'] as num?)?.toInt() ?? 0;
+    final maturityDays =
+        (chest['maturity_days'] as num?)?.toInt() ?? rules.frostDays;
     final matured = chest['matured'] == true;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -684,7 +750,8 @@ class _OpenFrostDetails extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            for (var day = 0; day < 5; day++) _FrostDay(done: day < completed),
+            for (var day = 0; day < maturityDays; day++)
+              _FrostDay(done: day < completed),
           ],
         ),
         const SizedBox(height: 10),

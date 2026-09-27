@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/fake_auth_storage.dart';
+import 'support/economy_fixture.dart';
 
 http.Response _json(Object body, [int status = 200]) => http.Response(
   jsonEncode(body),
@@ -22,6 +23,7 @@ Map<String, dynamic> _state({
   int plannedNeed = 10,
   int actualNeed = 10,
 }) => {
+  'rules': testEconomyRules,
   'pet': {'pet_name': 'Мурзик', 'energy_level': 100, 'joy_level': 100},
   'wallets': {'SPENDABLE': wallet, 'SAVINGS': 0, 'FROZEN': 0},
   'activeDay': {

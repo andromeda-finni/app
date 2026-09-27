@@ -19,10 +19,11 @@ http.Response _json(Object? body, [int status = 200]) => http.Response(
 );
 
 const _childId = '18b24a3b-4078-4df9-a084-133b56a676fd';
+const _secondChildId = '94216594-af3f-4d4b-bdef-6e4163dcb2c0';
 
-Map<String, dynamic> _overview() => {
+Map<String, dynamic> _overview([String petName = 'Пушок']) => {
   'pet': {
-    'pet_name': 'Пушок',
+    'pet_name': petName,
     'evolution_stage': 1,
     'energy_level': 80,
     'joy_level': 60,
@@ -58,6 +59,8 @@ Map<String, dynamic> _overview() => {
       'occurred_at': '2026-09-25T18:30:00Z',
     },
   ],
+  'parentTasks': <Object>[],
+  'rules': {'parentRewardLimit': 10},
 };
 
 Future<void> _pumpParent(
@@ -156,6 +159,98 @@ void main() {
     expect(find.textContaining('Грошик'), findsNothing);
   });
 
+  testWidgets('a parent can create and verify a linked child task', (
+    tester,
+  ) async {
+    final storage = FakeAuthStorage(initialToken: 'parent-token');
+    var overview = _overview();
+    final mutations = <String>[];
+    final client = MockClient((request) async {
+      switch ((request.method, request.url.path)) {
+        case ('GET', '/parent/children'):
+          return _json([
+            {'childUserId': _childId, 'petName': 'Пушок'},
+          ]);
+        case ('GET', '/parent/children/$_childId/overview'):
+          return _json(overview);
+        case ('POST', '/parent/tasks'):
+          mutations.add(
+            '${request.method} ${request.url.path} ${request.body}',
+          );
+          overview = _overview()
+            ..['parentTasks'] = [
+              {
+                'id': 'task-1',
+                'title': 'Полить цветы',
+                'reward_amount': 1,
+                'status': 'AWAITING_PARENT',
+              },
+            ];
+          return _json({'id': 'task-1'}, 201);
+        case ('POST', '/parent/tasks/task-1/verify'):
+          mutations.add('${request.method} ${request.url.path}');
+          overview = _overview()
+            ..['parentTasks'] = [
+              {
+                'id': 'task-1',
+                'title': 'Полить цветы',
+                'reward_amount': 1,
+                'status': 'VERIFIED',
+              },
+            ];
+          return _json({'ok': true, 'balanceAfter': 13});
+        default:
+          return _json({'error': 'unexpected'}, 500);
+      }
+    });
+
+    await _pumpParent(tester, storage: storage, client: client);
+    await tester.ensureVisible(find.byTooltip('Добавить дело'));
+    await tester.tap(find.byTooltip('Добавить дело'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Полить цветы');
+    await tester.tap(find.text('Назначить'));
+    await tester.pumpAndSettle();
+
+    expect(mutations.single, contains('"rewardAmount":1'));
+    expect(find.text('Подтвердить'), findsOneWidget);
+    await tester.tap(find.text('Подтвердить'));
+    await tester.pumpAndSettle();
+
+    expect(mutations.last, 'POST /parent/tasks/task-1/verify');
+    expect(find.textContaining('награда выдана'), findsOneWidget);
+  });
+
+  testWidgets('inviting another child keeps a route back to linked children', (
+    tester,
+  ) async {
+    final storage = FakeAuthStorage(initialToken: 'parent-token');
+    final client = MockClient((request) async {
+      return switch ((request.method, request.url.path)) {
+        ('GET', '/parent/children') => _json([
+          {'childUserId': _childId, 'petName': 'Пушок'},
+        ]),
+        ('GET', '/parent/children/$_childId/overview') => _json(_overview()),
+        ('POST', '/auth/parent/invites') => _json({
+          'inviteCode': '6B9BEBHW',
+          'expiresAt': '2026-10-02T12:00:00Z',
+        }, 201),
+        _ => _json({'error': 'unexpected'}, 500),
+      };
+    });
+
+    await _pumpParent(tester, storage: storage, client: client);
+    await tester.ensureVisible(find.text('Пригласить ещё одного ребёнка'));
+    await tester.tap(find.text('Пригласить ещё одного ребёнка'));
+    await tester.pumpAndSettle();
+    expect(find.text('6B9B-EBHW'), findsOneWidget);
+    expect(find.text('Вернуться к прогрессу детей'), findsOneWidget);
+
+    await tester.tap(find.text('Вернуться к прогрессу детей'));
+    await tester.pumpAndSettle();
+    expect(find.text('Пушок: прогресс'), findsOneWidget);
+  });
+
   testWidgets('a revoked parent session starts over instead of looping', (
     tester,
   ) async {
@@ -168,6 +263,47 @@ void main() {
 
     expect(await storage.readToken(), isNull);
     expect(find.text('Создать кабинет'), findsOneWidget);
+  });
+
+  testWidgets('an invalid child list shows an error instead of crashing', (
+    tester,
+  ) async {
+    final storage = FakeAuthStorage(initialToken: 'parent-token');
+    final client = MockClient((request) async => _json([null]));
+
+    await _pumpParent(tester, storage: storage, client: client);
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Сервер вернул неполные данные ребёнка.'), findsOneWidget);
+    expect(find.text('Повторить'), findsOneWidget);
+  });
+
+  testWidgets('a parent can switch between every linked child', (tester) async {
+    final storage = FakeAuthStorage(initialToken: 'parent-token');
+    final client = MockClient((request) async {
+      return switch (request.url.path) {
+        '/parent/children' => _json([
+          {'childUserId': _childId, 'petName': 'Пушок'},
+          {'childUserId': _secondChildId, 'petName': 'Рыжик'},
+        ]),
+        '/parent/children/$_childId/overview' => _json(_overview()),
+        '/parent/children/$_secondChildId/overview' => _json(
+          _overview('Рыжик'),
+        ),
+        _ => _json({'error': 'unexpected'}, 500),
+      };
+    });
+
+    await _pumpParent(tester, storage: storage, client: client);
+    expect(find.text('Пушок: прогресс'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('parent-child-picker')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Рыжик').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Рыжик: прогресс'), findsOneWidget);
+    expect(find.text('Пушок: прогресс'), findsNothing);
   });
 
   testWidgets('the child links a parent from settings with the spoken code', (

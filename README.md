@@ -91,9 +91,17 @@ dart format --output=none --set-exit-if-changed .
 
 | Файл | Триггер | Что делает |
 |---|---|---|
-| `ci.yml` | PR в `main`, push в `main` | `flutter analyze`, `flutter test`, проверка форматирования |
-| `build-apk.yml` | push в `main`, вручную | собирает release APK и кладёт его в Artifacts запуска (хранится 30 дней) |
-| `release.yml` | push тега `v*` (например `v1.0.0`) | собирает release APK и публикует его в GitHub Releases |
+| `ci.yml` | PR в `main`, push в `main` | форматирование, `flutter analyze`, Flutter-тесты, TypeScript build, миграции с повторным прогоном и backend-тесты на PostgreSQL |
+| `build-apk.yml` | push в `main`, вручную | собирает release APK с настроенным HTTPS API и кладёт его в Artifacts запуска (хранится 30 дней) |
+| `release.yml` | push тега `v*` (например `v1.0.0`) | собирает release APK с настроенным HTTPS API и публикует его в GitHub Releases |
+
+Перед первой release-сборкой владелец репозитория должен добавить GitHub
+Actions variable `API_BASE_URL` в **Settings → Secrets and variables → Actions →
+Variables**. Значение — полный HTTPS-адрес backend без завершающего слеша,
+например `https://api.example.com`. Workflow намеренно завершится ошибкой, если
+переменная отсутствует или содержит HTTP: иначе он выпустил бы APK, который
+пытается подключаться к адресу Android-эмулятора `10.0.2.2` и не работает на
+обычном телефоне.
 
 ### Как включить обязательность пайплайна перед мёржем
 
@@ -103,7 +111,7 @@ dart format --output=none --set-exit-if-changed .
 2. Добавить **branch protection rule** для `main`
 3. Включить:
    - **Require a pull request before merging**
-   - **Require status checks to pass before merging** → выбрать job `Analyze & Test` из `ci.yml`
+   - **Require status checks to pass before merging** → выбрать jobs `Analyze & Test` и `Backend & PostgreSQL` из `ci.yml`
    - (опционально) **Require branches to be up to date before merging**
 
 После этого смёржить в `main` можно будет только через PR с зелёным CI.

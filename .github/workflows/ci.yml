@@ -29,3 +29,54 @@ jobs:
 
       - name: Run tests
         run: flutter test
+
+  backend-test:
+    name: Backend & PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: groshik
+          POSTGRES_USER: groshik_admin
+          POSTGRES_PASSWORD: ci-admin-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U groshik_admin -d groshik"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_ADMIN_PASSWORD: ci-admin-password
+      GROSHIK_APP_PASSWORD: ci-app-password
+      DATABASE_URL: postgres://groshik_admin:ci-admin-password@127.0.0.1:5432/groshik?sslmode=disable
+      APP_DATABASE_URL: postgres://groshik_app:ci-app-password@127.0.0.1:5432/groshik?sslmode=disable
+      ECONOMY_TEST_DATABASE_URL: postgres://groshik_app:ci-app-password@127.0.0.1:5432/groshik?sslmode=disable
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and build
+        run: npm run typecheck && npm run build
+
+      - name: Migrate and seed PostgreSQL
+        working-directory: .
+        run: |
+          db/scripts/migrate.sh
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/seed.sql
+          db/scripts/migrate.sh
+
+      - name: Run all backend tests
+        run: npm test

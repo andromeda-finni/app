@@ -97,6 +97,32 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
             );
             const needSpent = Number(needSpentRes.rows[0]?.spent ?? 0);
 
+            const walletRes = await client.query<{ balance: number }>(
+              `SELECT balance FROM wallets
+                WHERE child_user_id = $1 AND kind = 'SPENDABLE' FOR UPDATE`,
+              [childUserId],
+            );
+            const balance = walletRes.rows[0]?.balance ?? 0;
+
+            // An unresolved bill is already part of required_need_amount, but
+            // ordinary NEED purchases must not be able to consume the exact
+            // coins needed to resolve it. Otherwise the UI can lead a child
+            // into an active day that the server correctly refuses to close,
+            // with no remaining way to heal the pet.
+            if (item.kind === "NEED") {
+              const eventRes = await client.query<{ amount_due: number }>(
+                `SELECT amount_due FROM pet_event_occurrences
+                  WHERE child_user_id = $1 AND status = 'ACTIVE'`,
+                [childUserId],
+              );
+              const eventReserve = eventRes.rows[0]?.amount_due ?? 0;
+              if (balance - totalPrice < eventReserve) {
+                throw new HttpError(409, "active_event_reserve_is_unavailable_for_purchases", {
+                  reserve: eventReserve,
+                });
+              }
+            }
+
             // Impulse check: buying a WANT while this period's NEED commitment
             // isn't covered yet by actual NEED spending — the game's concrete,
             // non-punishing signal for "you spent on a want before a need".
@@ -106,12 +132,6 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
                 period.required_need_amount - needSpent,
                 0,
               );
-              const walletRes = await client.query<{ balance: number }>(
-                `SELECT balance FROM wallets
-                  WHERE child_user_id = $1 AND kind = 'SPENDABLE' FOR UPDATE`,
-                [childUserId],
-              );
-              const balance = walletRes.rows[0]?.balance ?? 0;
               if (balance - totalPrice < remainingReserve) {
                 throw new HttpError(409, "food_reserve_is_unavailable_for_wants", {
                   reserve: remainingReserve,

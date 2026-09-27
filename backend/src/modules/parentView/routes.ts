@@ -3,6 +3,7 @@ import { pool } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { assertActiveLink, requireAuth, requireRole } from "../../auth/plugin.js";
 import { paramsSchema, uuidSchema } from "../../lib/schema.js";
+import { ECONOMY_RULES } from "../economy/rules.js";
 
 /**
  * Read-only view of a child's progress for a linked parent.
@@ -42,7 +43,7 @@ export async function parentViewRoutes(app: FastifyInstance): Promise<void> {
       const { childUserId } = req.params;
       await assertActiveLink(req.authUser!.id, childUserId);
 
-      const [pet, wallets, goal, day, event, quests, days, results, activity] = await Promise.all([
+      const [pet, wallets, goal, day, event, quests, days, results, activity, parentTasks] = await Promise.all([
         pool.query(
           `SELECT pet_name, evolution_stage, energy_level, joy_level, health_level
              FROM pets WHERE child_user_id = $1`,
@@ -105,6 +106,15 @@ export async function parentViewRoutes(app: FastifyInstance): Promise<void> {
             ORDER BY occurred_at DESC LIMIT 12`,
           [childUserId],
         ),
+        pool.query(
+          `SELECT a.id, a.title, a.reward_amount, a.status, a.updated_at
+             FROM assignments a
+             JOIN parent_child_links l ON l.id = a.assigned_by_parent_link_id
+            WHERE a.child_user_id = $1 AND a.origin = 'PARENT'
+              AND l.parent_user_id = $2 AND l.status = 'ACTIVE'
+            ORDER BY a.created_at DESC LIMIT 10`,
+          [childUserId, req.authUser!.id],
+        ),
       ]);
 
       // A linked child always has a pet unless onboarding was abandoned; say
@@ -121,6 +131,8 @@ export async function parentViewRoutes(app: FastifyInstance): Promise<void> {
         days: days.rows[0] ?? { finished: 0, followed: 0 },
         recentDays: results.rows,
         recentActivity: activity.rows,
+        parentTasks: parentTasks.rows,
+        rules: { parentRewardLimit: ECONOMY_RULES.parentRewardLimit },
       };
     },
   );

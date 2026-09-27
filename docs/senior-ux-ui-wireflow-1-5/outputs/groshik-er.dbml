@@ -1,0 +1,426 @@
+// Грошик / Питомец Финни — логическая ER-модель локальной БД MVP
+// Импорт: https://dbdiagram.io -> New Diagram -> вставить содержимое файла.
+// Целевая реализация: SQLite/Drift на устройстве. UUID хранится как TEXT,
+// timestamp — как UTC ISO-8601 TEXT, boolean — как INTEGER 0/1, json — как TEXT с json_valid().
+// В модели намеренно нет аккаунтов, auth.users, ФИО, возраста, даты рождения,
+// телефона, e-mail, геолокации, device/ad identifiers и иных ПДн.
+
+Enum profile_mode {
+  STANDARD
+  DEMO
+}
+
+Enum difficulty_level {
+  SIMPLE
+  ADVANCED
+}
+
+Enum parent_gate_mode {
+  HOLD
+  MATH_TASK
+}
+
+Enum period_status {
+  ACTIVE
+  COMPLETED
+}
+
+Enum plan_status {
+  DRAFT
+  CONFIRMED
+}
+
+Enum budget_category {
+  NEED
+  WANT
+  SAVINGS
+}
+
+Enum wallet_kind {
+  SPENDABLE
+  SAVINGS
+}
+
+Enum economy_event_type {
+  START_GRANT
+  PERIOD_GRANT
+  QUEST_REWARD
+  PARENT_TASK_REWARD
+  PURCHASE
+  SAVINGS_DEPOSIT
+  SAVINGS_WITHDRAWAL
+  GOAL_REDEMPTION
+  RESET_ADJUSTMENT
+}
+
+Enum item_kind {
+  NEED
+  WANT
+  ARTIFACT
+}
+
+Enum rarity_kind {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+}
+
+Enum assignment_origin {
+  SYSTEM
+  PARENT_LOCAL
+}
+
+Enum assignment_status {
+  AVAILABLE
+  IN_PROGRESS
+  COMPLETED
+  AWAITING_PARENT
+  VERIFIED
+  CANCELLED
+}
+
+Enum attempt_outcome {
+  SUCCESS
+  RECOVERABLE_ERROR
+  ABANDONED
+}
+
+Enum goal_status {
+  ACTIVE
+  PAUSED
+  ACHIEVED
+  REDEEMED
+}
+
+Table local_profiles {
+  id uuid [pk, not null, note: 'Случайный локальный UUID. Не является аккаунтом или внешним идентификатором.']
+  mode profile_mode [not null, default: 'STANDARD']
+  difficulty difficulty_level [not null, default: 'SIMPLE', note: 'Выбор «попроще / посложнее» вместо хранения возраста.']
+  reset_generation int [not null, default: 0, note: 'Увеличивается при сбросе тестового профиля.']
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  Note: 'Один локальный игровой профиль на устройстве. Не содержит имени ребёнка, возраста, контактов или учётной записи.'
+}
+
+Table app_settings {
+  profile_id uuid [pk, not null]
+  parent_gate parent_gate_mode [not null, default: 'MATH_TASK']
+  sound_enabled boolean [not null, default: true]
+  music_enabled boolean [not null, default: true]
+  notifications_enabled boolean [not null, default: false]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  Note: 'Только локальные настройки. PIN, логин родителя и контактные данные не хранятся.'
+}
+
+Table pets {
+  id uuid [pk, not null]
+  profile_id uuid [not null, unique]
+  pet_name varchar(24) [not null, note: 'Игровое имя питомца, не имя ребёнка.']
+  fur_code varchar(32) [not null]
+  accessory_code varchar(32) [not null]
+  energy_level smallint [not null, default: 100, note: 'CHECK 0..100']
+  joy_level smallint [not null, default: 50, note: 'CHECK 0..100']
+  evolution_stage smallint [not null, default: 1, note: 'CHECK 1..3 для MVP']
+  successful_periods int [not null, default: 0]
+  current_location_code varchar(32) [not null, default: 'FOREST']
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+
+  Note: 'Текущее состояние питомца и его визуальная конфигурация. Рост рассчитывается по серии периодов.'
+}
+
+Table game_periods {
+  id uuid [pk, not null]
+  profile_id uuid [not null]
+  sequence_no int [not null, note: 'Порядковый номер игрового периода.']
+  status period_status [not null, default: 'ACTIVE']
+  is_demo boolean [not null, default: false]
+  opening_spendable int [not null, note: 'CHECK >= 0; снимок начала периода.']
+  opening_savings int [not null, note: 'CHECK >= 0; снимок начала периода.']
+  opened_at timestamp [not null]
+  closed_at timestamp
+
+  indexes {
+    (profile_id, sequence_no) [unique]
+  }
+
+  Note: 'Полный цикл решений. В DEMO периоды следуют подряд без календарного ожидания; финансовые правила не меняются.'
+}
+
+Table budget_plans {
+  id uuid [pk, not null]
+  period_id uuid [not null, unique]
+  status plan_status [not null, default: 'DRAFT']
+  available_amount int [not null, note: 'Баланс, доступный при составлении; CHECK >= 0.']
+  unallocated_amount int [not null, default: 0, note: 'CHECK >= 0.']
+  created_at timestamp [not null]
+  confirmed_at timestamp
+
+  Note: 'До CONFIRMED план можно менять. После подтверждения он неизменяем и служит базой сравнения с фактом.'
+}
+
+Table budget_allocations {
+  budget_plan_id uuid [not null]
+  category budget_category [not null]
+  planned_amount int [not null, note: 'CHECK >= 0.']
+
+  indexes {
+    (budget_plan_id, category) [pk]
+  }
+
+  Note: 'У подтверждённого плана обязательно ровно три строки: NEED, WANT, SAVINGS.'
+}
+
+Table period_results {
+  period_id uuid [pk, not null]
+  actual_need_amount int [not null, default: 0]
+  actual_want_amount int [not null, default: 0]
+  net_savings_amount int [not null, default: 0, note: 'Пополнения минус снятия за период; может быть отрицательным.']
+  mandatory_covered boolean [not null]
+  plan_followed boolean [not null]
+  pet_stage_before smallint [not null]
+  pet_stage_after smallint [not null]
+  feedback_code varchar(64) [not null, note: 'Ключ короткого объяснения причины результата.']
+  calculated_at timestamp [not null]
+
+  Note: 'Неизменяемый снимок итогов для экрана План/Факт, истории и объяснимого роста питомца.'
+}
+
+Table wallet_accounts {
+  id uuid [pk, not null]
+  profile_id uuid [not null]
+  kind wallet_kind [not null]
+  current_balance int [not null, default: 0, note: 'CHECK >= 0.']
+  updated_at timestamp [not null]
+
+  indexes {
+    (profile_id, kind) [unique]
+  }
+
+  Note: 'Два счёта: доступные монеты и накопления. Это только игровая валюта без реальной стоимости.'
+}
+
+Table economy_events {
+  id uuid [pk, not null]
+  profile_id uuid [not null]
+  period_id uuid
+  event_type economy_event_type [not null]
+  budget_category budget_category [note: 'Заполняется для расхода или накопления, чтобы рассчитать факт.']
+  amount int [not null, note: 'Абсолютная сумма события; CHECK > 0.']
+  explanation_code varchar(64) [not null, note: 'Источник и причина изменения баланса, показываемые ребёнку.']
+  idempotency_key varchar(80) [not null, unique, note: 'Защита от двойного начисления/списания при повторном нажатии.']
+  occurred_at timestamp [not null]
+
+  Note: 'Заголовок атомарной финансовой операции. Не содержит телеметрии, внешних ID или свободного текста.'
+}
+
+Table wallet_postings {
+  id uuid [pk, not null]
+  event_id uuid [not null]
+  wallet_account_id uuid [not null]
+  delta_amount int [not null, note: 'Знаковое изменение; CHECK != 0.']
+  balance_after int [not null, note: 'CHECK >= 0.']
+
+  indexes {
+    (event_id, wallet_account_id) [unique]
+  }
+
+  Note: 'Проводки события. Перевод в накопления создаёт две проводки в одной SQLite-транзакции: минус SPENDABLE, плюс SAVINGS.'
+}
+
+Table education_topics {
+  id varchar(40) [pk, not null, note: 'Стабильный код темы из контент-пакета.']
+  title varchar(120) [not null]
+  skill_description varchar(300) [not null]
+  sort_order smallint [not null]
+  active boolean [not null, default: true]
+
+  Note: 'Справочник тем. Для текущего wireflow: планирование, накопления, импульсивные траты, навыки/стратегия, защита от мошенников.'
+}
+
+Table quest_definitions {
+  id varchar(50) [pk, not null]
+  topic_id varchar(40) [not null]
+  title varchar(120) [not null]
+  character_code varchar(40) [not null]
+  location_code varchar(40) [not null]
+  difficulty difficulty_level [not null]
+  default_reward int [not null, note: 'CHECK > 0; награда игровой валютой.']
+  content_version int [not null, default: 1]
+  active boolean [not null, default: true]
+
+  Note: 'Метаданные квеста. Контент может загружаться из отдельного JSON внутри APK без изменения логики приложения.'
+}
+
+Table quest_steps {
+  quest_id varchar(50) [not null]
+  step_no smallint [not null]
+  instruction varchar(500) [not null]
+  expected_action_code varchar(80) [not null]
+  success_feedback varchar(500) [not null]
+  recovery_feedback varchar(500) [not null]
+  ui_spec json [note: 'Декларативные параметры шага; в SQLite — валидный JSON TEXT.']
+
+  indexes {
+    (quest_id, step_no) [pk]
+  }
+
+  Note: 'Шаги позволяют добавлять новые задания и ветки без изменения основной логики.'
+}
+
+Table task_templates {
+  id varchar(50) [pk, not null]
+  topic_id varchar(40)
+  title varchar(160) [not null]
+  suggested_reward int [not null, note: 'CHECK > 0.']
+  active boolean [not null, default: true]
+
+  Note: 'Безопасный локальный каталог дополнительных дел. Родитель выбирает шаблон; произвольный текст не хранится, чтобы исключить случайный ввод ПДн.'
+}
+
+Table task_assignments {
+  id uuid [pk, not null]
+  profile_id uuid [not null]
+  period_id uuid
+  quest_id varchar(50)
+  task_template_id varchar(50)
+  origin assignment_origin [not null]
+  reward_amount int [not null, note: 'CHECK > 0; снимок награды на момент назначения.']
+  status assignment_status [not null, default: 'AVAILABLE']
+  created_at timestamp [not null]
+  completed_at timestamp
+  verified_at timestamp
+
+  Note: 'CHECK: заполнен ровно один из quest_id / task_template_id. SYSTEM использует quest_id; PARENT_LOCAL — task_template_id. Родительское участие необязательно.'
+}
+
+Table quest_attempts {
+  id uuid [pk, not null]
+  assignment_id uuid [not null]
+  attempt_no smallint [not null]
+  outcome attempt_outcome [not null]
+  selected_option_code varchar(80)
+  explanation_shown boolean [not null, default: false]
+  reward_event_id uuid [unique, note: 'NULL при ошибке/повторе; один event исключает повторную награду.']
+  started_at timestamp [not null]
+  completed_at timestamp
+
+  indexes {
+    (assignment_id, attempt_no) [unique]
+  }
+
+  Note: 'Хранит только игровой результат попытки. Ответ ребёнка свободным текстом, голос, фото и иные данные не собираются.'
+}
+
+Table catalog_items {
+  id varchar(50) [pk, not null]
+  kind item_kind [not null]
+  budget_category budget_category [note: 'NEED/WANT для покупки; NULL для артефакта-цели.']
+  name varchar(120) [not null]
+  price int [not null, note: 'CHECK > 0.']
+  rarity rarity_kind
+  effect_code varchar(64) [not null]
+  effect_config json [note: 'Параметры эффекта; в SQLite — валидный JSON TEXT.']
+  unlock_location_code varchar(40)
+  content_version int [not null, default: 1]
+  active boolean [not null, default: true]
+
+  Note: 'Единый каталог минимум 8 покупок двух типов и целей-артефактов. Характеристики отделены от UI-кода.'
+}
+
+Table purchases {
+  id uuid [pk, not null]
+  profile_id uuid [not null]
+  period_id uuid [not null]
+  item_id varchar(50) [not null]
+  economy_event_id uuid [not null, unique]
+  quantity smallint [not null, default: 1]
+  unit_price int [not null, note: 'Снимок цены; CHECK > 0.']
+  total_price int [not null, note: 'CHECK > 0.']
+  pet_effect_snapshot json [note: 'Что изменилось у питомца после покупки.']
+  purchased_at timestamp [not null]
+
+  Note: 'Создаётся только после подтверждения и успешной проверки средств. Недостаток средств не создаёт покупку или проводку.'
+}
+
+Table financial_goals {
+  id uuid [pk, not null]
+  profile_id uuid [not null]
+  target_item_id varchar(50) [not null]
+  target_amount int [not null, note: 'Снимок стоимости цели; CHECK > 0.']
+  status goal_status [not null, default: 'ACTIVE']
+  savings_at_selection int [not null, default: 0]
+  selected_at timestamp [not null]
+  achieved_at timestamp
+  redeemed_at timestamp
+
+  Note: 'Одна активная цель на профиль (partial UNIQUE в SQLite). Накопления принадлежат SAVINGS-счёту и сохраняются при смене цели.'
+}
+
+Table inventory_items {
+  id uuid [pk, not null]
+  profile_id uuid [not null]
+  item_id varchar(50) [not null]
+  acquisition_event_id uuid [not null, unique]
+  quantity smallint [not null, default: 1]
+  is_equipped boolean [not null, default: false]
+  acquired_at timestamp [not null]
+
+  indexes {
+    (profile_id, item_id) [unique]
+  }
+
+  Note: 'Коллекция полученных артефактов. Расходуемая еда и игрушки применяются сразу и сюда не попадают.'
+}
+
+Table topic_progress {
+  profile_id uuid [not null]
+  topic_id varchar(40) [not null]
+  completed_assignments int [not null, default: 0]
+  successful_attempts int [not null, default: 0]
+  recoverable_errors int [not null, default: 0]
+  difficulty difficulty_level [not null, default: 'SIMPLE']
+  updated_at timestamp [not null]
+
+  indexes {
+    (profile_id, topic_id) [pk]
+  }
+
+  Note: 'Агрегированный учебный прогресс для ребёнка и локального раздела взрослого. Без негативных ярлыков или профилирования личности.'
+}
+
+Ref: app_settings.profile_id - local_profiles.id
+Ref: pets.profile_id - local_profiles.id
+Ref: game_periods.profile_id > local_profiles.id
+Ref: budget_plans.period_id - game_periods.id
+Ref: budget_allocations.budget_plan_id > budget_plans.id
+Ref: period_results.period_id - game_periods.id
+Ref: wallet_accounts.profile_id > local_profiles.id
+Ref: economy_events.profile_id > local_profiles.id
+Ref: economy_events.period_id > game_periods.id
+Ref: wallet_postings.event_id > economy_events.id
+Ref: wallet_postings.wallet_account_id > wallet_accounts.id
+Ref: quest_definitions.topic_id > education_topics.id
+Ref: quest_steps.quest_id > quest_definitions.id
+Ref: task_templates.topic_id > education_topics.id
+Ref: task_assignments.profile_id > local_profiles.id
+Ref: task_assignments.period_id > game_periods.id
+Ref: task_assignments.quest_id > quest_definitions.id
+Ref: task_assignments.task_template_id > task_templates.id
+Ref: quest_attempts.assignment_id > task_assignments.id
+Ref: quest_attempts.reward_event_id - economy_events.id
+Ref: purchases.profile_id > local_profiles.id
+Ref: purchases.period_id > game_periods.id
+Ref: purchases.item_id > catalog_items.id
+Ref: purchases.economy_event_id - economy_events.id
+Ref: financial_goals.profile_id > local_profiles.id
+Ref: financial_goals.target_item_id > catalog_items.id
+Ref: inventory_items.profile_id > local_profiles.id
+Ref: inventory_items.item_id > catalog_items.id
+Ref: inventory_items.acquisition_event_id - economy_events.id
+Ref: topic_progress.profile_id > local_profiles.id
+Ref: topic_progress.topic_id > education_topics.id

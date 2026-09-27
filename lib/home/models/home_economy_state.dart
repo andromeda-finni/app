@@ -1,4 +1,5 @@
 import 'active_period.dart';
+import 'parent_task.dart';
 import 'pet.dart';
 
 class ActiveGoal {
@@ -34,6 +35,7 @@ class HomeEconomyState {
     required this.activeEvent,
     required this.activeInsurance,
     required this.inventoryNames,
+    required this.parentTasks,
   });
 
   final Pet pet;
@@ -44,6 +46,7 @@ class HomeEconomyState {
   final Map<String, dynamic>? activeEvent;
   final Map<String, dynamic>? activeInsurance;
   final List<String> inventoryNames;
+  final List<ParentTask> parentTasks;
 
   HomeEconomyState copyWith({Pet? pet}) => HomeEconomyState(
     pet: pet ?? this.pet,
@@ -54,6 +57,7 @@ class HomeEconomyState {
     activeEvent: activeEvent,
     activeInsurance: activeInsurance,
     inventoryNames: inventoryNames,
+    parentTasks: parentTasks,
   );
 
   factory HomeEconomyState.fromJson(Map<String, dynamic> json) {
@@ -69,6 +73,7 @@ class HomeEconomyState {
     final event = json['activeEvent'];
     final insurance = json['activeInsurance'];
     final inventory = json['inventory'];
+    final parentTasks = json['parentTasks'];
     return HomeEconomyState(
       pet: Pet.fromJson(Map<String, dynamic>.from(petJson)),
       spendable: _walletAmount(wallets['MAIN'] ?? wallets['SPENDABLE']),
@@ -88,6 +93,14 @@ class HomeEconomyState {
                 .whereType<Map>()
                 .map((row) => row['name'] as String?)
                 .whereType<String>()
+                .toList(growable: false)
+          : const [],
+      parentTasks: parentTasks is List
+          ? parentTasks
+                .whereType<Map>()
+                .map(
+                  (row) => ParentTask.fromJson(Map<String, dynamic>.from(row)),
+                )
                 .toList(growable: false)
           : const [],
     );

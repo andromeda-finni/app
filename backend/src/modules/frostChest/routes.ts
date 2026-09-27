@@ -7,10 +7,8 @@ import { bodySchema, idempotencyKeySchema, paramsSchema, uuidSchema } from "../.
 import { withIdempotency } from "../../lib/idempotency.js";
 import { assertFrostPrincipal, ECONOMY_RULES, frostBonus } from "../economy/rules.js";
 
-// "Сундук Морозко": freeze wallet coins for five completed game days, then
-// receive principal + 10% in SPENDABLE. The current schema stores an integer
-// exact-10% bonus, so deposits use steps of ten until a later schema version
-// can represent ceil(10%) for arbitrary principals.
+// "Сундук Морозко": freeze wallet coins for the configured number of completed
+// game days, then return principal plus the configured bonus in SPENDABLE.
 export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     "/frost-chests/active",
@@ -18,14 +16,15 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
     async (req) => {
       const res = await pool.query(
         `SELECT fc.id, fc.principal_amount, fc.bonus_amount, fc.opened_at,
+                fc.required_active_days AS maturity_days,
                 COUNT(gp.id)::int AS completed_days,
-                COUNT(gp.id) >= $2 AS matured
+                COUNT(gp.id) >= fc.required_active_days AS matured
            FROM frost_chests fc
            LEFT JOIN game_periods gp ON gp.child_user_id = fc.child_user_id
             AND gp.status = 'COMPLETED' AND gp.closed_at >= fc.opened_at
           WHERE fc.child_user_id = $1 AND fc.status = 'ACTIVE'
           GROUP BY fc.id`,
-        [req.authUser!.id, ECONOMY_RULES.frostDays],
+        [req.authUser!.id],
       );
       return res.rows[0] ?? null;
     },
@@ -119,9 +118,16 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
             try {
               const chestRes = await client.query<{ id: string }>(
                 `INSERT INTO frost_chests
-                   (child_user_id, principal_amount, bonus_amount, deposit_transaction_id)
-                 VALUES ($1, $2, $3, $4) RETURNING id`,
-                [childUserId, principalAmount, bonusAmount, transfer.toTxnId],
+                   (child_user_id, principal_amount, bonus_amount,
+                    required_active_days, deposit_transaction_id)
+                 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+                [
+                  childUserId,
+                  principalAmount,
+                  bonusAmount,
+                  ECONOMY_RULES.frostDays,
+                  transfer.toTxnId,
+                ],
               );
               return {
                 id: chestRes.rows[0]!.id,
@@ -156,8 +162,12 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
       const { chestId } = req.params;
 
       return withTransaction(async (client) => {
-        const res = await client.query<{ principal_amount: number; opened_at: Date }>(
-          `SELECT principal_amount, opened_at FROM frost_chests
+        const res = await client.query<{
+          principal_amount: number;
+          opened_at: Date;
+          required_active_days: number;
+        }>(
+          `SELECT principal_amount, opened_at, required_active_days FROM frost_chests
             WHERE id = $1 AND child_user_id = $2 AND status = 'ACTIVE' FOR UPDATE`,
           [chestId, childUserId],
         );
@@ -168,7 +178,7 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
             WHERE child_user_id = $1 AND status = 'COMPLETED' AND closed_at >= $2`,
           [childUserId, chest.opened_at],
         );
-        if ((daysRes.rows[0]?.completed_days ?? 0) >= ECONOMY_RULES.frostDays) {
+        if ((daysRes.rows[0]?.completed_days ?? 0) >= chest.required_active_days) {
           throw new HttpError(400, "chest_already_matured_use_collect");
         }
 
@@ -206,8 +216,10 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
           principal_amount: number;
           bonus_amount: number;
           opened_at: Date;
+          required_active_days: number;
         }>(
-          `SELECT principal_amount, bonus_amount, opened_at FROM frost_chests
+          `SELECT principal_amount, bonus_amount, opened_at, required_active_days
+             FROM frost_chests
             WHERE id = $1 AND child_user_id = $2 AND status = 'ACTIVE' FOR UPDATE`,
           [chestId, childUserId],
         );
@@ -218,7 +230,7 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
             WHERE child_user_id = $1 AND status = 'COMPLETED' AND closed_at >= $2`,
           [childUserId, chest.opened_at],
         );
-        if ((daysRes.rows[0]?.completed_days ?? 0) < ECONOMY_RULES.frostDays) {
+        if ((daysRes.rows[0]?.completed_days ?? 0) < chest.required_active_days) {
           throw new HttpError(400, "chest_not_matured_yet");
         }
 

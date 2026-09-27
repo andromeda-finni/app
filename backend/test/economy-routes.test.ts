@@ -111,6 +111,7 @@ test("GET /economy/state returns the complete two-screen read model", async () =
         dailyQuestLimit: 3,
         bootsQuestLimit: 4,
         parentRewardLimit: 10,
+        savingsTransferAmounts: [5, 10],
         eventProbability: 0.7,
         firstEventDay: 2,
         minimumEventCost: 2,
@@ -120,6 +121,7 @@ test("GET /economy/state returns the complete two-screen read model", async () =
         frostMaximum: 50,
         frostStep: 10,
         frostDays: 5,
+        frostBonusPercent: 10,
       },
       pet: {
         pet_name: "Финни",

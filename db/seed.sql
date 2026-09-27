@@ -14,7 +14,8 @@ INSERT INTO education_topics (id, title, skill_description, sort_order) VALUES
   ('SAVING', 'Накопления', 'Учимся копить на цель', 2),
   ('SCAMS', 'Осторожно, обман', 'Учимся распознавать нечестные предложения', 3),
   ('CURRENCY', 'Иностранная валюта', 'Учимся переводить цены по курсу', 4),
-  ('CONSUMER_RIGHTS', 'Проверяем покупки', 'Учимся замечать условия и ошибки в чеках', 5)
+  ('CONSUMER_RIGHTS', 'Проверяем покупки', 'Учимся замечать условия и ошибки в чеках', 5),
+  ('INCOME', 'Откуда берутся деньги', 'Учимся понимать, что доход появляется из общего труда', 6)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO quest_definitions (id, topic_id, title, location_code, difficulty, reward_amount) VALUES
@@ -24,7 +25,8 @@ INSERT INTO quest_definitions (id, topic_id, title, location_code, difficulty, r
   -- Five-stage mini-games take the top step of the economy's 10/12/15 scale;
   -- any other value is refused when the reward is paid out.
   ('Q_TUGRIKI_CURRENCY', 'CURRENCY', 'Ярмарка тугриков', 'MARKET', 'SIMPLE', 15),
-  ('Q_MOLE_FINE_PRINT', 'CONSUMER_RIGHTS', 'Осторожно, мелкий шрифт', 'MARKET', 'SIMPLE', 15)
+  ('Q_MOLE_FINE_PRINT', 'CONSUMER_RIGHTS', 'Осторожно, мелкий шрифт', 'MARKET', 'SIMPLE', 15),
+  ('Q_TURNIP_HARVEST', 'INCOME', 'Репка', 'VILLAGE', 'SIMPLE', 10)
 ON CONFLICT (id) DO UPDATE SET
   reward_amount = EXCLUDED.reward_amount,
   title = EXCLUDED.title,
@@ -56,7 +58,7 @@ ON CONFLICT (quest_id, step_no) DO NOTHING;
 INSERT INTO shop_items (id, kind, name, price, rarity) VALUES
   ('FOOD_APPLE', 'NEED', 'Яблоко', 5, NULL),
   ('FOOD_CARROT', 'NEED', 'Морковка', 5, NULL),
-  ('PET_MEAL', 'NEED', 'Обед для Грошика', 10, NULL),
+  ('PET_MEAL', 'NEED', 'Обед для питомца', 10, NULL),
   ('TOY_BALL', 'WANT', 'Мячик', 8, NULL),
   ('CANDY', 'WANT', 'Конфета', 6, NULL),
   ('saucer', 'ARTIFACT', 'Серебряное блюдечко и наливное яблочко', 80, 'RARE'),
@@ -71,6 +73,11 @@ ON CONFLICT (id) DO UPDATE SET
   price = EXCLUDED.price,
   rarity = EXCLUDED.rarity,
   active = true;
+
+INSERT INTO quest_prerequisites (quest_id, prerequisite_quest_id)
+VALUES ('Q_TUGRIKI_CURRENCY', 'Q_MOLE_FINE_PRINT'),
+       ('Q_MOLE_FINE_PRINT', 'Q_TURNIP_HARVEST')
+ON CONFLICT DO NOTHING;
 
 UPDATE shop_items
    SET active = false

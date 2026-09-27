@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../economy/savings_screen.dart';
 import '../insurance/insurance_screen.dart';
-import '../quest_map/quest_map_screen.dart';
+import '../map/quest_map_screen.dart';
 import '../settings/child_settings_screen.dart';
 import '../shop/shop_screen.dart';
 import '../theme/app_theme.dart';
@@ -130,7 +130,8 @@ class _MainShellState extends State<MainShell> {
             HomeScreen(
               key: ValueKey('home-$_homeRevision'),
               apiClient: widget.apiClient,
-              onOpenShop: () => _openGoalStore(StoreMode.selectGoal),
+              onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
+              onOpenShop: () => _selectTab(2),
               onOpenQuests: () => _selectTab(1),
               onOpenSettings: _openSettings,
               onOpenInsurance: _openInsurance,

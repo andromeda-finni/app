@@ -29,7 +29,7 @@ import { insuranceRoutes } from "./modules/insurance/routes.js";
  * traffic and then 500ing on the first query that hits a missing column.
  * Bump this whenever a migration the code depends on is added.
  */
-const REQUIRED_SCHEMA_VERSION = "0025_insurance_policies.sql";
+const REQUIRED_SCHEMA_VERSION = "0026_turnip_quest.sql";
 
 const LOOPBACK_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
