@@ -1,5 +1,6 @@
 import type { PoolClient } from "pg";
 import { pickWeighted } from "../../lib/random.js";
+import { useArtifact, type ArtifactEffectResult } from "../../lib/artifacts.js";
 import { ECONOMY_RULES } from "../economy/rules.js";
 
 const PET_EVENT_HEALTH_DROP = 45;
@@ -10,6 +11,7 @@ export interface PetEventRollResult {
   occurrenceId?: string;
   coveredByInsurance?: boolean;
   insuranceNotice?: string;
+  artifactEffect?: ArtifactEffectResult;
 }
 
 /**
@@ -154,6 +156,35 @@ export async function rollActivePeriodPetEvent(
      RETURNING id`,
     [childUserId, pet.id, chosen.id, period.id, chosen.cost_amount],
   );
+  const occurrenceId = occurrenceRes.rows[0]!.id;
+
+  const vial = await useArtifact(client, {
+    childUserId,
+    itemId: "vial",
+    effectCode: "SECOND_CHANCE",
+    durabilityCost: 1,
+    referenceType: "pet_event_occurrence",
+    referenceId: occurrenceId,
+  });
+  if (vial) {
+    await client.query(
+      `UPDATE pet_event_occurrences
+          SET status = 'RESOLVED', resolved_at = now(),
+              prevented_by_inventory_item_id = $1
+        WHERE id = $2`,
+      [vial.inventoryItemId, occurrenceId],
+    );
+    await client.query(
+      `UPDATE pets SET health_level = $1, updated_at = now()
+        WHERE child_user_id = $2`,
+      [PET_HEALTH_FULL, childUserId],
+    );
+    return {
+      triggered: false,
+      occurrenceId,
+      artifactEffect: vial,
+    };
+  }
 
   // The bill is visible before the plan is approved, so it becomes part of
   // the amount the child must reserve for needs.
@@ -172,6 +203,6 @@ export async function rollActivePeriodPetEvent(
 
   return {
     triggered: true,
-    occurrenceId: occurrenceRes.rows[0]!.id,
+    occurrenceId,
   };
 }

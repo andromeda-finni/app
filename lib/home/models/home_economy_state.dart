@@ -1,28 +1,88 @@
 import 'active_period.dart';
+import 'artifact_catalog.dart';
 import 'parent_task.dart';
 import 'pet.dart';
 
 class ActiveGoal {
   const ActiveGoal({
+    required this.id,
+    required this.itemId,
     required this.name,
     required this.targetAmount,
     required this.savedAmount,
+    required this.status,
   });
 
+  final String id;
+  final String itemId;
   final String name;
   final int targetAmount;
   final int savedAmount;
+  final String status;
 
   int get remainingAmount =>
       (targetAmount - savedAmount).clamp(0, targetAmount).toInt();
   double get progress =>
       targetAmount <= 0 ? 0 : (savedAmount / targetAmount).clamp(0.0, 1.0);
+  bool get canRedeem => status == 'ACHIEVED' || savedAmount >= targetAmount;
 
   factory ActiveGoal.fromJson(Map<String, dynamic> json) => ActiveGoal(
+    id: json['id'] as String? ?? '',
+    itemId: json['target_item_id'] as String? ?? '',
     name: json['name'] as String? ?? 'Моя мечта',
     targetAmount: _int(json['target_amount']),
     savedAmount: _int(json['saved_amount']),
+    status: json['status'] as String? ?? 'ACTIVE',
   );
+}
+
+class ArtifactItem {
+  const ArtifactItem({
+    required this.id,
+    required this.itemId,
+    required this.name,
+    required this.rarity,
+    required this.equipped,
+    required this.durabilityCurrent,
+    required this.durabilityMax,
+    required this.isBroken,
+    required this.repairCost,
+    required this.isWearable,
+  });
+
+  final String id;
+  final String itemId;
+  final String name;
+  final String? rarity;
+  final bool equipped;
+  final int durabilityCurrent;
+  final int durabilityMax;
+  final bool isBroken;
+  final int repairCost;
+  final bool isWearable;
+
+  factory ArtifactItem.fromJson(Map<String, dynamic> json) => ArtifactItem(
+    id: json['id'] as String? ?? '',
+    itemId: json['item_id'] as String? ?? '',
+    name: json['name'] as String? ?? 'Артефакт',
+    rarity: json['rarity'] as String?,
+    equipped: json['equipped'] as bool? ?? false,
+    durabilityCurrent: _int(json['durability_current'] ?? 100),
+    durabilityMax: _int(json['durability_max'] ?? 100),
+    isBroken: json['is_broken'] as bool? ?? false,
+    repairCost: _int(json['repair_cost']),
+    isWearable:
+        json['is_wearable'] as bool? ??
+        (artifactDefinition(json['item_id'] as String? ?? '')?.wearable ??
+            false),
+  );
+
+  ArtifactDefinition? get definition => artifactDefinition(itemId);
+  String? get assetPath => definition?.assetPath;
+  String get ability => definition?.ability ?? 'Способность пока не описана.';
+  double get durabilityProgress => durabilityMax <= 0
+      ? 0
+      : (durabilityCurrent / durabilityMax).clamp(0.0, 1.0);
 }
 
 class HomeEconomyState {
@@ -34,7 +94,7 @@ class HomeEconomyState {
     required this.activeGoal,
     required this.activeEvent,
     required this.activeInsurance,
-    required this.inventoryNames,
+    required this.inventory,
     required this.parentTasks,
   });
 
@@ -45,8 +105,11 @@ class HomeEconomyState {
   final ActiveGoal? activeGoal;
   final Map<String, dynamic>? activeEvent;
   final Map<String, dynamic>? activeInsurance;
-  final List<String> inventoryNames;
+  final List<ArtifactItem> inventory;
   final List<ParentTask> parentTasks;
+
+  List<String> get inventoryNames =>
+      inventory.map((item) => item.name).toList(growable: false);
 
   HomeEconomyState copyWith({Pet? pet}) => HomeEconomyState(
     pet: pet ?? this.pet,
@@ -56,7 +119,7 @@ class HomeEconomyState {
     activeGoal: activeGoal,
     activeEvent: activeEvent,
     activeInsurance: activeInsurance,
-    inventoryNames: inventoryNames,
+    inventory: inventory,
     parentTasks: parentTasks,
   );
 
@@ -88,11 +151,13 @@ class HomeEconomyState {
       activeInsurance: insurance is Map
           ? Map<String, dynamic>.from(insurance)
           : null,
-      inventoryNames: inventory is List
+      inventory: inventory is List
           ? inventory
                 .whereType<Map>()
-                .map((row) => row['name'] as String?)
-                .whereType<String>()
+                .map(
+                  (row) =>
+                      ArtifactItem.fromJson(Map<String, dynamic>.from(row)),
+                )
                 .toList(growable: false)
           : const [],
       parentTasks: parentTasks is List

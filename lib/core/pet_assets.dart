@@ -22,8 +22,7 @@ const _furFolder = <String, String>{
 const kBaseCatAsset = 'assets/Cat/Red_collar/base/striped.png';
 
 String catAsset({required String? furOptionId, PetMood mood = PetMood.base}) {
-  final fur = _furFolder[furOptionId];
-  if (fur == null) return kBaseCatAsset;
+  final fur = _furFolder[furOptionId] ?? _furFolder['FUR_GRAY']!;
   return 'assets/Cat/Red_collar/${_moodFolder[mood]}/$fur.png';
 }
 

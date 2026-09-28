@@ -55,34 +55,36 @@ INSERT INTO quest_steps (quest_id, step_no, instruction, expected_action_code, s
    '{"correctOptionCode": "VERIFIED"}')
 ON CONFLICT (quest_id, step_no) DO NOTHING;
 
-INSERT INTO shop_items (id, kind, name, price, rarity) VALUES
-  ('FOOD_APPLE', 'NEED', 'Яблоко', 5, NULL),
-  ('FOOD_CARROT', 'NEED', 'Морковка', 5, NULL),
-  ('PET_MEAL', 'NEED', 'Обед для питомца', 10, NULL),
-  ('TOY_BALL', 'WANT', 'Мячик', 8, NULL),
-  ('CANDY', 'WANT', 'Конфета', 6, NULL),
-  ('saucer', 'ARTIFACT', 'Серебряное блюдечко и наливное яблочко', 80, 'RARE'),
-  ('vial', 'ARTIFACT', 'Склянка с живой водой', 90, 'RARE'),
-  ('tablecloth', 'ARTIFACT', 'Скатерть-самобранка', 105, 'EPIC'),
-  ('horseshoe', 'ARTIFACT', 'Золотая подкова', 120, 'EPIC'),
-  ('shield', 'ARTIFACT', 'Богатырский щит', 130, 'EPIC'),
-  ('purse', 'ARTIFACT', 'Кошель-самотряс', 140, 'LEGENDARY'),
-  ('boots', 'ARTIFACT', 'Сапоги-скороходы', 150, 'LEGENDARY')
+INSERT INTO shop_items (id, kind, name, price, rarity, effect_code, repair_cost_per_point) VALUES
+  ('FOOD_APPLE', 'NEED', 'Яблоко', 5, NULL, NULL, 0.20),
+  ('FOOD_CARROT', 'NEED', 'Морковка', 5, NULL, NULL, 0.20),
+  ('PET_MEAL', 'NEED', 'Обед для питомца', 10, NULL, NULL, 0.20),
+  ('TOY_BALL', 'WANT', 'Мячик', 8, NULL, NULL, 0.20),
+  ('CANDY', 'WANT', 'Конфета', 6, NULL, NULL, 0.20),
+  ('saucer', 'ARTIFACT', 'Серебряное блюдечко и наливное яблочко', 80, 'RARE', 'COST_FORESIGHT', 0.20),
+  ('vial', 'ARTIFACT', 'Склянка с живой водой', 90, 'RARE', 'SECOND_CHANCE', 100.00),
+  ('tablecloth', 'ARTIFACT', 'Скатерть-самобранка', 105, 'EPIC', 'NOURISHING_HOME', 0.20),
+  ('horseshoe', 'ARTIFACT', 'Золотая подкова', 120, 'EPIC', 'NEED_CASHBACK', 0.20),
+  ('shield', 'ARTIFACT', 'Богатырский щит', 130, 'EPIC', 'VIGILANCE_SHIELD', 0.20),
+  ('purse', 'ARTIFACT', 'Кошель-самотряс', 140, 'LEGENDARY', 'MAGIC_REMAINDER', 0.20),
+  ('boots', 'ARTIFACT', 'Сапоги-скороходы', 150, 'LEGENDARY', 'QUEST_PATH', 0.20)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   price = EXCLUDED.price,
   rarity = EXCLUDED.rarity,
+  effect_code = EXCLUDED.effect_code,
+  repair_cost_per_point = EXCLUDED.repair_cost_per_point,
   active = true;
-
-INSERT INTO quest_prerequisites (quest_id, prerequisite_quest_id)
-VALUES ('Q_TUGRIKI_CURRENCY', 'Q_MOLE_FINE_PRINT'),
-       ('Q_MOLE_FINE_PRINT', 'Q_TURNIP_HARVEST')
-ON CONFLICT DO NOTHING;
 
 UPDATE shop_items
    SET active = false
  WHERE kind = 'ARTIFACT'
    AND id NOT IN ('saucer', 'vial', 'tablecloth', 'horseshoe', 'shield', 'purse', 'boots');
+
+INSERT INTO quest_prerequisites (quest_id, prerequisite_quest_id)
+VALUES ('Q_TUGRIKI_CURRENCY', 'Q_MOLE_FINE_PRINT'),
+       ('Q_MOLE_FINE_PRINT', 'Q_TURNIP_HARVEST')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO pet_event_definitions (id, title, description, cost_amount) VALUES
   ('POOR_PAW', 'Уколол лапку', 'Финни бегал по лесу за бабочкой и наступил на колючку. Нужен целебный подорожник и бинтик.', 10),

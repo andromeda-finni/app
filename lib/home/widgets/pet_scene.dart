@@ -66,11 +66,17 @@ class _PetSceneState extends State<PetScene>
 
   @override
   Widget build(BuildContext context) {
+    // Tap reactions must stay inside the selected pet's art set. The old
+    // generic `Cat/Base/playful.png` belongs to a different brown cat and
+    // caused the pet to visibly change fur colour for a moment.
+    final displayedAsset = _reacting
+        ? catAsset(furOptionId: widget.pet.furOptionId, mood: PetMood.happy)
+        : widget.pet.assetPath;
     final image = AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
       child: Image.asset(
-        _reacting ? 'assets/Cat/Base/playful.png' : widget.pet.assetPath,
-        key: ValueKey(_reacting ? 'pet-reaction' : widget.pet.assetPath),
+        displayedAsset,
+        key: ValueKey(displayedAsset),
         height: widget.height * widget.petHeightFactor,
         fit: BoxFit.contain,
         alignment: Alignment.bottomCenter,

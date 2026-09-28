@@ -130,7 +130,13 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
             [childUserId],
           ),
           pool.query(
-            `SELECT i.id, i.item_id, s.name, s.rarity,
+            `SELECT i.id, i.item_id, s.name, s.rarity, s.effect_code,
+                    i.durability_current, i.durability_max, i.is_broken,
+                    (i.item_id IN ('shield', 'boots', 'purse')) AS is_wearable,
+                    CASE
+                      WHEN i.item_id = 'vial' AND i.durability_current < i.durability_max THEN 100
+                      ELSE CEIL((i.durability_max - i.durability_current) * s.repair_cost_per_point)::int
+                    END AS repair_cost,
                     (p.equipped_inventory_item_id = i.id) AS equipped
                FROM inventory_items i
                JOIN shop_items s ON s.id = i.item_id

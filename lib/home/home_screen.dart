@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import 'models/home_economy_state.dart';
 import 'pet_care_screen.dart';
 import 'widgets/budget_plan_card.dart';
+import 'widgets/coin_distribution_sheet.dart';
 import 'widgets/dream_card.dart';
 import 'widgets/pet_name_header.dart';
 import 'widgets/pet_scene.dart';
@@ -29,6 +30,7 @@ class HomeScreen extends StatefulWidget {
     this.onOpenSettings,
     this.onOpenInsurance,
     this.onPlanningRequiredChanged,
+    this.refreshSignal = 0,
   });
 
   final ApiClient apiClient;
@@ -38,6 +40,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback? onOpenSettings;
   final VoidCallback? onOpenInsurance;
   final ValueChanged<bool>? onPlanningRequiredChanged;
+  final int refreshSignal;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -55,6 +58,14 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshSignal != widget.refreshSignal) {
+      _load(showLoader: false);
+    }
   }
 
   Future<void> _load({bool showLoader = true}) async {
@@ -119,6 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final response = await widget.apiClient.post('/periods');
     await _load(showLoader: false);
     if (!mounted) return;
+    _showArtifactEffects(response['artifactEffects']);
     final insuranceNotice = response['insuranceNotice'] as String?;
     if (insuranceNotice != null) {
       ScaffoldMessenger.of(context)
@@ -126,6 +138,52 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     if (_data?.activeEvent != null) await _openEvent();
   });
+
+  Future<HomeEconomyState> _equipArtifact(ArtifactItem item) async {
+    await widget.apiClient.post(
+      '/pet/equip',
+      body: {'inventoryItemId': item.equipped ? null : item.id},
+    );
+    await _load(showLoader: false);
+    return _data!;
+  }
+
+  Future<HomeEconomyState> _repairArtifact(ArtifactItem item) async {
+    await widget.apiClient.post('/inventory/${item.id}/repair');
+    await _load(showLoader: false);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('«${item.name}» снова в полном порядке!')),
+      );
+    }
+    return _data!;
+  }
+
+  void _showArtifactEffects(Object? rawEffects) {
+    if (!mounted || rawEffects is! List || rawEffects.isEmpty) return;
+    final first = rawEffects.first;
+    if (first is! Map) return;
+    final effectCode = first['effectCode'] as String?;
+    final message = switch (effectCode) {
+      'MAGIC_REMAINDER' => 'Кошель-самотряс: +2 монеты!',
+      'NOURISHING_HOME' => 'Скатерть сохранила сытость питомца.',
+      'COST_FORESIGHT' => 'Блюдечко показало прогноз затрат.',
+      'SECOND_CHANCE' => 'Живая вода защитила питомца!',
+      _ => 'Сработала способность артефакта!',
+    };
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Row(
+          children: [
+            const Icon(Icons.auto_awesome_rounded, color: AppColors.coinGold),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message)),
+          ],
+        ),
+      ),
+    );
+  }
 
   PetEventOccurrence? _activeEvent(HomeEconomyState data) {
     final json = data.activeEvent;
@@ -172,6 +230,31 @@ class _HomeScreenState extends State<HomeScreen> {
     await _load(showLoader: false);
   }
 
+  Future<void> _transferSavings(String action, int amount) =>
+      _runMutation(() async {
+        final idempotencyKey =
+            'home-$action-${DateTime.now().microsecondsSinceEpoch}-$amount';
+        await widget.apiClient.post(
+          '/savings/$action',
+          body: {'amount': amount, 'idempotencyKey': idempotencyKey},
+        );
+        await _load(showLoader: false);
+      });
+
+  Future<void> _redeemGoal() => _runMutation(() async {
+    final goal = _data?.activeGoal;
+    if (goal == null || goal.id.isEmpty || !goal.canRedeem) return;
+    await widget.apiClient.post('/goals/${goal.id}/redeem');
+    await _load(showLoader: false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('«${goal.name}» добавлен в коллекцию!'),
+        action: SnackBarAction(label: 'Открыть', onPressed: _openCare),
+      ),
+    );
+  });
+
   Future<void> _closeDay() async {
     try {
       await _runMutation(() async {
@@ -187,6 +270,7 @@ class _HomeScreenState extends State<HomeScreen> {
           summary = null;
         }
         await _load(showLoader: false);
+        _showArtifactEffects(response['artifactEffects']);
         if (!mounted || summary == null) return;
         await Navigator.of(context).push<void>(
           MaterialPageRoute(
@@ -224,6 +308,8 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           onOpenInsurance: widget.onOpenInsurance ?? () {},
           onOpenEvent: _openEvent,
+          onEquipArtifact: _equipArtifact,
+          onRepairArtifact: _repairArtifact,
         ),
       ),
     );
@@ -273,6 +359,38 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _openDistribution() async {
+    final data = _data;
+    final day = data?.activeDay;
+    if (data == null) return;
+    if (day == null || !day.isConfirmed) {
+      _showError('Сначала составь и утверди план на сегодня.');
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadii.sheet),
+        ),
+      ),
+      builder: (_) => CoinDistributionSheet(
+        spendable: data.spendable,
+        savings: data.savings,
+        protectedReserve: day.remainingReserve,
+        goal: data.activeGoal,
+        onDeposit: (amount) => _transferSavings('deposit', amount),
+        onWithdraw: (amount) => _transferSavings('withdraw', amount),
+        onRedeem:
+            data.activeGoal?.canRedeem == true && data.activeGoal!.id.isNotEmpty
+            ? _redeemGoal
+            : null,
       ),
     );
   }
@@ -385,6 +503,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onOpenGoal: widget.onChooseGoal ?? _showProgress,
         onOpenShop: widget.onOpenShop ?? _showProgress,
         onOpenPlan: _openPlan,
+        onOpenDistribution: _openDistribution,
         onCloseDay: _closeDay,
         onProgress: _showProgress,
         onOpenEvent: _openEvent,
@@ -406,6 +525,7 @@ class _HomeContent extends StatelessWidget {
     required this.onOpenGoal,
     required this.onOpenShop,
     required this.onOpenPlan,
+    required this.onOpenDistribution,
     required this.onCloseDay,
     required this.onProgress,
     required this.onOpenEvent,
@@ -422,6 +542,7 @@ class _HomeContent extends StatelessWidget {
   final VoidCallback onOpenGoal;
   final VoidCallback onOpenShop;
   final VoidCallback onOpenPlan;
+  final VoidCallback onOpenDistribution;
   final VoidCallback onCloseDay;
   final VoidCallback onProgress;
   final VoidCallback onOpenEvent;
@@ -534,6 +655,38 @@ class _HomeContent extends StatelessWidget {
                       ),
                     ),
                   ],
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 66,
+                    child: OutlinedButton(
+                      key: const Key('distribute-earned-coins'),
+                      onPressed: busy ? null : onOpenDistribution,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.crimson,
+                        backgroundColor: AppColors.infoBg,
+                        side: const BorderSide(color: AppColors.coinGold),
+                        shape: const StadiumBorder(),
+                        textStyle: AppTextStyles.button.copyWith(
+                          color: AppColors.crimson,
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.savings_rounded),
+                          SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              'Распределить заработанные монеты',
+                              maxLines: 2,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 14),
                   LayoutBuilder(
                     builder: (context, constraints) {

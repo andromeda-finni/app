@@ -4,6 +4,7 @@ import { HttpError } from "../../lib/errors.js";
 import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, paramsSchema, shortIdSchema, uuidSchema } from "../../lib/schema.js";
+import { useArtifact } from "../../lib/artifacts.js";
 import { ECONOMY_RULES } from "../economy/rules.js";
 
 interface UiSpec {
@@ -24,14 +25,37 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         `SELECT difficulty FROM child_profiles WHERE user_id = $1`,
         [req.authUser!.id],
       );
+      const perksRes = await pool.query<{ boots_active: boolean; saucer_active: boolean }>(
+        `SELECT
+           EXISTS (
+             SELECT 1 FROM inventory_items i
+             JOIN pets p ON p.child_user_id = i.child_user_id
+                          AND p.equipped_inventory_item_id = i.id
+             WHERE i.child_user_id = $1 AND i.item_id = 'boots'
+               AND NOT i.is_broken AND i.durability_current > 0
+           ) AS boots_active,
+           EXISTS (
+             SELECT 1 FROM inventory_items i
+             WHERE i.child_user_id = $1 AND i.item_id = 'saucer'
+               AND NOT i.is_broken AND i.durability_current > 0
+           ) AS saucer_active`,
+        [req.authUser!.id],
+      );
+      const perks = perksRes.rows[0];
       const res = await pool.query(
         `SELECT id, topic_id, title, character_code, location_code, difficulty, reward_amount
            FROM quest_definitions
           WHERE active AND difficulty = $1
-          ORDER BY id`,
-        [childRes.rows[0]?.difficulty ?? "SIMPLE"],
+          ORDER BY id
+          LIMIT $2`,
+        [childRes.rows[0]?.difficulty ?? "SIMPLE", perks?.boots_active ? 4 : 3],
       );
-      return res.rows;
+      return res.rows.map((quest) => ({
+        ...quest,
+        forecast: perks?.saucer_active
+          ? { rewardAmount: quest.reward_amount, energyCost: null }
+          : null,
+      }));
     },
   );
 
@@ -288,7 +312,8 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         const bootsRes = await client.query(
           `SELECT 1 FROM pets p
             JOIN inventory_items i ON i.id = p.equipped_inventory_item_id
-           WHERE p.child_user_id = $1 AND i.item_id = 'boots'`,
+           WHERE p.child_user_id = $1 AND i.item_id = 'boots'
+             AND NOT i.is_broken AND i.durability_current > 0`,
           [childUserId],
         );
         const dailyLimit = (bootsRes.rowCount ?? 0) > 0
@@ -324,12 +349,23 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
           [txn.id, period.id, assignmentId],
         );
 
+        const bootsEffect = await useArtifact(client, {
+          childUserId,
+          itemId: "boots",
+          effectCode: "QUEST_PATH",
+          durabilityCost: 5,
+          referenceType: "assignment",
+          referenceId: assignmentId,
+          equippedOnly: true,
+        });
+
         return {
           outcome,
           feedback: step.success_feedback,
           questCompleted: true,
           rewardAmount: assignment.reward_amount,
           balanceAfter: txn.balanceAfter,
+          artifactEffects: bootsEffect ? [bootsEffect] : [],
         };
       });
     },

@@ -3,6 +3,7 @@ import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { postTransaction, transferBetweenWallets } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
+import { useArtifact } from "../../lib/artifacts.js";
 import { bodySchema, nonNegativeIntSchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
 import { calculateDayOutcome, ECONOMY_RULES } from "../economy/rules.js";
 import { lockGoalOwner, requireGoal } from "../economy/goals.js";
@@ -106,6 +107,52 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
           idempotencyKey: `daily-income:${periodId}`,
         });
 
+        const artifactEffects = [];
+        let balanceAfter = txn.balanceAfter;
+
+        const tablecloth = await useArtifact(client, {
+          childUserId,
+          itemId: "tablecloth",
+          effectCode: "NOURISHING_HOME",
+          durabilityCost: 25,
+          referenceType: "game_period",
+          referenceId: periodId,
+        });
+        if (tablecloth) {
+          await client.query(
+            `UPDATE pets
+                SET energy_level = GREATEST(energy_level, 40), updated_at = now()
+              WHERE child_user_id = $1`,
+            [childUserId],
+          );
+          artifactEffects.push(tablecloth);
+        }
+
+        if (sequenceNo > 1 && (balances["SPENDABLE"] ?? 0) >= 10) {
+          const purse = await useArtifact(client, {
+            childUserId,
+            itemId: "purse",
+            effectCode: "MAGIC_REMAINDER",
+            durabilityCost: 10,
+            referenceType: "game_period",
+            referenceId: periodId,
+            equippedOnly: true,
+          });
+          if (purse) {
+            const bonus = await postTransaction(client, {
+              childUserId,
+              walletKind: "SPENDABLE",
+              eventType: "ARTIFACT_BONUS",
+              deltaAmount: 2,
+              referenceType: "game_period",
+              referenceId: periodId,
+              idempotencyKey: `artifact-purse-bonus:${periodId}`,
+            });
+            balanceAfter = bonus.balanceAfter;
+            artifactEffects.push(purse);
+          }
+        }
+
         const planRes = await client.query<{ id: string }>(
           `INSERT INTO budget_plans (period_id, child_user_id, available_amount)
            VALUES ($1, $2, $3) RETURNING id`,
@@ -113,15 +160,17 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
         );
 
         const event = await rollActivePeriodPetEvent(client, childUserId);
+        if (event.artifactEffect) artifactEffects.push(event.artifactEffect);
 
         return {
           periodId,
           budgetPlanId: planRes.rows[0]!.id,
           grantAmount,
-          balanceAfter: txn.balanceAfter,
+          balanceAfter,
           eventTriggered: event.triggered,
           coveredByInsurance: event.coveredByInsurance ?? false,
           insuranceNotice: event.insuranceNotice,
+          artifactEffects,
         };
       });
 
@@ -400,7 +449,19 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
           ],
         );
 
-        return readDaySummary(client, childUserId, periodId);
+        const saucerEffect = await useArtifact(client, {
+          childUserId,
+          itemId: "saucer",
+          effectCode: "COST_FORESIGHT",
+          durabilityCost: 2,
+          referenceType: "game_period",
+          referenceId: periodId,
+        });
+        const summary = await readDaySummary(client, childUserId, periodId);
+        return {
+          ...summary,
+          artifactEffects: saucerEffect ? [saucerEffect] : [],
+        };
       });
 
       return result;

@@ -18,6 +18,8 @@ class PetCareScreen extends StatefulWidget {
     required this.onRefresh,
     required this.onOpenInsurance,
     required this.onOpenEvent,
+    required this.onEquipArtifact,
+    required this.onRepairArtifact,
   });
 
   final HomeEconomyState state;
@@ -25,6 +27,8 @@ class PetCareScreen extends StatefulWidget {
   final Future<HomeEconomyState> Function() onRefresh;
   final VoidCallback onOpenInsurance;
   final VoidCallback onOpenEvent;
+  final Future<HomeEconomyState> Function(ArtifactItem item) onEquipArtifact;
+  final Future<HomeEconomyState> Function(ArtifactItem item) onRepairArtifact;
 
   @override
   State<PetCareScreen> createState() => _PetCareScreenState();
@@ -45,6 +49,32 @@ class _PetCareScreenState extends State<PetCareScreen> {
   Future<void> _refresh() async {
     final next = await widget.onRefresh();
     if (mounted) setState(() => _state = next);
+  }
+
+  Future<void> _equipArtifact(ArtifactItem item) async {
+    try {
+      final next = await widget.onEquipArtifact(item);
+      if (mounted) setState(() => _state = next);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось изменить снаряжение.')),
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> _repairArtifact(ArtifactItem item) async {
+    try {
+      final next = await widget.onRepairArtifact(item);
+      if (mounted) setState(() => _state = next);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось починить артефакт.')),
+      );
+      rethrow;
+    }
   }
 
   @override
@@ -128,7 +158,12 @@ class _PetCareScreenState extends State<PetCareScreen> {
                         ],
                       ),
                       const SizedBox(height: 14),
-                      CollectionCard(items: _state.inventoryNames),
+                      CollectionCard(
+                        items: _state.inventory,
+                        spendable: _state.spendable,
+                        onEquip: _equipArtifact,
+                        onRepair: _repairArtifact,
+                      ),
                       const SizedBox(height: 14),
                       PlantainTableCard(
                         activeEvent: _state.activeEvent,

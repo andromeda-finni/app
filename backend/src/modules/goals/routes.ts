@@ -145,8 +145,14 @@ export async function goalRoutes(app: FastifyInstance): Promise<void> {
         );
 
         const invRes = await client.query<{ id: string }>(
-          `INSERT INTO inventory_items (child_user_id, item_id, financial_goal_id)
-           VALUES ($1, $2, $3) RETURNING id`,
+          `INSERT INTO inventory_items
+             (child_user_id, item_id, financial_goal_id,
+              durability_current, durability_max, is_broken)
+           VALUES ($1, $2, $3,
+                   CASE WHEN $2 = 'vial' THEN 1 ELSE 100 END,
+                   CASE WHEN $2 = 'vial' THEN 1 ELSE 100 END,
+                   false)
+           RETURNING id`,
           [childUserId, goal.target_item_id, goalId],
         );
 
@@ -160,7 +166,13 @@ export async function goalRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [requireAuth, requireRole("CHILD")] },
     async (req) => {
       const res = await pool.query(
-        `SELECT i.id, i.item_id, s.name, s.rarity, i.acquired_at,
+        `SELECT i.id, i.item_id, s.name, s.rarity, s.effect_code, i.acquired_at,
+                i.durability_current, i.durability_max, i.is_broken,
+                (i.item_id IN ('shield', 'boots', 'purse')) AS is_wearable,
+                CASE
+                  WHEN i.item_id = 'vial' AND i.durability_current < i.durability_max THEN 100
+                  ELSE CEIL((i.durability_max - i.durability_current) * s.repair_cost_per_point)::int
+                END AS repair_cost,
                 (p.equipped_inventory_item_id = i.id) AS equipped
            FROM inventory_items i
            JOIN shop_items s ON s.id = i.item_id
@@ -173,29 +185,4 @@ export async function goalRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
-  app.post<{ Body: { inventoryItemId?: string | null } }>(
-    "/pet/equip",
-    {
-      preHandler: [requireAuth, requireRole("CHILD")],
-      schema: bodySchema({ inventoryItemId: { type: ["string", "null"], format: "uuid" } }),
-    },
-    async (req) => {
-      const childUserId = req.authUser!.id;
-      const inventoryItemId = req.body?.inventoryItemId ?? null;
-
-      if (inventoryItemId) {
-        const owns = await pool.query(
-          `SELECT 1 FROM inventory_items WHERE id = $1 AND child_user_id = $2`,
-          [inventoryItemId, childUserId],
-        );
-        if (owns.rowCount === 0) throw new HttpError(403, "item_not_owned");
-      }
-
-      await pool.query(
-        `UPDATE pets SET equipped_inventory_item_id = $1, updated_at = now() WHERE child_user_id = $2`,
-        [inventoryItemId, childUserId],
-      );
-      return { ok: true };
-    },
-  );
 }

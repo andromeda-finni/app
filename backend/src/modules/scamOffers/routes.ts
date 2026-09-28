@@ -5,6 +5,7 @@ import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { pickWeighted } from "../../lib/random.js";
 import { bodySchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
+import { useArtifact } from "../../lib/artifacts.js";
 
 const TRIGGER_PROBABILITY = 0.15;
 const DECLINE_JOY_REWARD = 2;
@@ -118,6 +119,32 @@ export async function scamOfferRoutes(app: FastifyInstance): Promise<void> {
             [DECLINE_JOY_REWARD, childUserId],
           );
           return { decision, feedback: offer.decline_feedback, costPaid: 0 };
+        }
+
+        const shield = await useArtifact(client, {
+          childUserId,
+          itemId: "shield",
+          effectCode: "VIGILANCE_SHIELD",
+          durabilityCost: 20,
+          referenceType: "scam_offer_occurrence",
+          referenceId: occurrenceId,
+          equippedOnly: true,
+        });
+        if (shield) {
+          await client.query(
+            `UPDATE scam_offer_occurrences
+                SET status = 'RESOLVED', decision = 'ACCEPTED', resolved_at = now(),
+                    blocked_by_inventory_item_id = $1
+              WHERE id = $2`,
+            [shield.inventoryItemId, occurrenceId],
+          );
+          return {
+            decision,
+            status: "BLOCKED_BY_SHIELD",
+            feedback: "Богатырский щит отразил обман. Монеты остались у тебя!",
+            costPaid: 0,
+            artifactEffect: shield,
+          };
         }
 
         const txn = await postTransaction(client, {

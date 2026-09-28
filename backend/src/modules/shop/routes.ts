@@ -5,6 +5,7 @@ import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { withIdempotency } from "../../lib/idempotency.js";
 import { bodySchema, idempotencyKeySchema, shortIdSchema } from "../../lib/schema.js";
+import { useArtifact } from "../../lib/artifacts.js";
 
 const IMPULSE_ENERGY_PENALTY = 5;
 const IMPULSE_JOY_PENALTY = 5;
@@ -140,6 +141,29 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
               impulsive = needSpent < period.need_amount;
             }
 
+            if (impulsive) {
+              const shield = await useArtifact(client, {
+                childUserId,
+                itemId: "shield",
+                effectCode: "VIGILANCE_SHIELD",
+                durabilityCost: 20,
+                referenceType: "purchase_attempt",
+                referenceId: idempotencyKey.slice(0, 80),
+                equippedOnly: true,
+              });
+              if (shield) {
+                return {
+                  purchaseId: null,
+                  balanceAfter: null,
+                  impulsive: true,
+                  status: "BLOCKED_BY_SHIELD" as const,
+                  costPaid: 0,
+                  cashbackAmount: 0,
+                  artifactEffect: shield,
+                };
+              }
+            }
+
             const txn = await postTransaction(client, {
               childUserId,
               walletKind: "SPENDABLE",
@@ -156,6 +180,33 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
               [childUserId, itemId, item.kind, txn.id, quantity, item.price, totalPrice],
             );
 
+            let balanceAfter = txn.balanceAfter;
+            let cashbackAmount = 0;
+            let artifactEffect = null;
+            if (item.kind === "NEED") {
+              artifactEffect = await useArtifact(client, {
+                childUserId,
+                itemId: "horseshoe",
+                effectCode: "NEED_CASHBACK",
+                durabilityCost: 5,
+                referenceType: "purchase",
+                referenceId: purchaseRes.rows[0]!.id,
+              });
+              if (artifactEffect) {
+                cashbackAmount = Math.ceil(totalPrice * 0.1);
+                const cashback = await postTransaction(client, {
+                  childUserId,
+                  walletKind: "SPENDABLE",
+                  eventType: "CASHBACK",
+                  deltaAmount: cashbackAmount,
+                  referenceType: "purchase",
+                  referenceId: purchaseRes.rows[0]!.id,
+                  idempotencyKey: `artifact-cashback:${purchaseRes.rows[0]!.id}`,
+                });
+                balanceAfter = cashback.balanceAfter;
+              }
+            }
+
             if (impulsive) {
               await client.query(
                 `UPDATE pets
@@ -169,15 +220,18 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
 
             return {
               purchaseId: purchaseRes.rows[0]!.id,
-              balanceAfter: txn.balanceAfter,
+              balanceAfter,
               impulsive,
+              status: "COMPLETED" as const,
+              cashbackAmount,
+              artifactEffect,
             };
           },
         ),
       );
 
       reply
-        .code(outcome.replayed ? 200 : 201)
+        .code(outcome.replayed || outcome.result.status === "BLOCKED_BY_SHIELD" ? 200 : 201)
         .send({ ...outcome.result, replayed: outcome.replayed });
     },
   );

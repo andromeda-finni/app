@@ -19,7 +19,10 @@ export type TransactionEventType =
   | "GOAL_REDEMPTION"
   | "PET_EVENT_PAYMENT"
   | "INSURANCE_PREMIUM"
-  | "SCAM_OFFER_LOSS";
+  | "SCAM_OFFER_LOSS"
+  | "CASHBACK"
+  | "ARTIFACT_BONUS"
+  | "ARTIFACT_REPAIR";
 
 export interface PostTransactionInput {
   childUserId: string;
