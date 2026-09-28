@@ -9,13 +9,32 @@ import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/games/turnip/turnip_game_screen.dart';
 import 'package:andromeda_app/map/quest_map_data.dart';
 import 'package:andromeda_app/map/quest_map_screen.dart';
+import 'package:andromeda_app/minigames/park/park_project_screen.dart';
 import 'package:andromeda_app/theme/app_theme.dart';
 
 import 'support/fake_auth_storage.dart';
 
 Widget _map({List<String> completed = const [], bool showBack = false}) {
-  final client = MockClient(
-    (request) async => http.Response(
+  final client = MockClient((request) async {
+    if (request.url.path == '/park-project') {
+      return http.Response(
+        jsonEncode({
+          'stage': 'FIRST_OFFER',
+          'scene': 'FIRST_OFFER',
+          'targetAmount': 100,
+          'collectedAmount': 80,
+          'offerAmount': 20,
+          'spendableBalance': 75,
+          'availableToContribute': 75,
+          'canContribute': true,
+          'childContribution': 0,
+          'completed': false,
+          'daysToNextStage': null,
+        }),
+        200,
+      );
+    }
+    return http.Response(
       jsonEncode({
         'pet': {'pet_name': 'Мурзик', 'fur_option_id': 'FUR_GRAY'},
         'quests': [
@@ -25,8 +44,8 @@ Widget _map({List<String> completed = const [], bool showBack = false}) {
       }),
       200,
       headers: {'content-type': 'application/json; charset=utf-8'},
-    ),
-  );
+    );
+  });
   return MaterialApp(
     theme: AppTheme.light,
     home: QuestMapScreen(
@@ -85,11 +104,15 @@ void main() {
       );
     });
 
-    test('every playable node maps to a server quest', () {
-      for (final node in questMapNodes.where((n) => n.isPlayable)) {
+    test('every rewarded node maps to a server quest', () {
+      for (final node in questMapNodes.where((n) => n.isRewardedQuest)) {
         expect(node.destination.questId, isNotNull, reason: node.id);
       }
       expect(playableQuestCount, 4);
+      expect(
+        questMapNodes.singleWhere((node) => node.id == 'badger').isPlayable,
+        isTrue,
+      );
     });
   });
 
@@ -138,6 +161,31 @@ void main() {
 
     await _openNode(tester, 'badger');
     expect(find.text('Сначала пройди предыдущее задание'), findsOneWidget);
+  });
+
+  testWidgets('finishing Tugriki opens the long park quest', (tester) async {
+    await tester.pumpWidget(
+      _map(
+        completed: const [
+          'Q_TURNIP_HARVEST',
+          'Q_MOLE_FINE_PRINT',
+          'Q_BAKERY_PROFIT',
+          'Q_TUGRIKI_CURRENCY',
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _openNode(tester, 'badger');
+    expect(find.text('Есть просьба'), findsWidgets);
+    expect(find.text('К Барсуку'), findsOneWidget);
+    await tester.tap(find.text('К Барсуку'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ParkProjectScreen), findsOneWidget);
+    expect(find.text('Знакомство с Барсуком'), findsOneWidget);
+    expect(find.textContaining('Привет, Мурзик!'), findsOneWidget);
+    expect(find.text('80 из 100'), findsNothing);
   });
 
   for (final width in [320.0, 360.0, 412.0]) {

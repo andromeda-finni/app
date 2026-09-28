@@ -21,6 +21,7 @@ import { parentViewRoutes } from "./modules/parentView/routes.js";
 import { onboardingRoutes } from "./modules/onboarding/routes.js";
 import { economyRoutes } from "./modules/economy/routes.js";
 import { childSettingsRoutes } from "./modules/childSettings/routes.js";
+import { parkProjectRoutes } from "./modules/parkProject/routes.js";
 
 /**
  * The migration this build's SQL assumes. `/health` refuses to report ready
@@ -29,7 +30,7 @@ import { childSettingsRoutes } from "./modules/childSettings/routes.js";
  * traffic and then 500ing on the first query that hits a missing column.
  * Bump this whenever a migration the code depends on is added.
  */
-const REQUIRED_SCHEMA_VERSION = "0031_bakery_quest.sql";
+const REQUIRED_SCHEMA_VERSION = "0032_park_project.sql";
 
 const LOOPBACK_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
@@ -149,6 +150,7 @@ export async function buildApp() {
   await app.register(shopRoutes);
   await app.register(periodRoutes);
   await app.register(questRoutes);
+  await app.register(parkProjectRoutes);
   await app.register(parentTaskRoutes);
   await app.register(frostChestRoutes);
   await app.register(goalRoutes);

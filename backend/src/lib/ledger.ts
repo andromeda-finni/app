@@ -18,7 +18,8 @@ export type TransactionEventType =
   | "FROST_BONUS"
   | "GOAL_REDEMPTION"
   | "PET_EVENT_PAYMENT"
-  | "SCAM_OFFER_LOSS";
+  | "SCAM_OFFER_LOSS"
+  | "PARK_CONTRIBUTION";
 
 export interface PostTransactionInput {
   childUserId: string;
