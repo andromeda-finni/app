@@ -19,7 +19,8 @@ class QuestMapPreviewApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.crimson),
         fontFamily: AppFonts.body,
       ),
-      home: const QuestMapScreen(),
+      // Representative review state: one quest completed, the second current.
+      home: const QuestMapScreen(showBack: false, initialUnlockedIndex: 1),
     );
   }
 }

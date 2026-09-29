@@ -27,6 +27,20 @@ String catAsset({required String? furOptionId, PetMood mood = PetMood.base}) {
   return 'assets/Cat/Red_collar/${_moodFolder[mood]}/$fur.webp';
 }
 
+/// Side-view map sprite used only while the pet is travelling between quests.
+/// Keeping movement art separate avoids sliding the front-facing home pose
+/// along the road. Unknown fur options deliberately fall back to gray.
+String catWalkingAsset({required String? furOptionId}) {
+  final fur = _furFolder[furOptionId] ?? 'striped';
+  return 'assets/map/cat_walk/$fur.webp';
+}
+
+/// Three-quarter standing pose used while the pet waits on the map.
+String catMapIdleAsset({required String? furOptionId}) {
+  final fur = _furFolder[furOptionId] ?? 'striped';
+  return 'assets/map/cat_idle/$fur.webp';
+}
+
 // A pet event (illness) takes 45 health off, so "unwell" has to start above
 // 55 or the pet would look perfectly fine while an unpaid bill is pending.
 const _sadHealth = 60;
