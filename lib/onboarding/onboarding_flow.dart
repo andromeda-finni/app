@@ -5,6 +5,7 @@ import '../core/auth_storage.dart';
 import '../core/child_difficulty.dart';
 import '../theme/app_theme.dart';
 import 'difficulty_choice_screen.dart';
+import 'onboarding_collar_screen.dart';
 import 'onboarding_data.dart';
 import 'onboarding_step1_screen.dart';
 import 'onboarding_step2_screen.dart';
@@ -12,14 +13,16 @@ import 'onboarding_step3_screen.dart';
 import 'onboarding_step4_screen.dart';
 import 'widgets/story_button.dart';
 
-/// Hosts the 4-step onboarding and keeps the current step explicit so it can
+/// Hosts onboarding and keeps each persisted tutorial step explicit so it can
 /// be restored after the app is closed.
 ///
 /// Two real backend calls happen along the way:
 /// - Before step 1 is shown: `POST /auth/child/register` (standalone, no
 ///   parent/invite required — that's an optional later step from
 ///   settings), token saved locally.
-/// - Right after step 1 (name + fur color collected): `PUT /pet`. Repeating
+/// - Right after step 1 (name + fur color collected): `PUT /pet`. The extra
+///   collar screen updates that same singleton pet before tutorial step 2.
+///   Repeating
 ///   this after navigating back updates the same pet instead of attempting to
 ///   create a second one.
 /// - After steps 2-4: `PUT /onboarding/progress`. The server advances only
@@ -63,6 +66,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   late OnboardingData _data;
   late int _currentStep;
+  late bool _showCollarChoice;
   _RegistrationState _registrationState = _RegistrationState.loading;
   bool _advancing = false;
   ChildDifficulty? _difficulty;
@@ -72,6 +76,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     super.initState();
     _data = widget.initialData ?? OnboardingData();
     _currentStep = widget.initialStep;
+    _showCollarChoice = _currentStep == 2 && _data.collarColorId == null;
     _difficulty = widget.initialDifficulty;
     _register();
   }
@@ -112,7 +117,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   Future<void> _savePet(OnboardingData data) async {
     await _api.put(
       '/pet',
-      body: {'petName': data.petName.trim(), 'furOptionId': data.furColorId},
+      body: {
+        'petName': data.petName.trim(),
+        'furOptionId': data.furColorId,
+        'accessoryOptionId': data.collarColorId,
+      },
     );
   }
 
@@ -163,16 +172,27 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Widget _buildCurrentStep() {
+    if (_showCollarChoice) {
+      return OnboardingCollarScreen(
+        initialData: _data,
+        onBack: (data) => setState(() {
+          _data = data;
+          _showCollarChoice = false;
+          _currentStep = 1;
+        }),
+        onNext: _saveCollarAndOpenStep2,
+      );
+    }
     switch (_currentStep) {
       case 1:
         return OnboardingStep1Screen(
           initialData: _data,
-          onNext: _goToStep2AfterCreatingPet,
+          onNext: _goToCollarAfterCreatingPet,
         );
       case 2:
         return OnboardingStep2Screen(
           data: _data,
-          onBack: () => setState(() => _currentStep = 1),
+          onBack: () => setState(() => _showCollarChoice = true),
           onNext: _advancing ? null : _completeStep2,
           isSubmitting: _advancing,
         );
@@ -198,12 +218,23 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     }
   }
 
-  Future<void> _goToStep2AfterCreatingPet(OnboardingData data) async {
+  Future<void> _goToCollarAfterCreatingPet(OnboardingData data) async {
     await _savePet(data);
     if (!mounted) return;
     setState(() {
       _data = data;
       _currentStep = 2;
+      _showCollarChoice = true;
+    });
+  }
+
+  Future<void> _saveCollarAndOpenStep2(OnboardingData data) async {
+    await _savePet(data);
+    if (!mounted) return;
+    setState(() {
+      _data = data;
+      _currentStep = 2;
+      _showCollarChoice = false;
     });
   }
 

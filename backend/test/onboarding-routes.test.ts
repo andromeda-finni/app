@@ -33,6 +33,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
             onboarding_completed_at: completedAt,
             pet_name: "Мурзик",
             fur_option_id: "FUR_GRAY",
+            accessory_option_id: "ACC_COLLAR_BLUE",
           },
         ],
         rowCount: 1,
@@ -91,7 +92,11 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       difficulty: "ADVANCED",
       currentStep: 2,
       completed: false,
-      pet: { petName: "Мурзик", furOptionId: "FUR_GRAY" },
+      pet: {
+        petName: "Мурзик",
+        furOptionId: "FUR_GRAY",
+        accessoryOptionId: "ACC_COLLAR_BLUE",
+      },
     });
 
     const completeStep2 = await app.inject({
@@ -143,7 +148,11 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       difficulty: "ADVANCED",
       currentStep: 4,
       completed: true,
-      pet: { petName: "Мурзик", furOptionId: "FUR_GRAY" },
+      pet: {
+        petName: "Мурзик",
+        furOptionId: "FUR_GRAY",
+        accessoryOptionId: "ACC_COLLAR_BLUE",
+      },
     });
   } finally {
     pool.query = originalQuery;

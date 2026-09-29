@@ -17,14 +17,25 @@ const _furFolder = <String, String>{
   'FUR_WHITE': 'white',
 };
 
+const _collarFolder = <String, String>{
+  'ACC_COLLAR_RED': 'Red_collar',
+  'ACC_COLLAR_GREEN': 'Green_collar',
+  'ACC_COLLAR_BLUE': 'Blue_collar',
+};
+
 /// Shown before a fur colour has been chosen. It deliberately matches the
 /// first (grey) option, so choosing grey never swaps the cat to another pose.
 const kBaseCatAsset = 'assets/Cat/Red_collar/base/striped.webp';
 
-String catAsset({required String? furOptionId, PetMood mood = PetMood.base}) {
+String catAsset({
+  required String? furOptionId,
+  String? accessoryOptionId,
+  PetMood mood = PetMood.base,
+}) {
   final fur = _furFolder[furOptionId];
   if (fur == null) return kBaseCatAsset;
-  return 'assets/Cat/Red_collar/${_moodFolder[mood]}/$fur.webp';
+  final collar = _collarFolder[accessoryOptionId] ?? 'Red_collar';
+  return 'assets/Cat/$collar/${_moodFolder[mood]}/$fur.webp';
 }
 
 // A pet event (illness) takes 45 health off, so "unwell" has to start above

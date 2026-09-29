@@ -6,7 +6,7 @@ import 'widgets/fur_color_picker.dart';
 import 'widgets/onboarding_scene.dart';
 import 'widgets/onboarding_step_scaffold.dart';
 
-/// Onboarding step 4 of 4 — closing scene introducing the town's other
+/// Onboarding step 5 of 5 — closing scene introducing the town's other
 /// fairy-tale characters, then "Начать игру" finishes onboarding.
 class OnboardingStep4Screen extends StatelessWidget {
   const OnboardingStep4Screen({
@@ -29,11 +29,15 @@ class OnboardingStep4Screen extends StatelessWidget {
         ? 'котёнок'
         : savedName;
     return OnboardingStepScaffold(
-      stepNumber: 4,
+      stepNumber: 5,
       top: OnboardingScene(
         background: 'assets/backgrounds/town.webp',
         foreground: 'assets/backgrounds/meadow_foreground.webp',
-        cat: catAssetForFur(data?.furColorId, happy: true),
+        cat: catAssetForFur(
+          data?.furColorId,
+          collarColorId: data?.collarColorId,
+          happy: true,
+        ),
         catAlignment: const Alignment(0.1, 0.9),
         catHeightFraction: 0.46,
       ),

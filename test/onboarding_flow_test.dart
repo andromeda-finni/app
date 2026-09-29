@@ -9,6 +9,7 @@ import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/onboarding/difficulty_choice_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_data.dart';
 import 'package:andromeda_app/onboarding/onboarding_flow.dart';
+import 'package:andromeda_app/onboarding/onboarding_collar_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_step1_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_step2_screen.dart';
 import 'package:andromeda_app/onboarding/widgets/back_circle_button.dart';
@@ -41,12 +42,16 @@ void main() {
     final authStorage = FakeAuthStorage(initialToken: 'tok');
     var finished = false;
     final progressSteps = <int>[];
+    final petWrites = <Map<String, dynamic>>[];
     final client = MockClient((request) async {
       if (request.url.path == '/onboarding/progress') {
         progressSteps.add(
           (jsonDecode(request.body) as Map<String, dynamic>)['completedStep']
               as int,
         );
+      }
+      if (request.url.path == '/pet') {
+        petWrites.add(jsonDecode(request.body) as Map<String, dynamic>);
       }
       return http.Response(
         jsonEncode({'ok': true}),
@@ -74,6 +79,10 @@ void main() {
     await _tapVisible(tester, find.text('серый'));
     await _tapVisible(tester, find.text('Далее'));
 
+    expect(find.byType(OnboardingCollarScreen), findsOneWidget);
+    await _tapVisible(tester, find.text('синий'));
+    await _tapVisible(tester, find.text('Далее'));
+
     expect(find.textContaining('Иногда Мурзик тратил'), findsOneWidget);
     expect(find.textContaining('Грошик'), findsNothing);
     await _tapVisible(tester, find.text('Далее'));
@@ -87,6 +96,7 @@ void main() {
 
     expect(finished, isTrue);
     expect(progressSteps, [2, 3, 4]);
+    expect(petWrites.last['accessoryOptionId'], 'ACC_COLLAR_BLUE');
   });
 
   testWidgets('restores an interrupted flow at step 2 with the saved pet', (
@@ -107,6 +117,7 @@ void main() {
           initialData: OnboardingData(
             petName: 'Мурзик',
             furColorId: 'FUR_GRAY',
+            collarColorId: 'ACC_COLLAR_GREEN',
           ),
           authStorage: authStorage,
           apiClient: ApiClient(
@@ -125,8 +136,38 @@ void main() {
     expect(networkCalls, 0);
 
     await _tapVisible(tester, find.byType(BackCircleButton));
+    expect(find.byType(OnboardingCollarScreen), findsOneWidget);
+    await _tapVisible(tester, find.byType(BackCircleButton));
     expect(find.byType(OnboardingStep1Screen), findsOneWidget);
     expect(find.text('Мурзик'), findsOneWidget);
+  });
+
+  testWidgets('resumes at collar choice when step 1 has no saved collar', (
+    tester,
+  ) async {
+    final authStorage = FakeAuthStorage(initialToken: 'tok');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OnboardingFlow(
+          onFinished: (_) {},
+          initialStep: 2,
+          initialData: OnboardingData(
+            petName: 'Мурзик',
+            furColorId: 'FUR_GRAY',
+          ),
+          authStorage: authStorage,
+          apiClient: ApiClient(
+            httpClient: MockClient((_) async => http.Response('{}', 200)),
+            authStorage: authStorage,
+            baseUrl: 'http://test',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OnboardingCollarScreen), findsOneWidget);
+    expect(find.text('Выбери ошейник'), findsOneWidget);
   });
 
   testWidgets(
@@ -297,6 +338,7 @@ void main() {
       expect(jsonDecode(requests.last.body), {
         'petName': 'Рыжик',
         'furOptionId': 'FUR_ORANGE',
+        'accessoryOptionId': null,
       });
     },
   );

@@ -79,7 +79,11 @@ void main() {
       return _jsonResponse({
         'currentStep': 4,
         'completed': true,
-        'pet': {'petName': 'Рыжик', 'furOptionId': 'FUR_GRAY'},
+        'pet': {
+          'petName': 'Рыжик',
+          'furOptionId': 'FUR_GRAY',
+          'accessoryOptionId': 'ACC_COLLAR_RED',
+        },
       }, 200);
     });
 
@@ -125,7 +129,11 @@ void main() {
             'completed': false,
             'pet': resumeCase.step == 1
                 ? null
-                : {'petName': 'Мурзик', 'furOptionId': 'FUR_GRAY'},
+                : {
+                    'petName': 'Мурзик',
+                    'furOptionId': 'FUR_GRAY',
+                    'accessoryOptionId': 'ACC_COLLAR_RED',
+                  },
           }, 200);
         });
 
@@ -158,7 +166,11 @@ void main() {
           return _jsonResponse({
             'currentStep': 2,
             'completed': false,
-            'pet': {'petName': 'Мурзик', 'furOptionId': 'FUR_GRAY'},
+            'pet': {
+              'petName': 'Мурзик',
+              'furOptionId': 'FUR_GRAY',
+              'accessoryOptionId': 'ACC_COLLAR_RED',
+            },
           }, 200);
         }
         registerCalls++;
@@ -255,7 +267,11 @@ void main() {
       return _jsonResponse({
         'currentStep': 4,
         'completed': true,
-        'pet': {'petName': 'Грошик', 'furOptionId': 'FUR_GRAY'},
+        'pet': {
+          'petName': 'Грошик',
+          'furOptionId': 'FUR_GRAY',
+          'accessoryOptionId': 'ACC_COLLAR_RED',
+        },
       }, 200);
     });
 

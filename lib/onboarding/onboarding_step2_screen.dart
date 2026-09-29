@@ -6,7 +6,7 @@ import 'widgets/fur_color_picker.dart';
 import 'widgets/onboarding_scene.dart';
 import 'widgets/onboarding_step_scaffold.dart';
 
-/// Onboarding step 2 of 4 — pure backstory, no input: Groshik lives near
+/// Onboarding step 3 of 5 — pure backstory, no input: Groshik lives near
 /// the "Чудо-лавка" and loves candy, setting up the budgeting theme.
 class OnboardingStep2Screen extends StatelessWidget {
   const OnboardingStep2Screen({
@@ -32,11 +32,14 @@ class OnboardingStep2Screen extends StatelessWidget {
         ? 'котёнок'
         : savedName;
     return OnboardingStepScaffold(
-      stepNumber: 2,
+      stepNumber: 3,
       top: OnboardingScene(
         background: 'assets/backgrounds/shop.webp',
         foreground: 'assets/backgrounds/meadow_foreground.webp',
-        cat: catAssetForFur(data?.furColorId),
+        cat: catAssetForFur(
+          data?.furColorId,
+          collarColorId: data?.collarColorId,
+        ),
         catAlignment: const Alignment(-0.35, 0.85),
         catHeightFraction: 0.5,
       ),

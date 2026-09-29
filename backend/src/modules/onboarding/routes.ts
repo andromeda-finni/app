@@ -11,6 +11,7 @@ interface OnboardingStatusRow {
   onboarding_completed_at: Date | null;
   pet_name: string | null;
   fur_option_id: string | null;
+  accessory_option_id: string | null;
 }
 
 interface CompleteStepBody {
@@ -28,6 +29,7 @@ function statusResponse(row: OnboardingStatusRow) {
         : {
             petName: row.pet_name,
             furOptionId: row.fur_option_id,
+            accessoryOptionId: row.accessory_option_id,
           },
   };
 }
@@ -39,7 +41,7 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
     async (req) => {
       const res = await pool.query<OnboardingStatusRow>(
         `SELECT cp.difficulty, cp.onboarding_step, cp.onboarding_completed_at,
-                p.pet_name, p.fur_option_id
+                p.pet_name, p.fur_option_id, p.accessory_option_id
            FROM child_profiles cp
            LEFT JOIN pets p ON p.child_user_id = cp.user_id
           WHERE cp.user_id = $1`,

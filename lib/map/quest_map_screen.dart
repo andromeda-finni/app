@@ -60,6 +60,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   // Neutral until the server answers: the child names the pet themselves.
   String _petName = 'Питомец';
   String? _furOptionId;
+  String? _accessoryOptionId;
   int _movementVersion = 0;
   double _renderedMapHeight = 0;
   double _viewportHeight = 0;
@@ -99,6 +100,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       final pet = economy['pet'] as Map?;
       final name = pet?['pet_name'];
       final fur = pet?['fur_option_id'];
+      final accessory = pet?['accessory_option_id'];
       if (!mounted) return;
       final unlocked = unlockedIndexFor(completed);
       setState(() {
@@ -107,6 +109,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
             .length;
         if (name is String && name.trim().isNotEmpty) _petName = name;
         if (fur is String) _furOptionId = fur;
+        if (accessory is String) _accessoryOptionId = accessory;
         if (unlocked != _unlockedIndex) {
           _unlockedIndex = unlocked;
           if (_catAnimation == null) {
@@ -532,7 +535,10 @@ class _QuestMapScreenState extends State<QuestMapScreen>
                     ),
                   ),
                   Image.asset(
-                    catAsset(furOptionId: _furOptionId),
+                    catAsset(
+                      furOptionId: _furOptionId,
+                      accessoryOptionId: _accessoryOptionId,
+                    ),
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,
                   ),

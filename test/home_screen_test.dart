@@ -30,6 +30,7 @@ Map<String, dynamic> _pet({
 }) => {
   'pet_name': _petName,
   'fur_option_id': 'FUR_GRAY',
+  'accessory_option_id': 'ACC_COLLAR_BLUE',
   'energy_level': satiety,
   'joy_level': joy,
   'health_level': health,
@@ -175,15 +176,23 @@ void main() {
       expect(moodFor(satiety: 100, joy: 50, health: 100), PetMood.base);
     });
 
-    test('each mood resolves to art that exists for every fur colour', () {
+    test('each mood resolves to art for every fur and collar colour', () {
       for (final fur in ['FUR_GRAY', 'FUR_ORANGE', 'FUR_WHITE']) {
-        for (final mood in PetMood.values) {
-          expect(
-            catAsset(furOptionId: fur, mood: mood),
-            matches(
-              RegExp(r'^assets/Cat/Red_collar/\w+/(striped|red|white)\.webp$'),
-            ),
-          );
+        for (final collar in [
+          'ACC_COLLAR_RED',
+          'ACC_COLLAR_GREEN',
+          'ACC_COLLAR_BLUE',
+        ]) {
+          for (final mood in PetMood.values) {
+            expect(
+              catAsset(furOptionId: fur, accessoryOptionId: collar, mood: mood),
+              matches(
+                RegExp(
+                  r'^assets/Cat/(Red|Green|Blue)_collar/\w+/(striped|red|white)\.webp$',
+                ),
+              ),
+            );
+          }
         }
       }
     });
@@ -211,7 +220,7 @@ void main() {
     final images = tester
         .widgetList<Image>(find.byType(Image))
         .map((image) => (image.image as AssetImage).assetName);
-    expect(images, contains('assets/Cat/Red_collar/happy/striped.webp'));
+    expect(images, contains('assets/Cat/Blue_collar/happy/striped.webp'));
   });
 
   testWidgets('offers to start a period when none is running', (tester) async {

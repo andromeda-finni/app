@@ -7,7 +7,7 @@ import 'widgets/onboarding_paper_background.dart';
 import 'widgets/onboarding_step_scaffold.dart';
 import 'widgets/tutorial_budget_card.dart';
 
-/// Onboarding step 3 of 4 — an explicit, guided first budget. It starts with
+/// Onboarding step 4 of 5 — an explicit, guided first budget. It starts with
 /// all ten coins unallocated, explains each destination, and gives immediate
 /// feedback about how many coins remain. There is intentionally no single
 /// prescribed split: the learning goal is making a conscious choice.
@@ -80,7 +80,7 @@ class _OnboardingStep3ScreenState extends State<OnboardingStep3Screen> {
                   AppSpacing.md,
                 ),
                 child: OnboardingFooter(
-                  stepNumber: 3,
+                  stepNumber: 4,
                   onBack: () => widget.onBack(_data),
                   onNext: _canFinish && widget.onNext != null
                       ? () => widget.onNext!(_data)

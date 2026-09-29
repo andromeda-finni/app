@@ -8,10 +8,10 @@ import 'onboarding_paper_background.dart';
 import 'step_progress.dart';
 import 'story_button.dart';
 
-const kOnboardingTotalSteps = 4;
+const kOnboardingTotalSteps = 5;
 
-/// Shared layout for onboarding steps 2-4: a top area (illustration, or on
-/// step 3 the interactive budget card) above a parchment card with the
+/// Shared layout for the illustrated onboarding steps: a top area above a
+/// parchment card with the
 /// step's content and a consistent progress/action footer.
 class OnboardingStepScaffold extends StatelessWidget {
   const OnboardingStepScaffold({

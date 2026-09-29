@@ -21,17 +21,33 @@ class FurColorOption {
   final String catAsset;
 }
 
+/// A collar colour offered on the dedicated appearance screen. The id is an
+/// ACCESSORY cosmetic option understood by `PUT /pet`.
+class CollarColorOption {
+  const CollarColorOption({
+    required this.id,
+    required this.label,
+    required this.swatch,
+  });
+
+  final String id;
+  final String label;
+  final int swatch;
+}
+
 /// Total coins the tutorial budget on step 3 distributes between the three
 /// categories. Maps to budget_plans.need_amount/want_amount/savings_amount
 /// in the backend (see db/migrations/0007_periods.sql) once wired up —
 /// candy = WANT, other things = NEED, piggy bank = SAVINGS.
 const kTutorialBudgetTotal = 10;
 
-/// Data collected across all 4 onboarding steps.
+/// Data collected across onboarding. The collar is an extra visual screen
+/// between the first and second persisted tutorial steps.
 class OnboardingData {
   OnboardingData({
     this.petName = '',
     this.furColorId,
+    this.collarColorId,
     this.candyAmount = 0,
     this.otherAmount = 0,
     this.piggyAmount = 0,
@@ -40,6 +56,7 @@ class OnboardingData {
 
   String petName;
   String? furColorId;
+  String? collarColorId;
 
   // Step 3: tutorial budget split. Always sums to kTutorialBudgetTotal.
   int candyAmount; // WANT
@@ -53,6 +70,7 @@ class OnboardingData {
   OnboardingData copyWith({
     String? petName,
     String? furColorId,
+    String? collarColorId,
     int? candyAmount,
     int? otherAmount,
     int? piggyAmount,
@@ -61,6 +79,7 @@ class OnboardingData {
     return OnboardingData(
       petName: petName ?? this.petName,
       furColorId: furColorId ?? this.furColorId,
+      collarColorId: collarColorId ?? this.collarColorId,
       candyAmount: candyAmount ?? this.candyAmount,
       otherAmount: otherAmount ?? this.otherAmount,
       piggyAmount: piggyAmount ?? this.piggyAmount,
@@ -99,12 +118,15 @@ class OnboardingResumeState {
     if (rawPet != null) {
       if (rawPet is! Map<String, dynamic> ||
           rawPet['petName'] is! String ||
-          rawPet['furOptionId'] is! String) {
+          rawPet['furOptionId'] is! String ||
+          (rawPet['accessoryOptionId'] != null &&
+              rawPet['accessoryOptionId'] is! String)) {
         throw const FormatException('Invalid onboarding pet response');
       }
       data = data.copyWith(
         petName: rawPet['petName'] as String,
         furColorId: rawPet['furOptionId'] as String,
+        collarColorId: rawPet['accessoryOptionId'] as String?,
       );
     }
 

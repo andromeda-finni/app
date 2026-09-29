@@ -100,6 +100,16 @@ flutter:
     - assets/Cat/Red_collar/sad/
     - assets/Cat/Red_collar/sleep/
     - assets/Cat/Red_collar/fully/
+    - assets/Cat/Green_collar/base/
+    - assets/Cat/Green_collar/happy/
+    - assets/Cat/Green_collar/sad/
+    - assets/Cat/Green_collar/sleep/
+    - assets/Cat/Green_collar/fully/
+    - assets/Cat/Blue_collar/base/
+    - assets/Cat/Blue_collar/happy/
+    - assets/Cat/Blue_collar/sad/
+    - assets/Cat/Blue_collar/sleep/
+    - assets/Cat/Blue_collar/fully/
     - assets/Cat/Base/playful.webp
     - assets/minigames/tugriki/
     - assets/minigames/mole/

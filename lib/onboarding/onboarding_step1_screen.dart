@@ -10,9 +10,9 @@ import 'widgets/onboarding_scene.dart';
 import 'widgets/step_progress.dart';
 import 'widgets/story_button.dart';
 
-const _totalOnboardingSteps = 4;
+const _totalOnboardingSteps = 5;
 
-/// Onboarding step 1 of 4. The child names their pet and picks a fur color,
+/// Onboarding step 1 of 5. The child names their pet and picks a fur color,
 /// told as a fairy-tale sentence. Tapping "Далее" awaits [onNext], which
 /// creates or updates the pet server-side (see onboarding_flow.dart) — this
 /// screen owns the loading/error UI so a network failure never silently eats
@@ -102,7 +102,10 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
                                 'assets/backgrounds/meadow_foreground.webp',
                             // Base pose until a colour is chosen, then the cat
                             // in that coat so the choice is reflected at once.
-                            cat: catAssetForFur(_data.furColorId),
+                            cat: catAssetForFur(
+                              _data.furColorId,
+                              collarColorId: _data.collarColorId,
+                            ),
                           ),
                         ),
                         Padding(

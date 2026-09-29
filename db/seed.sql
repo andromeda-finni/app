@@ -5,6 +5,9 @@ INSERT INTO cosmetic_options (id, kind, display_name, asset_code) VALUES
   ('FUR_ORANGE', 'FUR', 'Оранжевая шёрстка', 'fur_orange'),
   ('FUR_GRAY', 'FUR', 'Серая шёрстка', 'fur_gray'),
   ('FUR_WHITE', 'FUR', 'Белая шёрстка', 'fur_white'),
+  ('ACC_COLLAR_RED', 'ACCESSORY', 'Красный ошейник', 'collar_red'),
+  ('ACC_COLLAR_GREEN', 'ACCESSORY', 'Зелёный ошейник', 'collar_green'),
+  ('ACC_COLLAR_BLUE', 'ACCESSORY', 'Синий ошейник', 'collar_blue'),
   ('ACC_SCARF', 'ACCESSORY', 'Шарфик', 'acc_scarf'),
   ('ACC_GLASSES', 'ACCESSORY', 'Очки', 'acc_glasses')
 ON CONFLICT (id) DO NOTHING;
