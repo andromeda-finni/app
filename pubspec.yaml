@@ -36,6 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_secure_storage: ^11.2.0
   http: ^1.6.0
+  share_plus: ^13.3.0
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -75,8 +77,8 @@ flutter:
     - assets/shop/title_sign.webp
     - assets/shop/items/apple.webp
     - assets/shop/items/carrot.webp
-    - assets/map/quest_map_scenarios_v05_clean.png
-    - assets/map/checkpoint_road_v2.png
+    - assets/map/quest_map_scenarios_v05_clean.webp
+    - assets/map/checkpoint_road_v2.webp
     - assets/map/cat_idle/striped.webp
     - assets/map/cat_idle/red.webp
     - assets/map/cat_idle/white.webp
@@ -100,6 +102,10 @@ flutter:
     - assets/images/artifacts/shield.webp
     - assets/images/artifacts/purse.webp
     - assets/images/artifacts/boots.webp
+    - assets/backgrounds/home_room.webp
+    - assets/icons/leaf_small.webp
+    - assets/icons/clew.webp
+    - assets/artifacts/items/
     # Every mood folder is in use: the home screen swaps the pet's drawing to
     # match its stats (see lib/core/pet_assets.dart).
     - assets/Cat/Red_collar/base/
@@ -110,6 +116,8 @@ flutter:
     - assets/Cat/Base/playful.webp
     - assets/minigames/tugriki/
     - assets/minigames/mole/
+    - assets/minigames/bakery/
+    - assets/minigames/park/
     - assets/Fox/fox_friendly.webp
     - assets/Fox/fox_sly.webp
     - assets/games/turnip/garden_background.webp
@@ -122,6 +130,11 @@ flutter:
     - assets/games/turnip/mouse.webp
     - assets/games/turnip/team_pulling.webp
     - assets/games/turnip/success_harvest.webp
+    - assets/audio/sfx/
+    - assets/audio/ambience/
+    - assets/games/squirrel/
+    - assets/games/ivan/
+    - assets/games/goldfish/
 
   # Bundled locally so typography is stable offline. PT Serif carries all
   # functional copy; Barocco Initial is reserved for decorative drop caps.

@@ -105,6 +105,7 @@ final class EconomyDay {
     required this.need,
     required this.want,
     required this.savings,
+    this.actualNeed = 0,
     this.remainingReserve = 0,
   });
 
@@ -118,6 +119,7 @@ final class EconomyDay {
   final int need;
   final int want;
   final int savings;
+  final int actualNeed;
   final int remainingReserve;
 
   bool get planConfirmed => planStatus == 'CONFIRMED';
@@ -133,6 +135,7 @@ final class EconomyDay {
     need: _asInt(json['need_amount']),
     want: _asInt(json['want_amount']),
     savings: _asInt(json['savings_amount']),
+    actualNeed: _asInt(json['actual_need_amount']),
     remainingReserve: _asInt(
       json['remaining_reserve'] ?? json['required_need_amount'],
     ),
@@ -186,6 +189,7 @@ final class EconomyState {
     required this.frozen,
     required this.day,
     required this.event,
+    required this.isInsuredForNextDay,
     required this.goal,
     required this.frost,
     required this.shopItems,
@@ -207,6 +211,7 @@ final class EconomyState {
   final int frozen;
   final EconomyDay? day;
   final Map<String, dynamic>? event;
+  final bool isInsuredForNextDay;
   final Map<String, dynamic>? goal;
   final Map<String, dynamic>? frost;
   final List<EconomyItem> shopItems;
@@ -219,6 +224,8 @@ final class EconomyState {
 
   /// Latest movements of the SAVINGS wallet, newest first.
   final List<Map<String, dynamic>> savingsHistory;
+
+  EconomyDay? get currentPlan => day;
 
   factory EconomyState.fromJson(Map<String, dynamic> json) {
     final pet = _asMap(json['pet']) ?? const {};
@@ -238,6 +245,7 @@ final class EconomyState {
       frozen: _asInt(wallets['FROZEN']),
       day: dayJson == null ? null : EconomyDay.fromJson(dayJson),
       event: _asMap(json['activeEvent']),
+      isInsuredForNextDay: _asMap(json['activeInsurance']) != null,
       goal: _asMap(json['activeGoal']),
       frost: _asMap(json['activeFrostChest']),
       shopItems: _asList(json['shopItems']).map(EconomyItem.fromJson).toList(),

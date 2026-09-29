@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
+import '../../core/game_audio_service.dart';
 import '../../minigames/quest_reward_messages.dart';
 import '../../theme/app_theme.dart';
 import 'turnip_game_content.dart';
@@ -173,6 +174,13 @@ class _TurnipGameScreenState extends State<TurnipGameScreen>
 
   void _place(TurnipCharacter character) {
     final result = _controller.place(character);
+    unawaited(
+      GameAudioService.instance.play(
+        result == TurnipPlacementResult.rejected
+            ? GameSound.tryAgain
+            : GameSound.itemPlaced,
+      ),
+    );
     if (result == TurnipPlacementResult.rejected &&
         !MediaQuery.disableAnimationsOf(context)) {
       unawaited(_shakeController.forward(from: 0));
@@ -189,6 +197,7 @@ class _TurnipGameScreenState extends State<TurnipGameScreen>
     }
     if (!mounted || _controller.phase != TurnipGamePhase.pulling) return;
     _controller.finishPulling();
+    unawaited(GameAudioService.instance.play(GameSound.successReward));
     if (!_completionReported) {
       _completionReported = true;
       widget.onCompleted?.call(_controller.result);
@@ -257,6 +266,10 @@ class _TurnipGameScreenState extends State<TurnipGameScreen>
           _syncNote = questRecoveryMessage(result);
         }
       });
+      if (result['questCompleted'] == true &&
+          result['rewardAlreadyGranted'] != true) {
+        unawaited(GameAudioService.instance.play(GameSound.coinsMultiple));
+      }
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _syncNote = questProblemMessage(error));

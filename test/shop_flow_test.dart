@@ -14,7 +14,7 @@ import 'package:andromeda_app/shop/widgets/artifact_product_card.dart';
 import 'support/fake_auth_storage.dart';
 import 'support/economy_fixture.dart';
 
-http.Response _jsonResponse(Object body, [int statusCode = 200]) =>
+http.Response _jsonResponse(Object? body, [int statusCode = 200]) =>
     http.Response(
       jsonEncode(body),
       statusCode,
@@ -131,12 +131,11 @@ void main() {
       'boots',
     };
     expect(localItemArtwork.keys.toSet(), artifactIds);
-    // Descriptions exist only for effects the server really applies.
+    expect(localArtifactBenefitDescriptions.keys.toSet(), artifactIds);
     expect(
-      artifactIds.containsAll(localArtifactBenefitDescriptions.keys),
-      isTrue,
+      localArtifactBenefitDescriptions.values,
+      everyElement(isNot(isEmpty)),
     );
-    expect(localArtifactBenefitDescriptions.keys, contains('boots'));
     expect(localPurchaseArtwork['FOOD_APPLE'], contains('apple'));
     expect(localPurchaseArtwork['FOOD_CARROT'], contains('carrot'));
     expect(localPurchaseArtwork['PET_MEAL'], contains('bowl'));
@@ -177,7 +176,11 @@ void main() {
     final data = _state(withGoal: true);
     await _pumpShell(
       tester,
-      MockClient((request) async => _jsonResponse(data)),
+      MockClient(
+        (request) async => _jsonResponse(
+          request.url.path == '/pet-events/active' ? null : data,
+        ),
+      ),
     );
 
     await tester.tap(find.text('Магазин'));
@@ -285,7 +288,11 @@ void main() {
     };
     await _pumpShell(
       tester,
-      MockClient((request) async => _jsonResponse(data)),
+      MockClient(
+        (request) async => _jsonResponse(
+          request.url.path == '/pet-events/active' ? null : data,
+        ),
+      ),
     );
 
     await tester.tap(find.text('Копилка'));
@@ -307,7 +314,7 @@ void main() {
     );
   });
 
-  testWidgets('closed shop has one explanation and opens the plan editor', (
+  testWidgets('an unplanned day keeps the shop closed and leads to the plan', (
     tester,
   ) async {
     final data = _state(withGoal: true);
@@ -319,17 +326,20 @@ void main() {
 
     await tester.tap(find.text('Магазин'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('shop-category-needs')));
+
+    // One explanation, and the shop itself stays closed behind it.
+    expect(find.text('Сначала составим план'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shop-category-needs')), findsNothing);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(FilledButton, 'Составить план'),
+      ),
+    );
     await tester.pumpAndSettle();
 
-    expect(find.text('Сначала составь план дня'), findsOneWidget);
-    expect(find.text('Откроется после плана'), findsOneWidget);
-    expect(find.text('Составить план'), findsOneWidget);
-
-    await tester.tap(find.text('Составить план'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('План на период'), findsOneWidget);
+    expect(find.text('Сначала составим план'), findsNothing);
     expect(find.text('Утвердить план'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -340,18 +350,20 @@ void main() {
     final data = _state(withGoal: false)..['activeDay'] = null;
     var mutationCalls = 0;
     final client = MockClient((request) async {
-      if (request.method == 'GET') return _jsonResponse(data);
+      if (request.method == 'GET') {
+        return _jsonResponse(
+          request.url.path == '/pet-events/active' ? null : data,
+        );
+      }
       mutationCalls++;
       return _jsonResponse({});
     });
     await _pumpShell(tester, client);
 
-    await tester.scrollUntilVisible(
-      find.text('Начать период'),
-      500,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Начать период'));
+    final startDay = find.byKey(const Key('open-budget-plan'));
+    await tester.ensureVisible(startDay);
+    await tester.pumpAndSettle();
+    await tester.tap(startDay);
     await tester.pumpAndSettle();
 
     expect(mutationCalls, 0);
@@ -366,7 +378,11 @@ void main() {
     var data = _state(withGoal: false);
     var goalCalls = 0;
     final client = MockClient((request) async {
-      if (request.method == 'GET') return _jsonResponse(data);
+      if (request.method == 'GET') {
+        return _jsonResponse(
+          request.url.path == '/pet-events/active' ? null : data,
+        );
+      }
       expect(request.url.path, '/goals');
       goalCalls++;
       data = _state(withGoal: true);
@@ -429,7 +445,12 @@ void main() {
     await tester.tap(dreamsCategory);
     await tester.pumpAndSettle();
     final bootsCard = find.byKey(const ValueKey('artifact-card-boots'));
-    await tester.ensureVisible(bootsCard);
+    await tester.scrollUntilVisible(
+      bootsCard,
+      500,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
 
     expect(
       find.descendant(of: bootsCard, matching: find.text('Моя цель')),
@@ -549,6 +570,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(firstCard, findsOneWidget);
     expect(
+      // Tapping the title opens the artifact details with its real effect.
       find.text('Пока надеты, открывают четвёртое задание за день.'),
       findsOneWidget,
     );
@@ -560,7 +582,11 @@ void main() {
     final data = _state(withGoal: true);
     var purchaseCalls = 0;
     final client = MockClient((request) async {
-      if (request.method == 'GET') return _jsonResponse(data);
+      if (request.method == 'GET') {
+        return _jsonResponse(
+          request.url.path == '/pet-events/active' ? null : data,
+        );
+      }
       expect(request.url.path, '/purchases');
       purchaseCalls++;
       return _jsonResponse({
@@ -602,6 +628,11 @@ void main() {
   testWidgets('insufficient coins route the child to the quest map', (
     tester,
   ) async {
+    // The painted map loops its scene animations while visible; like a
+    // phone with reduced motion, the test asks for a still map to settle.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     final data = _state(withGoal: true);
     data['wallets'] = {'SPENDABLE': 0, 'SAVINGS': 0, 'FROZEN': 0};
     await _pumpShell(

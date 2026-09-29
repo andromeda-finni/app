@@ -16,6 +16,7 @@ String questProblemMessage(ApiException error) {
       'Сегодня награды за задания уже получены. Загляни завтра!',
     'quest_prerequisite_not_completed' =>
       'Сначала пройди предыдущее задание на карте.',
+    'quest_difficulty_mismatch' => 'Этот уровень относится к другой настройке сложности. Вернись на карту и открой задание снова.',
     'quest_already_completed' =>
       'Это задание уже пройдено. Сейчас — тренировочный повтор без награды.',
     'earlier_steps_not_completed' =>
@@ -32,7 +33,7 @@ String questProblemMessage(ApiException error) {
     'invalid_json_response' || 'unexpected_response_shape' =>
       'Сервер ответил неполными данными. Попробуй сохранить ещё раз.',
     _ when error.statusCode >= 500 =>
-      'На сервере временная ошибка. Попробуй сохранить ещё раз чуть позже.',
+      'Не получилось сохранить награду. Попробуй ещё раз чуть позже.',
     _ => 'Не получилось сохранить результат. Попробуй ещё раз.',
   };
 }

@@ -8,6 +8,7 @@ import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/home/main_shell.dart';
 import 'package:andromeda_app/main.dart';
 import 'package:andromeda_app/onboarding/difficulty_choice_screen.dart';
+import 'package:andromeda_app/onboarding/onboarding_data.dart';
 import 'package:andromeda_app/onboarding/onboarding_step1_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_step2_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_step3_screen.dart';
@@ -18,13 +19,32 @@ import 'support/economy_fixture.dart';
 
 /// http.Response(String, int)'s default encoding is Latin1, which throws on
 /// non-ASCII bytes like Cyrillic — always encode mock JSON bodies as UTF-8.
-http.Response _jsonResponse(Object body, int statusCode) => http.Response(
+http.Response _jsonResponse(Object? body, int statusCode) => http.Response(
   jsonEncode(body),
   statusCode,
   headers: {'content-type': 'application/json; charset=utf-8'},
 );
 
 void main() {
+  test('onboarding status carries the persisted home-tour flag', () {
+    final completed = OnboardingResumeState.fromJson({
+      'currentStep': 4,
+      'completed': true,
+      'homeTourCompleted': true,
+      'difficulty': 'SIMPLE',
+      'pet': {'petName': 'Рыжик', 'furOptionId': 'FUR_GRAY'},
+    });
+    final legacy = OnboardingResumeState.fromJson({
+      'currentStep': 4,
+      'completed': true,
+      'difficulty': 'SIMPLE',
+      'pet': {'petName': 'Рыжик', 'furOptionId': 'FUR_GRAY'},
+    });
+
+    expect(completed.homeTourCompleted, isTrue);
+    expect(legacy.homeTourCompleted, isFalse);
+  });
+
   testWidgets('no saved token -> chooses difficulty before onboarding', (
     tester,
   ) async {
@@ -75,10 +95,14 @@ void main() {
           'pet': {'pet_name': 'Рыжик'},
         }, 200);
       }
+      if (request.url.path == '/pet-events/active') {
+        return _jsonResponse(null, 200);
+      }
       expect(request.url.path, '/onboarding/status');
       return _jsonResponse({
         'currentStep': 4,
         'completed': true,
+        'homeTourCompleted': true,
         'pet': {'petName': 'Рыжик', 'furOptionId': 'FUR_GRAY'},
       }, 200);
     });
@@ -250,11 +274,15 @@ void main() {
           'pet': {'pet_name': 'Грошик'},
         }, 200);
       }
+      if (request.url.path == '/pet-events/active') {
+        return _jsonResponse(null, 200);
+      }
       calls++;
       if (calls == 1) return http.Response('', 500);
       return _jsonResponse({
         'currentStep': 4,
         'completed': true,
+        'homeTourCompleted': true,
         'pet': {'petName': 'Грошик', 'furOptionId': 'FUR_GRAY'},
       }, 200);
     });

@@ -4,49 +4,9 @@ import { HttpError } from "../../lib/errors.js";
 import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, paramsSchema, shortIdSchema, uuidSchema } from "../../lib/schema.js";
+import { useArtifact } from "../../lib/artifacts.js";
 import { ECONOMY_RULES } from "../economy/rules.js";
-
-interface UiSpec {
-  correctOptionCode?: string;
-  answerValidation?: {
-    kind?: string;
-    expectedSequence?: string[];
-    budget?: number;
-    itemPrices?: Record<string, number>;
-  };
-  [key: string]: unknown;
-}
-
-function answerMatches(uiSpec: UiSpec | null, selectedOptionCode?: string): boolean {
-  const validation = uiSpec?.answerValidation;
-  if (validation?.kind === "ORDERED_SEQUENCE") {
-    const expected = validation.expectedSequence;
-    if (!expected?.length || !selectedOptionCode) return false;
-    return selectedOptionCode === expected.join(",");
-  }
-
-  if (validation?.kind === "BUDGET_SELECTION") {
-    const budget = validation.budget;
-    const itemPrices = validation.itemPrices;
-    if (!Number.isInteger(budget) || (budget ?? 0) < 0 || !itemPrices || !selectedOptionCode) {
-      return false;
-    }
-    const selectedIds = selectedOptionCode.split(",").filter(Boolean);
-    if (selectedIds.length === 0 || new Set(selectedIds).size !== selectedIds.length) {
-      return false;
-    }
-    let total = 0;
-    for (const itemId of selectedIds) {
-      const price = itemPrices[itemId];
-      if (!Number.isInteger(price) || (price ?? -1) < 0) return false;
-      total += price!;
-    }
-    return total <= budget!;
-  }
-
-  return typeof uiSpec?.correctOptionCode === "string" &&
-    uiSpec.correctOptionCode === selectedOptionCode;
-}
+import { answerMatches, type UiSpec } from "./validation.js";
 
 export async function questRoutes(app: FastifyInstance): Promise<void> {
   // Difficulty controls the amount of guidance inside a game. The story/map
@@ -56,13 +16,37 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
     "/quests",
     { preHandler: [requireAuth, requireRole("CHILD")] },
     async (req) => {
+      // The daily paid-quest limit (3, or 4 with boots) is enforced when a
+      // reward is paid, not by hiding catalogue entries.
+      const perksRes = await pool.query<{ boots_active: boolean; saucer_active: boolean }>(
+        `SELECT
+           EXISTS (
+             SELECT 1 FROM inventory_items i
+             JOIN pets p ON p.child_user_id = i.child_user_id
+                          AND p.equipped_inventory_item_id = i.id
+             WHERE i.child_user_id = $1 AND i.item_id = 'boots'
+               AND NOT i.is_broken AND i.durability_current > 0
+           ) AS boots_active,
+           EXISTS (
+             SELECT 1 FROM inventory_items i
+             WHERE i.child_user_id = $1 AND i.item_id = 'saucer'
+               AND NOT i.is_broken AND i.durability_current > 0
+           ) AS saucer_active`,
+        [req.authUser!.id],
+      );
+      const perks = perksRes.rows[0];
       const res = await pool.query(
         `SELECT id, topic_id, title, character_code, location_code, difficulty, reward_amount
            FROM quest_definitions
           WHERE active
           ORDER BY id`,
       );
-      return res.rows;
+      return res.rows.map((quest) => ({
+        ...quest,
+        forecast: perks?.saucer_active
+          ? { rewardAmount: quest.reward_amount, energyCost: null }
+          : null,
+      }));
     },
   );
 
@@ -87,13 +71,24 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         const child = childRes.rows[0];
         if (!child) throw new HttpError(404, "child_profile_not_found");
 
-        const questRes = await client.query<{ reward_amount: number }>(
-          `SELECT reward_amount FROM quest_definitions
+        const questRes = await client.query<{ reward_amount: number; difficulty: string }>(
+          `SELECT CASE
+                    WHEN $2 = 'ADVANCED'
+                    THEN COALESCE(advanced_reward_amount, reward_amount)
+                    ELSE reward_amount
+                  END AS reward_amount,
+                  difficulty
+             FROM quest_definitions
             WHERE id = $1 AND active`,
-          [questId],
+          [questId, child.difficulty],
         );
         const quest = questRes.rows[0];
         if (!quest) throw new HttpError(404, "quest_not_found");
+        const startsIvanTrack =
+          questId === "Q_IVAN_ROAD_EASY_1" || questId === "Q_IVAN_ROAD_HARD_1";
+        if (startsIvanTrack && quest.difficulty !== child.difficulty) {
+          throw new HttpError(409, "quest_difficulty_mismatch");
+        }
 
         const blockedRes = await client.query<{ prerequisite_quest_id: string }>(
           `SELECT qp.prerequisite_quest_id
@@ -370,7 +365,8 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         const bootsRes = await client.query(
           `SELECT 1 FROM pets p
             JOIN inventory_items i ON i.id = p.equipped_inventory_item_id
-           WHERE p.child_user_id = $1 AND i.item_id = 'boots'`,
+           WHERE p.child_user_id = $1 AND i.item_id = 'boots'
+             AND NOT i.is_broken AND i.durability_current > 0`,
           [childUserId],
         );
         const dailyLimit = (bootsRes.rowCount ?? 0) > 0
@@ -406,12 +402,23 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
           [txn.id, period.id, assignmentId],
         );
 
+        const bootsEffect = await useArtifact(client, {
+          childUserId,
+          itemId: "boots",
+          effectCode: "QUEST_PATH",
+          durabilityCost: 5,
+          referenceType: "assignment",
+          referenceId: assignmentId,
+          equippedOnly: true,
+        });
+
         return {
           outcome,
           feedback: step.success_feedback,
           questCompleted: true,
           rewardAmount: assignment.reward_amount,
           balanceAfter: txn.balanceAfter,
+          artifactEffects: bootsEffect ? [bootsEffect] : [],
         };
       });
     },

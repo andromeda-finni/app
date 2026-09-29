@@ -10,6 +10,7 @@ class PetStat {
     required this.icon,
     required this.color,
     required this.value,
+    this.onTap,
   });
 
   final String label;
@@ -18,6 +19,7 @@ class PetStat {
 
   /// 0-100, as the backend stores it.
   final int value;
+  final VoidCallback? onTap;
 }
 
 class PetStatsCard extends StatelessWidget {
@@ -59,33 +61,30 @@ class _StatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final fraction = (stat.value / 100).clamp(0.0, 1.0);
     return Semantics(
-      label: '${stat.label}: ${stat.value} процентов',
+      label:
+          '${stat.label}: ${stat.value} процентов${stat.onTap == null ? '' : '. Открыть Стол подорожника'}',
+      button: stat.onTap != null,
       excludeSemantics: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: stat.color,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(stat.icon, size: 20, color: Colors.white),
-            ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 86,
-              child: Text(
-                stat.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.cardRowLabel,
-              ),
-            ),
-            Expanded(
-              child: ClipRRect(
+      child: InkWell(
+        onTap: stat.onTap,
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact =
+                  constraints.maxWidth < 340 ||
+                  MediaQuery.textScalerOf(context).scale(16) > 21;
+              final badge = Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: stat.color,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(stat.icon, size: 20, color: Colors.white),
+              );
+              final bar = ClipRRect(
                 borderRadius: BorderRadius.circular(999),
                 child: TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0, end: fraction),
@@ -98,25 +97,52 @@ class _StatRow extends StatelessWidget {
                     valueColor: AlwaysStoppedAnimation(stat.color),
                   ),
                 ),
-              ),
-            ),
-            SizedBox(
-              width: 64,
-              // "100%" must never break onto two lines; at a large text scale
-              // it shrinks to fit instead.
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: Text(
-                  '${stat.value}%',
-                  maxLines: 1,
-                  softWrap: false,
-                  textAlign: TextAlign.right,
-                  style: AppTextStyles.counterValue,
-                ),
-              ),
-            ),
-          ],
+              );
+              final percentage = Text(
+                '${stat.value}%',
+                textAlign: TextAlign.right,
+                style: AppTextStyles.counterValue,
+              );
+              if (compact) {
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        badge,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            stat.label,
+                            style: AppTextStyles.cardRowLabel,
+                          ),
+                        ),
+                        percentage,
+                      ],
+                    ),
+                    const SizedBox(height: 9),
+                    bar,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  badge,
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 86,
+                    child: Text(
+                      stat.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.cardRowLabel,
+                    ),
+                  ),
+                  Expanded(child: bar),
+                  SizedBox(width: 56, child: percentage),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

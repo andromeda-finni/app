@@ -22,8 +22,8 @@ const _furFolder = <String, String>{
 const kBaseCatAsset = 'assets/Cat/Red_collar/base/striped.webp';
 
 String catAsset({required String? furOptionId, PetMood mood = PetMood.base}) {
-  final fur = _furFolder[furOptionId];
-  if (fur == null) return kBaseCatAsset;
+  // An unknown fur still gets the right mood, drawn in the default grey.
+  final fur = _furFolder[furOptionId] ?? _furFolder['FUR_GRAY']!;
   return 'assets/Cat/Red_collar/${_moodFolder[mood]}/$fur.webp';
 }
 

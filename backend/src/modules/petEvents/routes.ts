@@ -14,7 +14,8 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: [requireAuth, requireRole("CHILD")] },
     async (req) => {
       const res = await pool.query(
-        `SELECT peo.id, peo.amount_due, peo.triggered_at, ped.title, ped.description
+        `SELECT peo.id, peo.event_definition_id, peo.amount_due, peo.triggered_at,
+                ped.title, ped.description
            FROM pet_event_occurrences peo
            JOIN pet_event_definitions ped ON ped.id = peo.event_definition_id
           WHERE peo.child_user_id = $1 AND peo.status = 'ACTIVE'`,
@@ -84,7 +85,12 @@ export async function petEventRoutes(app: FastifyInstance): Promise<void> {
 
         // Bills come out of the day's must-have reserve in SPENDABLE; savings
         // belong to the chosen goal and are never tapped for them.
-        return { ok: true, paidFromSavings: false };
+        return {
+          ok: true,
+          paidFromSavings: false,
+          spendableBalance: transaction.balanceAfter,
+          healthLevel: PET_HEALTH_FULL,
+        };
       });
     },
   );

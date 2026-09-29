@@ -20,16 +20,27 @@ import { passportRoutes } from "./modules/passport/routes.js";
 import { parentViewRoutes } from "./modules/parentView/routes.js";
 import { onboardingRoutes } from "./modules/onboarding/routes.js";
 import { economyRoutes } from "./modules/economy/routes.js";
+import { insuranceRoutes } from "./modules/insurance/routes.js";
+import { inventoryRoutes } from "./modules/inventory/routes.js";
 import { childSettingsRoutes } from "./modules/childSettings/routes.js";
+import { parkProjectRoutes } from "./modules/parkProject/routes.js";
 
 /**
- * The migration this build's SQL assumes. `/health` refuses to report ready
- * until it is present, so a process started against an un-migrated or
+ * The migrations this build's SQL assumes. `/health` refuses to report ready
+ * until every one is present, so a process started against an un-migrated or
  * half-migrated database fails its readiness probe instead of accepting
  * traffic and then 500ing on the first query that hits a missing column.
- * Bump this whenever a migration the code depends on is added.
+ *
+ * It is a list because parallel branches added migrations with the same
+ * numeric prefix; the newest file name alone no longer proves the other line
+ * of migrations ran. Add an entry whenever the code starts depending on one.
  */
-const REQUIRED_SCHEMA_VERSION = "0029_child_display_settings.sql";
+const REQUIRED_SCHEMA_VERSIONS = [
+  "0027_artifact_durability.sql",
+  "0029_child_display_settings.sql",
+  "0031_goldfish_home_quest.sql",
+  "0032_park_project.sql",
+] as const;
 
 const LOOPBACK_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
@@ -107,15 +118,17 @@ export async function buildApp() {
   // isn't enough to answer "can this process serve requests?".
   app.get("/health", async (_req, reply) => {
     let applied: string | null;
-    let required: boolean;
+    let missing: string[];
     try {
-      const res = await pool.query<{ required_present: boolean; latest: string | null }>(
-        `SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1) AS required_present,
-                MAX(version) AS latest
-           FROM schema_migrations`,
-        [REQUIRED_SCHEMA_VERSION],
+      const res = await pool.query<{ missing: string[]; latest: string | null }>(
+        `SELECT ARRAY(
+                  SELECT required FROM unnest($1::text[]) AS required
+                   WHERE NOT EXISTS (SELECT 1 FROM schema_migrations WHERE version = required)
+                ) AS missing,
+                (SELECT MAX(version) FROM schema_migrations) AS latest`,
+        [REQUIRED_SCHEMA_VERSIONS],
       );
-      required = res.rows[0]!.required_present;
+      missing = res.rows[0]!.missing;
       applied = res.rows[0]!.latest;
     } catch (err) {
       app.log.error(err, "health check: database unreachable or schema_migrations missing");
@@ -123,16 +136,16 @@ export async function buildApp() {
       return { ok: false, error: "database_unreachable" };
     }
 
-    if (!required) {
+    if (missing.length > 0) {
       app.log.error(
-        { required: REQUIRED_SCHEMA_VERSION, applied },
-        "health check: database schema is behind the version this build requires",
+        { missing, applied },
+        "health check: database schema is behind the versions this build requires",
       );
       reply.code(503);
       return {
         ok: false,
         error: "schema_out_of_date",
-        required: REQUIRED_SCHEMA_VERSION,
+        missing,
         applied,
       };
     }
@@ -143,15 +156,18 @@ export async function buildApp() {
   await app.register(authRoutes);
   await app.register(onboardingRoutes);
   await app.register(economyRoutes);
+  await app.register(insuranceRoutes);
   await app.register(childSettingsRoutes);
   await app.register(petRoutes);
   await app.register(walletRoutes);
   await app.register(shopRoutes);
   await app.register(periodRoutes);
   await app.register(questRoutes);
+  await app.register(parkProjectRoutes);
   await app.register(parentTaskRoutes);
   await app.register(frostChestRoutes);
   await app.register(goalRoutes);
+  await app.register(inventoryRoutes);
   await app.register(petEventRoutes);
   await app.register(scamOfferRoutes);
   await app.register(passportRoutes);

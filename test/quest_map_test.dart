@@ -6,6 +6,9 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:andromeda_app/core/api_client.dart';
+import 'package:andromeda_app/core/child_difficulty.dart';
+import 'package:andromeda_app/games/goldfish/goldfish_game_models.dart';
+import 'package:andromeda_app/games/goldfish/goldfish_game_screen.dart';
 import 'package:andromeda_app/core/pet_assets.dart';
 import 'package:andromeda_app/games/turnip/turnip_game_screen.dart';
 import 'package:andromeda_app/map/quest_map_data.dart';
@@ -21,6 +24,7 @@ Widget _map({
   double textScale = 1,
   bool failProgress = false,
   bool ambientMotion = false,
+  ChildDifficulty difficulty = ChildDifficulty.beginner,
 }) {
   final client = MockClient((request) async {
     if (failProgress) {
@@ -30,9 +34,25 @@ Widget _map({
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
     }
+    if (request.url.path == '/park-project') {
+      return http.Response(
+        jsonEncode({'scene': 'FIRST_OFFER', 'completed': false}),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    }
     const rewards = {
       'Q_TURNIP_HARVEST': 10,
       'Q_MOLE_FINE_PRINT': 15,
+      'Q_IVAN_ROAD_EASY_1': 10,
+      'Q_IVAN_ROAD_EASY_2': 10,
+      'Q_IVAN_ROAD_HARD_1': 12,
+      'Q_IVAN_ROAD_HARD_2': 12,
+      'Q_GOLDFISH_HOME_SIMPLE_1': 10,
+      'Q_GOLDFISH_HOME_SIMPLE_2': 10,
+      'Q_GOLDFISH_HOME_ADVANCED_1': 12,
+      'Q_GOLDFISH_HOME_ADVANCED_2': 15,
+      'Q_BAKERY_PROFIT': 12,
       'Q_TUGRIKI_CURRENCY': 15,
     };
     return http.Response(
@@ -64,6 +84,7 @@ Widget _map({
     ),
     home: QuestMapScreen(
       showBack: showBack,
+      difficulty: difficulty,
       enableAmbientSceneMotion: ambientMotion,
       apiClient: ApiClient(
         httpClient: client,
@@ -98,26 +119,61 @@ void main() {
       );
     });
 
-    test('finishing the mole opens the path up to Tugriki', () {
-      // Story-only nodes in between have nothing to complete, so they must not
-      // block the child from reaching Tugriki.
+    test('finishing the mole opens Ivan', () {
       expect(
         currentPlayableNodeIndex(const {
           'Q_TURNIP_HARVEST',
           'Q_MOLE_FINE_PRINT',
         }),
+        indexOf('ivan'),
+      );
+    });
+
+    test('either Ivan track opens the Goldfish game', () {
+      for (final track in const [
+        {'Q_IVAN_ROAD_EASY_1', 'Q_IVAN_ROAD_EASY_2'},
+        {'Q_IVAN_ROAD_HARD_1', 'Q_IVAN_ROAD_HARD_2'},
+      ]) {
+        expect(
+          currentPlayableNodeIndex({
+            'Q_TURNIP_HARVEST',
+            'Q_MOLE_FINE_PRINT',
+            ...track,
+          }),
+          indexOf('goldfish'),
+        );
+      }
+    });
+
+    test('Goldfish leads past the Fox story to the bakery, then Tugriki', () {
+      const beforeBakery = {
+        'Q_TURNIP_HARVEST',
+        'Q_MOLE_FINE_PRINT',
+        'Q_IVAN_ROAD_EASY_1',
+        'Q_IVAN_ROAD_EASY_2',
+        'Q_GOLDFISH_HOME_SIMPLE_1',
+        'Q_GOLDFISH_HOME_SIMPLE_2',
+      };
+      expect(currentPlayableNodeIndex(beforeBakery), indexOf('bakery'));
+      expect(
+        currentPlayableNodeIndex({...beforeBakery, 'Q_BAKERY_PROFIT'}),
         indexOf('tugriki'),
       );
     });
 
-    test('with every game done there is no false current future chapter', () {
+    test('with every game done the park story is the last stop', () {
       expect(
         currentPlayableNodeIndex(const {
           'Q_TURNIP_HARVEST',
           'Q_MOLE_FINE_PRINT',
+          'Q_IVAN_ROAD_EASY_1',
+          'Q_IVAN_ROAD_EASY_2',
+          'Q_GOLDFISH_HOME_SIMPLE_1',
+          'Q_GOLDFISH_HOME_SIMPLE_2',
+          'Q_BAKERY_PROFIT',
           'Q_TUGRIKI_CURRENCY',
         }),
-        isNull,
+        indexOf('badger'),
       );
     });
 
@@ -136,11 +192,16 @@ void main() {
       }
     });
 
-    test('every playable node maps to a server quest', () {
-      for (final node in questMapNodes.where((n) => n.isPlayable)) {
-        expect(node.destination.questId, isNotNull, reason: node.id);
+    test('every rewarded node maps to server quests', () {
+      for (final node in questMapNodes.where((n) => n.isRewardedQuest)) {
+        expect(node.destination.questIds, isNotEmpty, reason: node.id);
       }
-      expect(playableQuestCount, 3);
+      // Репка, Крот, Иван, Золотая рыбка, Пекарня, Тугрики.
+      expect(playableQuestCount, 6);
+      expect(
+        questMapNodes.singleWhere((node) => node.id == 'badger').isPlayable,
+        isTrue,
+      );
     });
 
     test('checkpoint anchors match the painted map artwork', () {
@@ -218,27 +279,81 @@ void main() {
     expect(find.byType(TurnipGameScreen), findsOneWidget);
   });
 
-  testWidgets('server progress opens the path up to Tugriki', (tester) async {
+  testWidgets('server progress walks the whole painted path', (tester) async {
     await tester.pumpWidget(
       _map(completed: const ['Q_TURNIP_HARVEST', 'Q_MOLE_FINE_PRINT']),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Квест №7'), findsOneWidget);
+    expect(find.text('Квест №3'), findsOneWidget);
+
+    await _openNode(tester, 'ivan');
+    expect(find.text('Начать'), findsOneWidget);
+    // The next Ivan level's reward comes from the server.
+    expect(find.text('10 монет за прохождение'), findsOneWidget);
+    await tester.tap(find.byTooltip('Закрыть'));
+    await tester.pump(const Duration(milliseconds: 500));
 
     await _openNode(tester, 'tugriki');
-    expect(find.text('Начать'), findsOneWidget);
-    expect(find.text('15 монет за прохождение'), findsOneWidget);
+    expect(find.textContaining('Откроется после квеста'), findsOneWidget);
     await tester.tap(find.byTooltip('Закрыть'));
     await tester.pump(const Duration(milliseconds: 500));
 
-    await _openNode(tester, 'bakery');
+    await _openNode(tester, 'fox');
     expect(find.textContaining('Глава в разработке'), findsOneWidget);
-    await tester.tap(find.byTooltip('Закрыть'));
-    await tester.pump(const Duration(milliseconds: 500));
+  });
 
+  testWidgets('an advanced child gets the hard Goldfish level', (tester) async {
+    await tester.pumpWidget(
+      _map(
+        completed: const [
+          'Q_TURNIP_HARVEST',
+          'Q_MOLE_FINE_PRINT',
+          'Q_IVAN_ROAD_HARD_1',
+          'Q_IVAN_ROAD_HARD_2',
+        ],
+        difficulty: ChildDifficulty.advanced,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _openNode(tester, 'goldfish');
+    expect(find.text('12 монет за прохождение'), findsOneWidget);
+    await tester.tap(find.text('Начать'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<GoldfishGameScreen>(find.byType(GoldfishGameScreen))
+          .initialLevel,
+      GoldfishLevelId.hardOne,
+    );
+  });
+
+  testWidgets('after every game the park story opens with its status', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _map(
+        completed: const [
+          'Q_TURNIP_HARVEST',
+          'Q_MOLE_FINE_PRINT',
+          'Q_IVAN_ROAD_EASY_1',
+          'Q_IVAN_ROAD_EASY_2',
+          'Q_GOLDFISH_HOME_SIMPLE_1',
+          'Q_GOLDFISH_HOME_SIMPLE_2',
+          'Q_BAKERY_PROFIT',
+          'Q_TUGRIKI_CURRENCY',
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Квест №8'), findsOneWidget);
     await _openNode(tester, 'badger');
-    expect(find.textContaining('Глава в разработке'), findsOneWidget);
+    await tester.tap(find.byTooltip('Подробнее'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('park-status')), findsOneWidget);
+    expect(find.text('Есть просьба'), findsOneWidget);
   });
 
   testWidgets('in-progress quest uses an honest resume action', (tester) async {
@@ -350,7 +465,7 @@ void main() {
       find.byWidgetPredicate(
         (widget) =>
             widget is Image &&
-            assetName(widget) == 'assets/map/checkpoint_road_v2.png',
+            assetName(widget) == 'assets/map/checkpoint_road_v2.webp',
       ),
       findsNWidgets(questMapNodes.length),
     );
@@ -391,7 +506,7 @@ void main() {
             widget is Image &&
             widget.image is AssetImage &&
             (widget.image as AssetImage).assetName ==
-                'assets/map/checkpoint_road_v2.png',
+                'assets/map/checkpoint_road_v2.webp',
       ),
     );
     expect(tester.getSize(currentMarker).width, greaterThanOrEqualTo(92));
@@ -420,24 +535,6 @@ void main() {
 
     await tester.pump(const Duration(seconds: 4));
     expect(tester.binding.hasScheduledFrame, isTrue);
-  });
-
-  testWidgets('all playable quests produce a real terminal map state', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _map(
-        completed: const [
-          'Q_TURNIP_HARVEST',
-          'Q_MOLE_FINE_PRINT',
-          'Q_TUGRIKI_CURRENCY',
-        ],
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('3 квеста пройдено'), findsOneWidget);
-    expect(find.text('Все доступные задания пройдены'), findsOneWidget);
   });
 
   testWidgets('progress error blocks false map state and offers retry', (

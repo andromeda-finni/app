@@ -100,7 +100,7 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
                       + COALESCE((SELECT SUM(-t.delta_amount)
                                     FROM transactions t
                                    WHERE t.child_user_id = $1
-                                     AND t.event_type = 'PET_EVENT_PAYMENT'
+                                     AND t.event_type IN ('PET_EVENT_PAYMENT', 'INSURANCE_PREMIUM')
                                      AND t.occurred_at >= $2), 0) AS need_spent
                  FROM wallets w
                 WHERE w.child_user_id = $1 AND w.kind = 'SPENDABLE' FOR UPDATE`,

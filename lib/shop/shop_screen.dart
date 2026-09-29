@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/game_audio_service.dart';
 import '../economy/economy_action_ui.dart';
 import '../economy/economy_actions.dart';
 import '../economy/economy_state.dart';
 import '../economy/item_art_catalog.dart';
 import '../economy/item_artwork.dart';
+import '../insurance/insurance_screen.dart';
 import '../theme/app_theme.dart';
 import 'widgets/artifact_product_card.dart';
 import 'widgets/shop_category_card.dart';
@@ -183,6 +187,7 @@ class _ShopScreenState extends State<ShopScreen> {
         _busy = false;
         _pendingPurchaseId = null;
       });
+      unawaited(GameAudioService.instance.play(GameSound.purchase));
       await _showPurchaseResult(
         context,
         item: item,
@@ -212,6 +217,15 @@ class _ShopScreenState extends State<ShopScreen> {
     if (economy == null || economy.goal != null) return;
     final selected = await _execute(EconomyActions.goal(economy, item));
     if (selected && mounted) widget.onGoalSelected();
+  }
+
+  Future<void> _openInsurance() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => InsuranceScreen(apiClient: widget.apiClient),
+      ),
+    );
+    if (mounted) await _load();
   }
 
   @override
@@ -263,6 +277,7 @@ class _ShopScreenState extends State<ShopScreen> {
                   onSelectGoal: _selectGoal,
                   onOpenPlan: widget.onOpenPlan,
                   onOpenQuests: widget.onOpenQuests,
+                  onOpenInsurance: _openInsurance,
                 ),
               ),
             if (_error != null) ...[
@@ -681,6 +696,7 @@ class _CategoryContent extends StatelessWidget {
     required this.onSelectGoal,
     required this.onOpenPlan,
     required this.onOpenQuests,
+    required this.onOpenInsurance,
   });
 
   final _ShopCategory category;
@@ -692,6 +708,7 @@ class _CategoryContent extends StatelessWidget {
   final ValueChanged<EconomyItem> onSelectGoal;
   final VoidCallback onOpenPlan;
   final VoidCallback onOpenQuests;
+  final VoidCallback onOpenInsurance;
 
   @override
   Widget build(BuildContext context) {
@@ -762,6 +779,15 @@ class _CategoryContent extends StatelessWidget {
             ),
           ),
         },
+        // Protection for tomorrow is a need too: it sits with food and care.
+        if (category == _ShopCategory.needs && mode == StoreMode.normal) ...[
+          const SizedBox(height: AppSpacing.md),
+          _InsuranceEntry(
+            insured: economy.isInsuredForNextDay,
+            enabled: !dayNotReady,
+            onOpen: onOpenInsurance,
+          ),
+        ],
       ],
     );
   }
@@ -866,6 +892,86 @@ class _PurchaseCatalog extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _InsuranceEntry extends StatelessWidget {
+  const _InsuranceEntry({
+    required this.insured,
+    required this.enabled,
+    required this.onOpen,
+  });
+
+  final bool insured;
+  final bool enabled;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = Container(
+      width: 58,
+      height: 58,
+      decoration: const BoxDecoration(
+        color: AppColors.protectionTint,
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(Icons.eco_rounded, color: AppColors.leafGreen),
+    );
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Стол подорожника', style: AppTextStyles.sectionTitle),
+        Text(
+          insured ? 'Защита на завтра активна' : 'Здоровье и защита · 5 монет',
+          style: AppTextStyles.supporting,
+        ),
+      ],
+    );
+    final button = OutlinedButton(
+      key: const Key('open-insurance'),
+      onPressed: enabled ? onOpen : null,
+      style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
+      child: Text(insured ? 'Открыть' : 'Подойти'),
+    );
+    return _Card(
+      child: Semantics(
+        container: true,
+        label: insured
+            ? 'Стол подорожника. Защита на завтра активна.'
+            : 'Стол подорожника. Защита на завтра стоит 5 монет.',
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final stack =
+                constraints.maxWidth < 340 ||
+                MediaQuery.textScalerOf(context).scale(1) > 1.3;
+            final heading = Row(
+              children: [
+                icon,
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(child: text),
+              ],
+            );
+            if (stack) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  heading,
+                  const SizedBox(height: AppSpacing.sm),
+                  button,
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: heading),
+                const SizedBox(width: AppSpacing.xs),
+                button,
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
 }
 
 class _PurchaseRow extends StatelessWidget {

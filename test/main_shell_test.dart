@@ -13,6 +13,7 @@ import 'package:http/testing.dart';
 
 import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/home/main_shell.dart';
+import 'package:andromeda_app/home/home_tour.dart';
 import 'package:andromeda_app/home/widgets/app_nav_bar.dart';
 import 'package:andromeda_app/theme/app_theme.dart';
 
@@ -21,8 +22,30 @@ import 'support/economy_fixture.dart';
 
 /// The home tab makes real calls, so every shell in these tests gets a stub
 /// backend — the nav bar itself is what is under test.
-Widget _shell({VoidCallback? onSwitchAudience}) {
+Widget _shell({
+  VoidCallback? onSwitchAudience,
+  bool showHomeTour = false,
+  bool failHomeTourOnce = false,
+  void Function(http.BaseRequest request)? onRequest,
+}) {
+  var shouldFailHomeTour = failHomeTourOnce;
   final client = MockClient((request) async {
+    onRequest?.call(request);
+    if (request.url.path == '/onboarding/home-tour') {
+      if (shouldFailHomeTour) {
+        shouldFailHomeTour = false;
+        return http.Response(
+          jsonEncode({'error': 'temporary_failure'}),
+          500,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response(
+        jsonEncode({'homeTourCompleted': true}),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    }
     // Every tab now reads the single economy read model; serving it keeps the
     // tabs in their real loaded state instead of silently erroring.
     final body = switch (request.url.path) {
@@ -70,6 +93,7 @@ Widget _shell({VoidCallback? onSwitchAudience}) {
         authStorage: FakeAuthStorage(initialToken: 'tok'),
         baseUrl: 'http://test',
       ),
+      showHomeTour: showHomeTour,
       onSwitchAudience: onSwitchAudience,
     ),
   );
@@ -105,7 +129,7 @@ void main() {
     // rendered, so the check is on what IndexedStack is showing.
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 0);
 
-    await tester.tap(_tab('Магазин'));
+    await tester.tap(_tab('Магазин'), warnIfMissed: false);
     await tester.pumpAndSettle();
 
     expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 2);
@@ -114,6 +138,11 @@ void main() {
   testWidgets('the selected tab is crimson and filled, the others are not', (
     tester,
   ) async {
+    // The painted map loops its scene animations while visible; like a
+    // phone with reduced motion, the test asks for a still map to settle.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     await tester.pumpWidget(_shell());
     await tester.pumpAndSettle();
 
@@ -248,5 +277,139 @@ void main() {
     await tester.tap(find.text('Сменить пользователя'));
     await tester.pumpAndSettle();
     expect(switched, isTrue);
+  });
+
+  testWidgets('home tour explains the real screen and blocks background tabs', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(412, 915);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final requests = <String>[];
+
+    await tester.pumpWidget(
+      _shell(
+        showHomeTour: true,
+        onRequest: (request) =>
+            requests.add('${request.method} ${request.url.path}'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Деньги и разделы'), findsOneWidget);
+    expect(find.byKey(const Key('home-tour-blocker')), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.text('Деньги и разделы'),
+        matching: find.byType(Material),
+      ),
+      findsWidgets,
+      reason: 'Tour text must not inherit Flutter fallback yellow underlines.',
+    );
+    final titleContext = tester.element(find.text('Деньги и разделы'));
+    final inheritedDecoration = DefaultTextStyle.of(titleContext)
+        .style
+        .decoration;
+    expect(
+      inheritedDecoration?.contains(TextDecoration.underline) ?? false,
+      isFalse,
+    );
+    expect(
+      tester.widget<HomeTourOverlay>(find.byType(HomeTourOverlay)).spotlights,
+      hasLength(2),
+    );
+
+    await tester.tap(_tab('Магазин'), warnIfMissed: false);
+    await tester.pump();
+    expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 0);
+
+    await tester.tap(find.byKey(const Key('home-tour-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('Твой питомец'), findsOneWidget);
+    expect(find.byKey(const Key('home-tour-back')), findsOneWidget);
+    expect(
+      tester.widget<HomeTourOverlay>(find.byType(HomeTourOverlay)).spotlights,
+      isNotEmpty,
+    );
+
+    await tester.tap(find.byKey(const Key('home-tour-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('План на период'), findsWidgets);
+    expect(find.text('Понятно — в домик'), findsOneWidget);
+    expect(
+      tester.widget<HomeTourOverlay>(find.byType(HomeTourOverlay)).spotlights,
+      hasLength(1),
+    );
+
+    await tester.tap(find.byKey(const Key('home-tour-next')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('home-tour-blocker')), findsNothing);
+    expect(requests, contains('PUT /onboarding/home-tour'));
+    final scrollable = tester.state<ScrollableState>(
+      find.byType(Scrollable).first,
+    );
+    expect(scrollable.position.pixels, 0);
+  });
+
+  testWidgets('home tour keeps the final step open when saving fails', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(412, 915);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_shell(showHomeTour: true, failHomeTourOnce: true));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('home-tour-next')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('home-tour-next')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('home-tour-next')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('home-tour-error')), findsOneWidget);
+    expect(
+      find.text('Не получилось сохранить. Попробовать ещё раз.'),
+      findsOneWidget,
+    );
+    expect(find.text('Понятно — в домик'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('home-tour-next')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('home-tour-blocker')), findsNothing);
+  });
+
+  testWidgets('home tour reflows on a narrow phone with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(() {
+      tester.view.reset();
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
+    });
+
+    await tester.pumpWidget(_shell(showHomeTour: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Деньги и разделы'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.ensureVisible(find.byKey(const Key('home-tour-next')));
+    await tester.tap(find.byKey(const Key('home-tour-next')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Твой питомец'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.ensureVisible(find.byKey(const Key('home-tour-next')));
+    await tester.tap(find.byKey(const Key('home-tour-next')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Понятно — в домик'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

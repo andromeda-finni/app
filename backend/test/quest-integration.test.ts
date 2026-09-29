@@ -34,11 +34,11 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
     payload: object = {},
   ) => app.inject({ method, url, headers, payload });
 
-  const createReadyChild = async () => {
+  const createReadyChild = async (difficulty: "SIMPLE" | "ADVANCED" = "SIMPLE") => {
     const registration = await app.inject({
       method: "POST",
       url: "/auth/child/register",
-      payload: {},
+      payload: { difficulty },
     });
     assert.equal(registration.statusCode, 201, registration.body);
     const { token, userId } = registration.json();
@@ -163,8 +163,55 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
       }
     }
 
+    const tugrikiStillLocked = await start("Q_TUGRIKI_CURRENCY", progression.headers);
+    assert.equal(tugrikiStillLocked.statusCode, 409, tugrikiStillLocked.body);
+    assert.equal(tugrikiStillLocked.json().error, "quest_prerequisite_not_completed");
+
+    const bakeryStart = await start("Q_BAKERY_PROFIT", progression.headers);
+    assert.equal(bakeryStart.statusCode, 201, bakeryStart.body);
+    assert.equal(bakeryStart.json().rewardAmount, 12);
+    const bakeryMistake = await answer(
+      bakeryStart.json().assignmentId as string,
+      1,
+      "20",
+      progression.headers,
+    );
+    assert.equal(bakeryMistake.statusCode, 200, bakeryMistake.body);
+    assert.equal(bakeryMistake.json().outcome, "RECOVERABLE_ERROR");
+    const bakeryDone = await answer(
+      bakeryStart.json().assignmentId as string,
+      1,
+      "8",
+      progression.headers,
+    );
+    assert.equal(bakeryDone.statusCode, 200, bakeryDone.body);
+    assert.equal(bakeryDone.json().questCompleted, true);
+    assert.equal(bakeryDone.json().rewardAmount, 12);
+
     const unlocked = await start("Q_TUGRIKI_CURRENCY", progression.headers);
     assert.equal(unlocked.statusCode, 201, unlocked.body);
+
+    const advanced = await createReadyChild("ADVANCED");
+    const advancedTurnip = await start("Q_TURNIP_HARVEST", advanced.headers);
+    await answer(
+      advancedTurnip.json().assignmentId as string,
+      1,
+      "grandmother,granddaughter,zhuchka,cat,mouse",
+      advanced.headers,
+    );
+    const advancedMole = await start("Q_MOLE_FINE_PRINT", advanced.headers);
+    const advancedMoleCodes = ["", "12", "9", "ask", "19", "seller"];
+    for (let stepNo = 1; stepNo <= 5; stepNo++) {
+      await answer(
+        advancedMole.json().assignmentId as string,
+        stepNo,
+        advancedMoleCodes[stepNo]!,
+        advanced.headers,
+      );
+    }
+    const advancedBakery = await start("Q_BAKERY_PROFIT", advanced.headers);
+    assert.equal(advancedBakery.statusCode, 201, advancedBakery.body);
+    assert.equal(advancedBakery.json().rewardAmount, 15);
 
     const limited = await createReadyChild();
     const questCodes = [

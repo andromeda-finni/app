@@ -5,6 +5,7 @@ class Pet {
   const Pet({
     required this.name,
     required this.furOptionId,
+    required this.accessoryOptionId,
     required this.satiety,
     required this.joy,
     required this.health,
@@ -13,6 +14,7 @@ class Pet {
 
   final String name;
   final String? furOptionId;
+  final String? accessoryOptionId;
 
   /// `energy_level` server-side — what feeding tops up.
   final int satiety;
@@ -31,6 +33,7 @@ class Pet {
     return Pet(
       name: name,
       furOptionId: json['fur_option_id'] as String?,
+      accessoryOptionId: json['accessory_option_id'] as String?,
       satiety: _int(json['energy_level'], 100),
       joy: _int(json['joy_level'], 50),
       health: _int(json['health_level'], 100),
@@ -41,6 +44,16 @@ class Pet {
   PetMood get mood => moodFor(satiety: satiety, joy: joy, health: health);
 
   String get assetPath => catAsset(furOptionId: furOptionId, mood: mood);
+
+  Pet copyWith({String? name, int? health}) => Pet(
+    name: name ?? this.name,
+    furOptionId: furOptionId,
+    accessoryOptionId: accessoryOptionId,
+    satiety: satiety,
+    joy: joy,
+    health: health ?? this.health,
+    evolutionStage: evolutionStage,
+  );
 
   static const _stageNames = ['Малыш', 'Подросток', 'Взрослый'];
 

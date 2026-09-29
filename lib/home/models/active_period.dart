@@ -3,27 +3,29 @@
 class ActivePeriod {
   const ActivePeriod({
     required this.id,
+    required this.sequenceNo,
     required this.requiredNeedAmount,
+    required this.remainingReserve,
     required this.budgetPlanId,
     required this.budgetPlanStatus,
     required this.availableAmount,
     required this.needAmount,
     required this.wantAmount,
     required this.savingsAmount,
-    required this.remainingReserve,
   });
 
   final String id;
+  final int sequenceNo;
 
   /// The floor the server enforces on the must-haves share.
   final int requiredNeedAmount;
+  final int remainingReserve;
   final String? budgetPlanId;
   final String? budgetPlanStatus;
   final int availableAmount;
   final int needAmount;
   final int wantAmount;
   final int savingsAmount;
-  final int remainingReserve;
 
   bool get isConfirmed => budgetPlanStatus == 'CONFIRMED';
 
@@ -35,6 +37,7 @@ class ActivePeriod {
     if (id is! String) return null;
     return ActivePeriod(
       id: id,
+      sequenceNo: _int(json['sequence_no']),
       requiredNeedAmount: _int(json['required_need_amount']),
       budgetPlanId: json['budget_plan_id'] as String?,
       budgetPlanStatus: json['budget_plan_status'] as String?,

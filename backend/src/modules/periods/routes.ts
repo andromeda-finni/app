@@ -3,6 +3,7 @@ import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { postTransaction, transferBetweenWallets } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
+import { useArtifact } from "../../lib/artifacts.js";
 import { bodySchema, nonNegativeIntSchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
 import { calculateDayOutcome, ECONOMY_RULES } from "../economy/rules.js";
 import { lockGoalOwner, requireGoal } from "../economy/goals.js";
@@ -106,6 +107,52 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
           idempotencyKey: `daily-income:${periodId}`,
         });
 
+        const artifactEffects = [];
+        let balanceAfter = txn.balanceAfter;
+
+        const tablecloth = await useArtifact(client, {
+          childUserId,
+          itemId: "tablecloth",
+          effectCode: "NOURISHING_HOME",
+          durabilityCost: 25,
+          referenceType: "game_period",
+          referenceId: periodId,
+        });
+        if (tablecloth) {
+          await client.query(
+            `UPDATE pets
+                SET energy_level = GREATEST(energy_level, 40), updated_at = now()
+              WHERE child_user_id = $1`,
+            [childUserId],
+          );
+          artifactEffects.push(tablecloth);
+        }
+
+        if (sequenceNo > 1 && (balances["SPENDABLE"] ?? 0) >= 10) {
+          const purse = await useArtifact(client, {
+            childUserId,
+            itemId: "purse",
+            effectCode: "MAGIC_REMAINDER",
+            durabilityCost: 10,
+            referenceType: "game_period",
+            referenceId: periodId,
+            equippedOnly: true,
+          });
+          if (purse) {
+            const bonus = await postTransaction(client, {
+              childUserId,
+              walletKind: "SPENDABLE",
+              eventType: "ARTIFACT_BONUS",
+              deltaAmount: 2,
+              referenceType: "game_period",
+              referenceId: periodId,
+              idempotencyKey: `artifact-purse-bonus:${periodId}`,
+            });
+            balanceAfter = bonus.balanceAfter;
+            artifactEffects.push(purse);
+          }
+        }
+
         const planRes = await client.query<{ id: string }>(
           `INSERT INTO budget_plans (period_id, child_user_id, available_amount)
            VALUES ($1, $2, $3) RETURNING id`,
@@ -113,13 +160,17 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
         );
 
         const event = await rollActivePeriodPetEvent(client, childUserId);
+        if (event.artifactEffect) artifactEffects.push(event.artifactEffect);
 
         return {
           periodId,
           budgetPlanId: planRes.rows[0]!.id,
           grantAmount,
-          balanceAfter: txn.balanceAfter,
+          balanceAfter,
           eventTriggered: event.triggered,
+          coveredByInsurance: event.coveredByInsurance ?? false,
+          insuranceNotice: event.insuranceNotice,
+          artifactEffects,
         };
       });
 
@@ -267,7 +318,12 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
         const period = periodRes.rows[0];
         if (!period) throw new HttpError(404, "period_not_found");
         if (period.status === "COMPLETED") {
-          return readDaySummary(client, childUserId, periodId);
+          // Same shape as the first close. Artifact effects were applied and
+          // shown then; a replay never applies them again, so none are new.
+          return {
+            ...(await readDaySummary(client, childUserId, periodId)),
+            artifactEffects: [],
+          };
         }
         if (period.status !== "ACTIVE") {
           throw new HttpError(409, "period_cannot_be_closed");
@@ -299,6 +355,12 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
               AND occurred_at >= $2`,
           [childUserId, period.opened_at],
         );
+        const insuranceSpentRes = await client.query<{ total: string }>(
+          `SELECT COALESCE(SUM(premium_amount), 0) AS total
+             FROM insurance_policies
+            WHERE child_user_id = $1 AND purchased_period_id = $2`,
+          [childUserId, periodId],
+        );
         const savingsRes = await client.query<{ deposits: string; withdrawals: string }>(
           `SELECT
              COALESCE(SUM(delta_amount) FILTER (WHERE event_type = 'SAVINGS_DEPOSIT'), 0) AS deposits,
@@ -309,7 +371,8 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
 
         const actualNeed =
           Number(needSpentRes.rows[0]?.total ?? 0) +
-          Number(eventSpentRes.rows[0]?.total ?? 0);
+          Number(eventSpentRes.rows[0]?.total ?? 0) +
+          Number(insuranceSpentRes.rows[0]?.total ?? 0);
         const actualWant = Number(wantSpentRes.rows[0]?.total ?? 0);
         const netSavings =
           Number(savingsRes.rows[0]?.deposits ?? 0) - Number(savingsRes.rows[0]?.withdrawals ?? 0);
@@ -391,7 +454,19 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
           ],
         );
 
-        return readDaySummary(client, childUserId, periodId);
+        const saucerEffect = await useArtifact(client, {
+          childUserId,
+          itemId: "saucer",
+          effectCode: "COST_FORESIGHT",
+          durabilityCost: 2,
+          referenceType: "game_period",
+          referenceId: periodId,
+        });
+        const summary = await readDaySummary(client, childUserId, periodId);
+        return {
+          ...summary,
+          artifactEffects: saucerEffect ? [saucerEffect] : [],
+        };
       });
 
       return result;

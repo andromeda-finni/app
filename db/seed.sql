@@ -15,7 +15,8 @@ INSERT INTO education_topics (id, title, skill_description, sort_order) VALUES
   ('SCAMS', 'Осторожно, обман', 'Учимся распознавать нечестные предложения', 3),
   ('CURRENCY', 'Иностранная валюта', 'Учимся переводить цены по курсу', 4),
   ('CONSUMER_RIGHTS', 'Проверяем покупки', 'Учимся замечать условия и ошибки в чеках', 5),
-  ('INCOME', 'Откуда берутся деньги', 'Учимся понимать, что доход появляется из общего труда', 6)
+  ('INCOME', 'Откуда берутся деньги', 'Учимся понимать, что доход появляется из общего труда', 6),
+  ('PROFIT', 'Выручка и прибыль', 'Учимся вычитать расходы из выручки', 7)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO quest_definitions (id, topic_id, title, location_code, difficulty, reward_amount) VALUES
@@ -26,11 +27,16 @@ INSERT INTO quest_definitions (id, topic_id, title, location_code, difficulty, r
   -- any other value is refused when the reward is paid out.
   ('Q_TUGRIKI_CURRENCY', 'CURRENCY', 'Ярмарка тугриков', 'MARKET', 'SIMPLE', 15),
   ('Q_MOLE_FINE_PRINT', 'CONSUMER_RIGHTS', 'Осторожно, мелкий шрифт', 'MARKET', 'SIMPLE', 15),
-  ('Q_TURNIP_HARVEST', 'INCOME', 'Репка', 'VILLAGE', 'SIMPLE', 10)
+  ('Q_TURNIP_HARVEST', 'INCOME', 'Репка', 'VILLAGE', 'SIMPLE', 10),
+  ('Q_BAKERY_PROFIT', 'PROFIT', 'Пекарня', 'TOWN', 'SIMPLE', 12)
 ON CONFLICT (id) DO UPDATE SET
   reward_amount = EXCLUDED.reward_amount,
   title = EXCLUDED.title,
   location_code = EXCLUDED.location_code;
+
+UPDATE quest_definitions
+   SET advanced_reward_amount = 15
+ WHERE id = 'Q_BAKERY_PROFIT';
 
 INSERT INTO quest_steps (quest_id, step_no, instruction, expected_action_code, success_feedback, recovery_feedback, ui_spec) VALUES
   ('Q_FIRST_BUDGET', 1,
@@ -53,34 +59,47 @@ INSERT INTO quest_steps (quest_id, step_no, instruction, expected_action_code, s
    'COMPLETE_STORY',
    'Ярмарка пройдена: ты умеешь пересчитывать цены по курсу.',
    'Вспомни курс: за 1 тугрик отдают 2 монетки.',
-   '{"answerValidation":{"kind":"BUDGET_SELECTION","budget":20,"itemPrices":{"soup":8,"juice":4,"fruits":6,"pie":4}}}')
+   '{"answerValidation":{"kind":"BUDGET_SELECTION","budget":20,"itemPrices":{"soup":8,"juice":4,"fruits":6,"pie":4}}}'),
+  ('Q_BAKERY_PROFIT', 1,
+   'Купи продукты, продай пирожки и вычисли прибыль после расходов.',
+   'COMPLETE_STORY',
+   'Верно: прибыль — это выручка за вычетом расходов.',
+   'Вычти из выручки все купленные продукты, включая необязательные.',
+   '{"answerValidation":{"kind":"ONE_OF","acceptedOptions":["8","2"]},"gameId":"bakery"}')
 ON CONFLICT (quest_id, step_no) DO NOTHING;
 
-INSERT INTO shop_items (id, kind, name, price, rarity, energy_delta, joy_delta) VALUES
-  ('FOOD_APPLE', 'NEED', 'Яблоко', 5, NULL, 10, 0),
-  ('FOOD_CARROT', 'NEED', 'Морковка', 5, NULL, 10, 0),
-  ('PET_MEAL', 'NEED', 'Обед для питомца', 10, NULL, 25, 0),
-  ('TOY_BALL', 'WANT', 'Мячик', 8, NULL, 0, 20),
-  ('CANDY', 'WANT', 'Конфета', 6, NULL, 0, 8),
-  ('saucer', 'ARTIFACT', 'Серебряное блюдечко и наливное яблочко', 80, 'RARE', 0, 0),
-  ('vial', 'ARTIFACT', 'Склянка с живой водой', 90, 'RARE', 0, 0),
-  ('tablecloth', 'ARTIFACT', 'Скатерть-самобранка', 105, 'EPIC', 0, 0),
-  ('horseshoe', 'ARTIFACT', 'Золотая подкова', 120, 'EPIC', 0, 0),
-  ('shield', 'ARTIFACT', 'Богатырский щит', 130, 'EPIC', 0, 0),
-  ('purse', 'ARTIFACT', 'Кошель-самотряс', 140, 'LEGENDARY', 0, 0),
-  ('boots', 'ARTIFACT', 'Сапоги-скороходы', 150, 'LEGENDARY', 0, 0)
+INSERT INTO shop_items (id, kind, name, price, rarity, effect_code, repair_cost_per_point, energy_delta, joy_delta) VALUES
+  ('FOOD_APPLE', 'NEED', 'Яблоко', 5, NULL, NULL, 0.20, 10, 0),
+  ('FOOD_CARROT', 'NEED', 'Морковка', 5, NULL, NULL, 0.20, 10, 0),
+  ('PET_MEAL', 'NEED', 'Обед для питомца', 10, NULL, NULL, 0.20, 25, 0),
+  ('TOY_BALL', 'WANT', 'Мячик', 8, NULL, NULL, 0.20, 0, 20),
+  ('CANDY', 'WANT', 'Конфета', 6, NULL, NULL, 0.20, 0, 8),
+  ('saucer', 'ARTIFACT', 'Серебряное блюдечко и наливное яблочко', 80, 'RARE', 'COST_FORESIGHT', 0.20, 0, 0),
+  ('vial', 'ARTIFACT', 'Склянка с живой водой', 90, 'RARE', 'SECOND_CHANCE', 100.00, 0, 0),
+  ('tablecloth', 'ARTIFACT', 'Скатерть-самобранка', 105, 'EPIC', 'NOURISHING_HOME', 0.20, 0, 0),
+  ('horseshoe', 'ARTIFACT', 'Золотая подкова', 120, 'EPIC', 'NEED_CASHBACK', 0.20, 0, 0),
+  ('shield', 'ARTIFACT', 'Богатырский щит', 130, 'EPIC', 'VIGILANCE_SHIELD', 0.20, 0, 0),
+  ('purse', 'ARTIFACT', 'Кошель-самотряс', 140, 'LEGENDARY', 'MAGIC_REMAINDER', 0.20, 0, 0),
+  ('boots', 'ARTIFACT', 'Сапоги-скороходы', 150, 'LEGENDARY', 'QUEST_PATH', 0.20, 0, 0)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   price = EXCLUDED.price,
   rarity = EXCLUDED.rarity,
+  effect_code = EXCLUDED.effect_code,
+  repair_cost_per_point = EXCLUDED.repair_cost_per_point,
   energy_delta = EXCLUDED.energy_delta,
   joy_delta = EXCLUDED.joy_delta,
   active = true;
 
 INSERT INTO quest_prerequisites (quest_id, prerequisite_quest_id)
-VALUES ('Q_TUGRIKI_CURRENCY', 'Q_MOLE_FINE_PRINT'),
+VALUES ('Q_TUGRIKI_CURRENCY', 'Q_BAKERY_PROFIT'),
+       ('Q_BAKERY_PROFIT', 'Q_MOLE_FINE_PRINT'),
        ('Q_MOLE_FINE_PRINT', 'Q_TURNIP_HARVEST')
 ON CONFLICT DO NOTHING;
+
+DELETE FROM quest_prerequisites
+ WHERE quest_id = 'Q_TUGRIKI_CURRENCY'
+   AND prerequisite_quest_id = 'Q_MOLE_FINE_PRINT';
 
 UPDATE shop_items
    SET active = false
@@ -88,9 +107,17 @@ UPDATE shop_items
    AND id NOT IN ('saucer', 'vial', 'tablecloth', 'horseshoe', 'shield', 'purse', 'boots');
 
 INSERT INTO pet_event_definitions (id, title, description, cost_amount) VALUES
-  ('SICK', 'Питомец заболел', 'Нужно купить лекарство', 15),
-  ('HUNGRY', 'Питомец проголодался', 'Нужно срочно покормить', 10)
-ON CONFLICT (id) DO NOTHING;
+  ('POOR_PAW', 'Уколол лапку', 'Финни бегал по лесу за бабочкой и наступил на колючку. Нужен целебный подорожник и бинтик.', 10),
+  ('SICK', 'Питомец простудился', 'На полянке прошел холодный дождь, Финни чихает и дрожит. Нужен липовый мед и теплый шарфик.', 15),
+  ('HUNGRY', 'Внезапный аппетит', 'Запасы орехов кончились, а после активных игр в лесу Финни очень проголодался. Нужна горячая похлебка.', 10),
+  ('COLD_NIGHT', 'Печка остыла', 'Ночью обещают лесные заморозки. Нужна охапка сухих дров у Дровосека, чтобы в домике было тепло.', 8),
+  ('ROOF_LEAK', 'Прохудилась крыша', 'Ночью сильный ветер сдул пару веток с крыши, и теперь капает на пол. Нужна смола и береста для ремонта.', 14),
+  ('BEAVER_DAM', 'Лесной сбор Бобру', 'Бобры укрепили плотину и починили мостик к Лесной Ярмарке. Все жители леса сдают монетки на общее дело.', 7)
+ON CONFLICT (id) DO UPDATE SET
+  title = EXCLUDED.title,
+  description = EXCLUDED.description,
+  cost_amount = EXCLUDED.cost_amount,
+  active = true;
 
 INSERT INTO scam_offer_definitions
   (id, npc_character_code, pitch_text, promised_amount, cost_if_accepted, decline_feedback, accept_feedback) VALUES

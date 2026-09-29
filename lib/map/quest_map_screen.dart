@@ -6,9 +6,15 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../core/child_difficulty.dart';
 import '../core/pet_assets.dart';
+import '../games/goldfish/goldfish_game_models.dart';
+import '../games/goldfish/goldfish_game_screen.dart';
+import '../games/ivan/ivan_game_models.dart';
+import '../games/ivan/ivan_game_screen.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../games/turnip/turnip_game_screen.dart';
+import '../minigames/bakery/bakery_game_screen.dart';
 import '../minigames/mole/mole_game_screen.dart';
+import '../minigames/park/park_project_screen.dart';
 import '../minigames/tugriki/tugriki_game_screen.dart';
 import '../theme/app_theme.dart';
 import 'quest_map_data.dart';
@@ -44,7 +50,7 @@ class QuestMapScreen extends StatefulWidget {
 
 class _QuestMapScreenState extends State<QuestMapScreen>
     with TickerProviderStateMixin {
-  static const _mapAsset = 'assets/map/quest_map_scenarios_v05_clean.png';
+  static const _mapAsset = 'assets/map/quest_map_scenarios_v05_clean.webp';
   static const _sourceWidth = 821.0;
   static const _sourceHeight = 1916.0;
 
@@ -67,6 +73,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   final Set<String> _completedQuestIds = {};
   final Set<String> _inProgressQuestIds = {};
   final Map<String, int> _rewardAmounts = {};
+  String? _parkScene;
   // Neutral until the server answers: the child names the pet themselves.
   String _petName = 'Питомец';
   String? _furOptionId;
@@ -148,6 +155,16 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       final pet = economy['pet'] as Map?;
       final name = pet?['pet_name'];
       final fur = pet?['fur_option_id'];
+      String? parkScene;
+      if (completed.contains('Q_TUGRIKI_CURRENCY')) {
+        try {
+          final park = await widget.apiClient!.get('/park-project');
+          parkScene = park['scene'] as String?;
+        } on ApiException {
+          // Keep the rewarded quest path usable when this optional story
+          // status cannot be refreshed yet.
+        }
+      }
       if (!mounted) return;
       final previousCatIndex = catNodeIndexFor(_completedQuestIds);
       final nextCatIndex = catNodeIndexFor(completed);
@@ -164,6 +181,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         _rewardAmounts
           ..clear()
           ..addAll(rewards);
+        _parkScene = parkScene;
         if (!shouldMove) {
           _placeCatAtCurrent();
           _didJumpToStart = false;
@@ -188,6 +206,39 @@ class _QuestMapScreenState extends State<QuestMapScreen>
 
   QuestMapNodeState _stateFor(QuestMapNode node) =>
       stateForQuestMapNode(node, _completedQuestIds);
+
+  /// The server quest this node will start next: multi-level tracks point at
+  /// their next level for the child's difficulty.
+  String? _questIdFor(QuestMapNode node) => switch (node.destination) {
+    QuestMapDestination.ivan => nextIvanLevel(
+      completedQuestIds: _completedQuestIds,
+      preferredDifficulty: widget.difficulty == ChildDifficulty.advanced
+          ? IvanDifficulty.hard
+          : IvanDifficulty.easy,
+    ).questId,
+    QuestMapDestination.goldfish => nextGoldfishLevel(
+      completedQuestIds: _completedQuestIds,
+      preferredDifficulty: widget.difficulty == ChildDifficulty.advanced
+          ? GoldfishDifficulty.hard
+          : GoldfishDifficulty.normal,
+    ).questId,
+    _ => node.destination.questId,
+  };
+
+  /// Only amounts the server reported; nothing is promised before it answers.
+  int? _rewardFor(QuestMapNode node) => _rewardAmounts[_questIdFor(node)];
+
+  bool _inProgress(QuestMapNode node) =>
+      _inProgressQuestIds.contains(_questIdFor(node));
+
+  String? get _parkStatusText => switch (_parkScene) {
+    'FIRST_OFFER' || 'SECOND_OFFER' => 'Есть просьба',
+    'WAITING_SECOND' || 'WAITING_COMMUNITY' => 'Ждём новостей',
+    'FUNDED' || 'BUILDING' => 'Парк строится',
+    'ALMOST_READY' => 'Почти готово',
+    'OPEN' => 'Парк открыт',
+    _ => null,
+  };
 
   String get _headerProgressLabel {
     final currentIndex = currentPlayableNodeIndex(_completedQuestIds);
@@ -436,9 +487,11 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         node: node,
         state: _stateFor(node),
         unlockMessage: _unlockMessage(node),
-        rewardAmount:
-            _rewardAmounts[node.destination.questId] ?? node.rewardAmount,
-        isInProgress: _inProgressQuestIds.contains(node.destination.questId),
+        rewardAmount: _rewardFor(node),
+        isInProgress: _inProgress(node),
+        parkStatus: node.destination == QuestMapDestination.badger
+            ? _parkStatusText
+            : null,
       ),
     );
     if (shouldOpen == true && mounted) await _launchNode(node);
@@ -464,9 +517,59 @@ class _QuestMapScreenState extends State<QuestMapScreen>
           builder: (_) => MoleGameScreen(apiClient: widget.apiClient),
         ),
       ),
+      QuestMapDestination.bakery => navigator.push<void>(
+        MaterialPageRoute(
+          builder: (gameContext) => BakeryGameScreen(
+            difficulty: widget.difficulty,
+            apiClient: widget.apiClient,
+            onExit: () => Navigator.of(gameContext).pop(),
+          ),
+        ),
+      ),
+      QuestMapDestination.ivan => navigator.push<void>(
+        MaterialPageRoute(
+          builder: (gameContext) => IvanGameScreen(
+            initialLevel: nextIvanLevel(
+              completedQuestIds: _completedQuestIds,
+              preferredDifficulty: widget.difficulty == ChildDifficulty.advanced
+                  ? IvanDifficulty.hard
+                  : IvanDifficulty.easy,
+            ),
+            apiClient: widget.apiClient,
+            petName: _petName,
+            onExit: () => Navigator.of(gameContext).pop(),
+          ),
+        ),
+      ),
+      QuestMapDestination.goldfish => navigator.push<void>(
+        MaterialPageRoute(
+          builder: (gameContext) => GoldfishGameScreen(
+            initialLevel: nextGoldfishLevel(
+              completedQuestIds: _completedQuestIds,
+              preferredDifficulty: widget.difficulty == ChildDifficulty.advanced
+                  ? GoldfishDifficulty.hard
+                  : GoldfishDifficulty.normal,
+            ),
+            apiClient: widget.apiClient,
+            petName: _petName,
+            onExit: () => Navigator.of(gameContext).pop(),
+          ),
+        ),
+      ),
       QuestMapDestination.tugriki => navigator.push<void>(
         MaterialPageRoute(
           builder: (gameContext) => TugrikiGameScreen(
+            apiClient: widget.apiClient,
+            petName: _petName,
+            furOptionId: _furOptionId,
+            onExit: () => Navigator.of(gameContext).pop(),
+          ),
+        ),
+      ),
+      QuestMapDestination.badger => navigator.push<void>(
+        MaterialPageRoute(
+          builder: (gameContext) => ParkProjectScreen(
+            difficulty: widget.difficulty,
             apiClient: widget.apiClient,
             petName: _petName,
             furOptionId: _furOptionId,
@@ -710,9 +813,8 @@ class _QuestMapScreenState extends State<QuestMapScreen>
     final top = placeBelow
         ? node.nodeCenter.dy * mapHeight + 58
         : node.nodeCenter.dy * mapHeight - 210;
-    final reward =
-        _rewardAmounts[node.destination.questId] ?? node.rewardAmount;
-    final isInProgress = _inProgressQuestIds.contains(node.destination.questId);
+    final reward = _rewardFor(node);
+    final isInProgress = _inProgress(node);
 
     return Positioned(
       key: Key('quest-prompt-${node.id}'),
@@ -1060,7 +1162,7 @@ class _QuestMarker extends StatelessWidget {
                       ? 0.94
                       : 1,
                   child: Image.asset(
-                    'assets/map/checkpoint_road_v2.png',
+                    'assets/map/checkpoint_road_v2.webp',
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,
                     color: locked ? const Color(0x22554E46) : null,
@@ -1544,6 +1646,7 @@ class _QuestDetailsSheet extends StatelessWidget {
     required this.unlockMessage,
     required this.rewardAmount,
     required this.isInProgress,
+    this.parkStatus,
   });
 
   final QuestMapNode node;
@@ -1551,6 +1654,9 @@ class _QuestDetailsSheet extends StatelessWidget {
   final String unlockMessage;
   final int? rewardAmount;
   final bool isInProgress;
+
+  /// Current step of the Барсук park story, when known.
+  final String? parkStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -1657,6 +1763,25 @@ class _QuestDetailsSheet extends StatelessWidget {
                       height: 1.35,
                     ),
                   ),
+                  if (parkStatus case final status?) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        key: const Key('park-status'),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.infoBg,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: AppColors.coinGold),
+                        ),
+                        child: Text(status, style: AppTextStyles.cardRowLabel),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   Wrap(
                     spacing: 8,

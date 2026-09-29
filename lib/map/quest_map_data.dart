@@ -1,10 +1,22 @@
 import 'package:flutter/widgets.dart';
 
+import '../games/ivan/ivan_game_models.dart';
+import '../games/goldfish/goldfish_game_models.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../minigames/mole/mole_game_data.dart';
+import '../minigames/bakery/bakery_game_data.dart';
 import '../minigames/tugriki/tugriki_game_data.dart';
 
-enum QuestMapDestination { upcoming, turnip, mole, tugriki }
+enum QuestMapDestination {
+  upcoming,
+  turnip,
+  mole,
+  ivan,
+  goldfish,
+  bakery,
+  tugriki,
+  badger,
+}
 
 enum QuestMapNodeState { completed, current, locked, comingSoon }
 
@@ -24,8 +36,26 @@ extension QuestMapDestinationQuest on QuestMapDestination {
   String? get questId => switch (this) {
     QuestMapDestination.turnip => turnipQuestId,
     QuestMapDestination.mole => kMoleQuestId,
+    QuestMapDestination.bakery => kBakeryQuestId,
+    // Multi-level tracks: see questIds / isCompletedBy.
+    QuestMapDestination.ivan => null,
+    QuestMapDestination.goldfish => null,
     QuestMapDestination.tugriki => kTugrikiQuestId,
+    QuestMapDestination.badger => null,
     QuestMapDestination.upcoming => null,
+  };
+
+  Set<String> get questIds => switch (this) {
+    QuestMapDestination.ivan => ivanQuestIds,
+    QuestMapDestination.goldfish => goldfishQuestIds,
+    _ when questId != null => {questId!},
+    _ => const {},
+  };
+
+  bool isCompletedBy(Set<String> completedQuestIds) => switch (this) {
+    QuestMapDestination.ivan => isIvanTrackComplete(completedQuestIds),
+    QuestMapDestination.goldfish => isGoldfishTrackComplete(completedQuestIds),
+    _ => questId != null && completedQuestIds.contains(questId),
   };
 }
 
@@ -44,7 +74,6 @@ class QuestMapNode {
     required this.sceneEffect,
     required this.pathIndex,
     this.destination = QuestMapDestination.upcoming,
-    this.rewardAmount,
     this.catFacesRight,
   });
 
@@ -68,10 +97,13 @@ class QuestMapNode {
   final QuestSceneEffect sceneEffect;
   final int pathIndex;
   final QuestMapDestination destination;
-  final int? rewardAmount;
   final bool? catFacesRight;
 
   bool get isPlayable => destination != QuestMapDestination.upcoming;
+
+  /// A server-rewarded game. Multi-level tracks (Иван, Золотая рыбка) have no
+  /// single quest id but count as one rewarded node.
+  bool get isRewardedQuest => destination.questIds.isNotEmpty;
 }
 
 /// A shared bottom-to-top route following the painted road.
@@ -108,7 +140,6 @@ const questMapNodes = <QuestMapNode>[
     sceneEffect: QuestSceneEffect.turnipGlow,
     pathIndex: 0,
     destination: QuestMapDestination.turnip,
-    rewardAmount: 10,
   ),
   QuestMapNode(
     order: 2,
@@ -123,7 +154,6 @@ const questMapNodes = <QuestMapNode>[
     sceneEffect: QuestSceneEffect.lensGlint,
     pathIndex: 2,
     destination: QuestMapDestination.mole,
-    rewardAmount: 15,
     catFacesRight: true,
   ),
   QuestMapNode(
@@ -139,6 +169,7 @@ const questMapNodes = <QuestMapNode>[
     sceneEffectAnchor: Offset(180 / 821, 1110 / 1916),
     sceneEffect: QuestSceneEffect.compassGlint,
     pathIndex: 4,
+    destination: QuestMapDestination.ivan,
   ),
   QuestMapNode(
     order: 4,
@@ -152,6 +183,7 @@ const questMapNodes = <QuestMapNode>[
     sceneEffectAnchor: Offset(545 / 821, 980 / 1916),
     sceneEffect: QuestSceneEffect.waterGlint,
     pathIndex: 7,
+    destination: QuestMapDestination.goldfish,
   ),
   QuestMapNode(
     order: 5,
@@ -178,6 +210,7 @@ const questMapNodes = <QuestMapNode>[
     sceneEffectAnchor: Offset(760 / 821, 475 / 1916),
     sceneEffect: QuestSceneEffect.ovenLight,
     pathIndex: 11,
+    destination: QuestMapDestination.bakery,
     catFacesRight: true,
   ),
   QuestMapNode(
@@ -193,7 +226,6 @@ const questMapNodes = <QuestMapNode>[
     sceneEffect: QuestSceneEffect.coinGlint,
     pathIndex: 13,
     destination: QuestMapDestination.tugriki,
-    rewardAmount: 15,
     catFacesRight: false,
   ),
   QuestMapNode(
@@ -208,27 +240,37 @@ const questMapNodes = <QuestMapNode>[
     sceneEffectAnchor: Offset(354 / 821, 188 / 1916),
     sceneEffect: QuestSceneEffect.jarGlint,
     pathIndex: 14,
+    destination: QuestMapDestination.badger,
   ),
 ];
 
-/// The current node is the first game the child has not completed on the
-/// server; every node before it is open. Story-only nodes have nothing to
-/// complete, so they never block the path.
+/// The current node is the first rewarded game the child has not completed
+/// on the server; every node before it is open. Story-only nodes have nothing
+/// to complete, so they never block the path. Once every game is done the
+/// park story (Барсук) becomes the current stop.
 int? currentPlayableNodeIndex(Set<String> completedQuestIds) {
   for (var i = 0; i < questMapNodes.length; i++) {
-    final questId = questMapNodes[i].destination.questId;
-    if (questId != null && !completedQuestIds.contains(questId)) return i;
+    final node = questMapNodes[i];
+    if (node.isRewardedQuest &&
+        !node.destination.isCompletedBy(completedQuestIds)) {
+      return i;
+    }
   }
-  return null;
+  final park = questMapNodes.indexWhere(
+    (node) => node.destination == QuestMapDestination.badger,
+  );
+  return park < 0 ? null : park;
 }
 
 QuestMapNodeState stateForQuestMapNode(
   QuestMapNode node,
   Set<String> completedQuestIds,
 ) {
-  final questId = node.destination.questId;
-  if (questId == null) return QuestMapNodeState.comingSoon;
-  if (completedQuestIds.contains(questId)) return QuestMapNodeState.completed;
+  if (!node.isPlayable) return QuestMapNodeState.comingSoon;
+  if (node.isRewardedQuest &&
+      node.destination.isCompletedBy(completedQuestIds)) {
+    return QuestMapNodeState.completed;
+  }
   final currentIndex = currentPlayableNodeIndex(completedQuestIds);
   return questMapNodes.indexOf(node) == currentIndex
       ? QuestMapNodeState.current
@@ -239,18 +281,28 @@ int catNodeIndexFor(Set<String> completedQuestIds) {
   final current = currentPlayableNodeIndex(completedQuestIds);
   if (current != null) return current;
   for (var i = questMapNodes.length - 1; i >= 0; i--) {
-    final questId = questMapNodes[i].destination.questId;
-    if (questId != null && completedQuestIds.contains(questId)) return i;
+    final node = questMapNodes[i];
+    if (node.isRewardedQuest &&
+        node.destination.isCompletedBy(completedQuestIds)) {
+      return i;
+    }
   }
   return 0;
 }
 
-int completedPlayableQuestCount(Set<String> completedQuestIds) {
-  return questMapNodes
-      .where((node) => completedQuestIds.contains(node.destination.questId))
-      .length;
-}
+/// Index of the node the child should play next; the last node when the
+/// whole path is open.
+int unlockedIndexFor(Set<String> completedQuestIds) =>
+    currentPlayableNodeIndex(completedQuestIds) ?? questMapNodes.length - 1;
+
+int completedPlayableQuestCount(Set<String> completedQuestIds) => questMapNodes
+    .where(
+      (node) =>
+          node.isRewardedQuest &&
+          node.destination.isCompletedBy(completedQuestIds),
+    )
+    .length;
 
 /// Number of nodes that are real, server-rewarded games.
 int get playableQuestCount =>
-    questMapNodes.where((node) => node.isPlayable).length;
+    questMapNodes.where((node) => node.isRewardedQuest).length;

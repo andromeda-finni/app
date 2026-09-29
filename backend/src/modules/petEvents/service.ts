@@ -1,12 +1,17 @@
 import type { PoolClient } from "pg";
 import { pickWeighted } from "../../lib/random.js";
+import { useArtifact, type ArtifactEffectResult } from "../../lib/artifacts.js";
 import { ECONOMY_RULES } from "../economy/rules.js";
 
 const PET_EVENT_HEALTH_DROP = 45;
+const PET_HEALTH_FULL = 100;
 
 export interface PetEventRollResult {
   triggered: boolean;
   occurrenceId?: string;
+  coveredByInsurance?: boolean;
+  insuranceNotice?: string;
+  artifactEffect?: ArtifactEffectResult;
 }
 
 /**
@@ -52,6 +57,24 @@ export async function rollActivePeriodPetEvent(
   const pet = petRes.rows[0];
   if (!pet) return { triggered: false };
 
+  const policyRes = await client.query<{ id: string }>(
+    `SELECT id FROM insurance_policies
+      WHERE child_user_id = $1 AND coverage_sequence_no = $2 AND status = 'ACTIVE'
+      FOR UPDATE`,
+    [childUserId, period.sequence_no],
+  );
+  const policy = policyRes.rows[0];
+
+  const expirePolicy = async () => {
+    if (!policy) return;
+    await client.query(
+      `UPDATE insurance_policies
+          SET status = 'EXPIRED', resolved_at = now()
+        WHERE id = $1`,
+      [policy.id],
+    );
+  };
+
   // A legacy unpaid event may belong to an older period. It still blocks a
   // new occurrence even though this period's roll is now durably consumed.
   const blockingRes = await client.query(
@@ -60,9 +83,22 @@ export async function rollActivePeriodPetEvent(
       LIMIT 1`,
     [childUserId],
   );
-  if ((blockingRes.rowCount ?? 0) > 0) return { triggered: false };
+  if ((blockingRes.rowCount ?? 0) > 0) {
+    await expirePolicy();
+    return { triggered: false };
+  }
 
-  if (random() >= ECONOMY_RULES.eventProbability) return { triggered: false };
+  if (random() >= ECONOMY_RULES.eventProbability) {
+    await expirePolicy();
+    return policy
+      ? {
+          triggered: false,
+          coveredByInsurance: false,
+          insuranceNotice:
+            "Сегодня был спокойный день: защита не пригодилась, срок её действия завершился.",
+        }
+      : { triggered: false };
+  }
 
   const defsRes = await client.query<{
     id: string;
@@ -87,7 +123,31 @@ export async function rollActivePeriodPetEvent(
     ],
   );
   const chosen = pickWeighted(defsRes.rows, (definition) => definition.trigger_weight, random);
-  if (!chosen) return { triggered: false };
+  if (!chosen) {
+    await expirePolicy();
+    return { triggered: false };
+  }
+
+  if (policy) {
+    await client.query(
+      `UPDATE insurance_policies
+          SET status = 'USED', covered_event_definition_id = $1,
+              resolved_at = now()
+        WHERE id = $2`,
+      [chosen.id, policy.id],
+    );
+    await client.query(
+      `UPDATE pets SET health_level = $1, updated_at = now()
+        WHERE child_user_id = $2`,
+      [PET_HEALTH_FULL, childUserId],
+    );
+    return {
+      triggered: false,
+      coveredByInsurance: true,
+      insuranceNotice:
+        "Страховка оплатила уход: после прохладного дня здоровье сохранилось!",
+    };
+  }
 
   const occurrenceRes = await client.query<{ id: string }>(
     `INSERT INTO pet_event_occurrences
@@ -96,6 +156,35 @@ export async function rollActivePeriodPetEvent(
      RETURNING id`,
     [childUserId, pet.id, chosen.id, period.id, chosen.cost_amount],
   );
+  const occurrenceId = occurrenceRes.rows[0]!.id;
+
+  const vial = await useArtifact(client, {
+    childUserId,
+    itemId: "vial",
+    effectCode: "SECOND_CHANCE",
+    durabilityCost: 1,
+    referenceType: "pet_event_occurrence",
+    referenceId: occurrenceId,
+  });
+  if (vial) {
+    await client.query(
+      `UPDATE pet_event_occurrences
+          SET status = 'RESOLVED', resolved_at = now(),
+              prevented_by_inventory_item_id = $1
+        WHERE id = $2`,
+      [vial.inventoryItemId, occurrenceId],
+    );
+    await client.query(
+      `UPDATE pets SET health_level = $1, updated_at = now()
+        WHERE child_user_id = $2`,
+      [PET_HEALTH_FULL, childUserId],
+    );
+    return {
+      triggered: false,
+      occurrenceId,
+      artifactEffect: vial,
+    };
+  }
 
   // The bill is visible before the plan is approved, so it becomes part of
   // the amount the child must reserve for needs.
@@ -114,6 +203,6 @@ export async function rollActivePeriodPetEvent(
 
   return {
     triggered: true,
-    occurrenceId: occurrenceRes.rows[0]!.id,
+    occurrenceId,
   };
 }

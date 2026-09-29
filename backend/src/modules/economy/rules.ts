@@ -11,6 +11,7 @@ export const ECONOMY_RULES = {
   firstEventDay: 2,
   minimumEventCost: 2,
   maximumEventCost: 20,
+  insurancePremium: 5,
   frostMinimum: 10,
   frostMaximum: 50,
   frostStep: 10,

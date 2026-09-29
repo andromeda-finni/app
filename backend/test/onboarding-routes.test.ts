@@ -11,32 +11,43 @@ test("onboarding status resumes and progress advances sequentially and idempoten
     import("../src/lib/errors.js"),
     import("../src/modules/onboarding/routes.js"),
   ]);
-  const app = Fastify();
+  const app = Fastify({
+    ajv: { customOptions: { removeAdditional: false } },
+  });
   const originalQuery = pool.query;
   const originalConnect = pool.connect;
   let currentStep = 2;
   let completedAt: Date | null = null;
+  let homeTourCompletedAt: Date | null = null;
+  let authRole = "CHILD";
+  let profileExists = true;
 
   pool.query = (async (text: string) => {
     if (text.includes("FROM auth_credentials")) {
-      return { rows: [{ user_id: "child-1", role: "CHILD" }], rowCount: 1 };
+      return { rows: [{ user_id: "child-1", role: authRole }], rowCount: 1 };
     }
     if (text.startsWith("UPDATE auth_credentials")) {
       return { rows: [], rowCount: 1 };
     }
     if (text.includes("FROM child_profiles cp")) {
       return {
-        rows: [
+        rows: profileExists ? [
           {
             difficulty: "ADVANCED",
             onboarding_step: currentStep,
             onboarding_completed_at: completedAt,
+            home_tour_completed_at: homeTourCompletedAt,
             pet_name: "Мурзик",
             fur_option_id: "FUR_GRAY",
           },
-        ],
-        rowCount: 1,
+        ] : [],
+        rowCount: profileExists ? 1 : 0,
       };
+    }
+    if (text.startsWith("UPDATE child_profiles") && text.includes("home_tour_completed_at")) {
+      if (!profileExists) return { rows: [], rowCount: 0 };
+      homeTourCompletedAt ??= new Date("2026-09-27T12:00:00Z");
+      return { rows: [], rowCount: 1 };
     }
     throw new Error(`Unexpected query in test: ${text}`);
   }) as typeof pool.query;
@@ -77,6 +88,11 @@ test("onboarding status resumes and progress advances sequentially and idempoten
         reply.code(err.statusCode).send({ error: err.code, details: err.details });
         return;
       }
+      const validationError = err as { statusCode?: number };
+      if (validationError.statusCode) {
+        reply.code(validationError.statusCode).send({ error: "request_error" });
+        return;
+      }
       reply.code(500).send({ error: "internal_server_error" });
     });
     await app.register(onboardingRoutes);
@@ -91,8 +107,48 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       difficulty: "ADVANCED",
       currentStep: 2,
       completed: false,
+      homeTourCompleted: false,
       pet: { petName: "Мурзик", furOptionId: "FUR_GRAY" },
     });
+
+    authRole = "PARENT";
+    const forbiddenTour = await app.inject({
+      method: "PUT",
+      url: "/onboarding/home-tour",
+      headers: { authorization: "Bearer token" },
+      payload: {},
+    });
+    assert.equal(forbiddenTour.statusCode, 403);
+    authRole = "CHILD";
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const completedTour = await app.inject({
+        method: "PUT",
+        url: "/onboarding/home-tour",
+        headers: { authorization: "Bearer token" },
+        payload: {},
+      });
+      assert.equal(completedTour.statusCode, 200);
+      assert.deepEqual(completedTour.json(), { homeTourCompleted: true });
+    }
+
+    const unknownTourField = await app.inject({
+      method: "PUT",
+      url: "/onboarding/home-tour",
+      headers: { authorization: "Bearer token" },
+      payload: { completed: true },
+    });
+    assert.equal(unknownTourField.statusCode, 400);
+
+    profileExists = false;
+    const missingProfileTour = await app.inject({
+      method: "PUT",
+      url: "/onboarding/home-tour",
+      headers: { authorization: "Bearer token" },
+      payload: {},
+    });
+    assert.equal(missingProfileTour.statusCode, 404);
+    profileExists = true;
 
     const completeStep2 = await app.inject({
       method: "PUT",
@@ -143,6 +199,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       difficulty: "ADVANCED",
       currentStep: 4,
       completed: true,
+      homeTourCompleted: true,
       pet: { petName: "Мурзик", furOptionId: "FUR_GRAY" },
     });
   } finally {

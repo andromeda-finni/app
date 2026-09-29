@@ -4,20 +4,25 @@ import 'package:flutter/material.dart';
 /// Illustrations and drop caps carry the fairy-tale character; functional
 /// text stays in a highly readable serif face.
 abstract final class AppColors {
-  static const canvas = Color(0xFFFFF9EF);
+  static const canvas = Color(0xFFF7F2E9);
   static const canvasWarm = Color(0xFFFCF2E1);
   static const parchment = Color(0xFFF7EBD8);
   static const parchmentDark = Color(0xFFEAD8BA);
-  static const crimson = Color(0xFFAD2B23);
-  static const crimsonDark = Color(0xFF842019);
+  static const crimson = Color(0xFF8B2635);
+  static const crimsonDark = Color(0xFF6F1E2A);
   static const crimsonFaded = Color(0xFFE5B8AF);
-  static const ink = Color(0xFF352923);
+  static const ink = Color(0xFF2C2523);
   static const inkMuted = Color(0xFF75675C);
   static const fieldBorder = Color(0xFFD4C2A5);
   static const leafGreen = Color(0xFF526B45);
   static const cardBg = Color(0xFFFFFBF4);
   static const coinGold = Color(0xFFD99524);
   static const infoBg = Color(0xFFFFF1D5);
+  static const forestDeep = Color(0xFF2E7D32);
+  static const parchmentLight = Color(0xFFFFF8E1);
+  static const amber = Color(0xFFFFA000);
+  static const protectionTint = Color(0xFFE8F5E9);
+  static const neutralTint = Color(0xFFF0ECE5);
 
   // Savings: the warm gold of a dream being saved for.
   static const goalSurface = Color(0xFFFFF4DC);
@@ -166,6 +171,10 @@ abstract final class AppTextStyles {
 }
 
 abstract final class AppTheme {
+  static const gold = AppColors.coinGold;
+  static const forestGreen = Color(0xFF2F5D3A);
+  static const parchment = AppColors.parchment;
+
   static ThemeData get light => ThemeData(
     colorScheme: ColorScheme.fromSeed(
       seedColor: AppColors.crimson,
