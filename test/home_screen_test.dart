@@ -71,7 +71,13 @@ Map<String, dynamic> _economy({
   'activeEvent': activeEvent,
   'parentTasks': parentTasks,
   'inventory': [
-    {'name': 'Гусли-самогуды'},
+    {
+      'id': 'inventory-boots',
+      'item_id': 'boots',
+      'name': 'Сапоги-скороходы',
+      'durability_current': 80,
+      'durability_max': 100,
+    },
   ],
 };
 
@@ -134,7 +140,7 @@ void main() {
           expect(
             catAsset(furOptionId: fur, mood: mood),
             matches(
-              RegExp(r'^assets/Cat/Red_collar/\w+/(striped|red|white)\.png$'),
+              RegExp(r'^assets/Cat/Red_collar/\w+/(striped|red|white)\.webp$'),
             ),
           );
         }
@@ -176,7 +182,11 @@ void main() {
     expect(find.text('30%'), findsOneWidget);
     expect(find.text('Радость'), findsOneWidget);
     expect(find.text('Коллекция'), findsOneWidget);
-    expect(find.text('Гусли-самогуды'), findsOneWidget);
+    // Owned artifacts are shown with their wear, not as "not yet received".
+    expect(
+      find.bySemanticsLabel(RegExp('Сапоги-скороходы, прочность 80 из 100')),
+      findsOneWidget,
+    );
     expect(find.text('Стол подорожника'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('pet-care-back')));

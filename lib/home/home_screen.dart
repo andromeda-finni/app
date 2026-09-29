@@ -9,6 +9,7 @@ import '../events/pet_event_models.dart';
 import '../services/pet_event_service.dart';
 import '../theme/app_theme.dart';
 import 'models/home_economy_state.dart';
+import 'models/recent_day.dart';
 import 'pet_care_screen.dart';
 import 'widgets/budget_plan_card.dart';
 import 'widgets/coin_distribution_sheet.dart';
@@ -16,6 +17,7 @@ import 'widgets/dream_card.dart';
 import 'widgets/pet_name_header.dart';
 import 'widgets/pet_scene.dart';
 import 'widgets/parent_tasks_card.dart';
+import 'widgets/recent_days_card.dart';
 
 enum _LoadState { loading, ready, error }
 
@@ -31,6 +33,7 @@ class HomeScreen extends StatefulWidget {
     this.onOpenInsurance,
     this.onPlanningRequiredChanged,
     this.refreshSignal = 0,
+    this.focusPlan = false,
   });
 
   final ApiClient apiClient;
@@ -41,6 +44,10 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback? onOpenInsurance;
   final ValueChanged<bool>? onPlanningRequiredChanged;
   final int refreshSignal;
+
+  /// Opens the day plan as soon as the home loads — used when another tab
+  /// (e.g. a closed shop) sends the child here to plan first.
+  final bool focusPlan;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -53,6 +60,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _offline = false;
   bool _busy = false;
   bool _eventDialogOpen = false;
+  List<RecentDay> _recentDays = const [];
+  bool _planFocused = false;
 
   @override
   void initState() {
@@ -75,15 +84,32 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final json = await widget.apiClient.get('/economy/state');
       final next = HomeEconomyState.fromJson(json);
+      final recentDaysValue = json['recentDays'];
+      final recentDays = recentDaysValue is List
+          ? recentDaysValue
+                .map(
+                  (value) => RecentDay.fromJson(
+                    Map<String, dynamic>.from(value as Map),
+                  ),
+                )
+                .toList(growable: false)
+          : const <RecentDay>[];
       if (!mounted) return;
       setState(() {
         _data = next;
+        _recentDays = recentDays;
         _offline = false;
         _loadState = _LoadState.ready;
       });
       widget.onPlanningRequiredChanged?.call(
         next.activeDay != null && !next.activeDay!.isConfirmed,
       );
+      if (widget.focusPlan && !_planFocused) {
+        _planFocused = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _openPlan();
+        });
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -508,6 +534,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onProgress: _showProgress,
         onOpenEvent: _openEvent,
         onSubmitParentTask: _submitParentTask,
+        recentDays: _recentDays,
       ),
     };
   }
@@ -516,6 +543,7 @@ class _HomeScreenState extends State<HomeScreen> {
 class _HomeContent extends StatelessWidget {
   const _HomeContent({
     required this.data,
+    required this.recentDays,
     required this.offline,
     required this.busy,
     required this.onRefresh,
@@ -533,6 +561,7 @@ class _HomeContent extends StatelessWidget {
   });
 
   final HomeEconomyState data;
+  final List<RecentDay> recentDays;
   final bool offline;
   final bool busy;
   final Future<void> Function() onRefresh;
@@ -606,7 +635,7 @@ class _HomeContent extends StatelessWidget {
                   PetScene(
                     key: const Key('home-pet-scene'),
                     pet: data.pet,
-                    backgroundAsset: 'assets/backgrounds/home_room.png',
+                    backgroundAsset: 'assets/backgrounds/home_room.webp',
                     height: sceneHeight,
                     petHeightFactor: 0.68,
                     heroTag: 'home-pet',
@@ -739,6 +768,10 @@ class _HomeContent extends StatelessWidget {
                       onSubmit: onSubmitParentTask,
                     ),
                   ],
+                  if (recentDays.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    RecentDaysCard(days: recentDays),
+                  ],
                 ],
               ),
             ),
@@ -771,7 +804,7 @@ class _CoinPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('assets/icons/coin.png', width: 24, height: 24),
+            Image.asset('assets/icons/coin.webp', width: 24, height: 24),
             const SizedBox(width: 5),
             Text('$spendable', style: AppTextStyles.counterValue),
             Container(
@@ -780,7 +813,7 @@ class _CoinPill extends StatelessWidget {
               margin: const EdgeInsets.symmetric(horizontal: 10),
               color: AppColors.fieldBorder,
             ),
-            Image.asset('assets/icons/chest.png', width: 26, height: 26),
+            Image.asset('assets/icons/chest.webp', width: 26, height: 26),
             const SizedBox(width: 5),
             Text('$savings', style: AppTextStyles.counterValue),
           ],

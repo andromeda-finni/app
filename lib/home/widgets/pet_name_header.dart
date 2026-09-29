@@ -44,7 +44,7 @@ class PetNameHeader extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (!compact) ...[
-              Image.asset('assets/icons/leaf.png', width: 28, height: 28),
+              Image.asset('assets/icons/leaf.webp', width: 28, height: 28),
               const SizedBox(width: 7),
             ],
             Flexible(
@@ -73,7 +73,7 @@ class PetNameHeader extends StatelessWidget {
               Transform.flip(
                 flipX: true,
                 child: Image.asset(
-                  'assets/icons/leaf.png',
+                  'assets/icons/leaf.webp',
                   width: 28,
                   height: 28,
                 ),

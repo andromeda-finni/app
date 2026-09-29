@@ -34,8 +34,17 @@ test("horseshoe returns rounded-up cashback and loses durability on NEED purchas
       if (text.includes("INSERT INTO idempotency_keys")) {
         return { rows: [{ "?column?": 1 }], rowCount: 1 };
       }
-      if (text.includes("SELECT kind, price FROM shop_items")) {
-        return { rows: [{ kind: "NEED", price: 11 }], rowCount: 1 };
+      if (text.includes("SELECT kind, price") && text.includes("FROM shop_items")) {
+        return {
+          rows: [{ kind: "NEED", price: 11, energy_delta: 10, joy_delta: 0 }],
+          rowCount: 1,
+        };
+      }
+      if (text.includes("JOIN budget_plans bp")) {
+        return {
+          rows: [{ id: "day-1", need_amount: 10, required_need_amount: 10 }],
+          rowCount: 1,
+        };
       }
       if (text.includes("SELECT balance FROM wallets")) {
         return { rows: [{ balance }], rowCount: 1 };

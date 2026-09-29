@@ -6,6 +6,7 @@ import { withIdempotency } from "../../lib/idempotency.js";
 import { bodySchema, idempotencyKeySchema } from "../../lib/schema.js";
 import { HttpError } from "../../lib/errors.js";
 import { lockGoalOwner, requireGoal } from "../economy/goals.js";
+import { ECONOMY_RULES } from "../economy/rules.js";
 
 export async function walletRoutes(app: FastifyInstance): Promise<void> {
   app.get(
@@ -62,7 +63,9 @@ export async function walletRoutes(app: FastifyInstance): Promise<void> {
         preHandler: [requireAuth, requireRole("CHILD")],
         schema: bodySchema(
           {
-            amount: { type: "integer", minimum: 1 },
+            // Transfers use the fixed steps published in ECONOMY_RULES; the
+            // client offers only these, so any other amount is a forged call.
+            amount: { type: "integer", enum: [...ECONOMY_RULES.savingsTransferAmounts] },
             idempotencyKey: idempotencyKeySchema,
           },
           ["amount", "idempotencyKey"],
@@ -76,8 +79,13 @@ export async function walletRoutes(app: FastifyInstance): Promise<void> {
         // Same replay guard as /purchases: the key is claimed inside the very
         // transaction that moves the money, so a retry returns the original
         // transfer and two concurrent retries can't both move it.
-        const outcome = await withTransaction((client) =>
-          withIdempotency(
+        const outcome = await withTransaction(async (client) => {
+          // Lock the child row before claiming the key: the key's foreign key
+          // takes a shared lock on that same row, so claiming first let two
+          // concurrent transfers each hold the shared lock and then deadlock
+          // upgrading it to FOR UPDATE.
+          await lockGoalOwner(client, childUserId);
+          return withIdempotency(
             client,
             {
               childUserId,
@@ -86,7 +94,6 @@ export async function walletRoutes(app: FastifyInstance): Promise<void> {
               params: { amount },
             },
             async () => {
-              await lockGoalOwner(client, childUserId);
               if (path === "deposit") await requireGoal(client, childUserId);
               const periodRes = await client.query<{
                 opened_at: Date;
@@ -153,8 +160,8 @@ export async function walletRoutes(app: FastifyInstance): Promise<void> {
                 toTransactionId: result.toTxnId,
               };
             },
-          ),
-        );
+          );
+        });
 
         reply.code(200).send({ ...outcome.result, replayed: outcome.replayed });
       },

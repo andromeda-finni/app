@@ -144,16 +144,17 @@ export async function goalRoutes(app: FastifyInstance): Promise<void> {
           [txn.id, goalId],
         );
 
+        // The living-water vial is single-use; every other artifact wears down
+        // from 100. Computed here: reusing $2 both as a varchar column value
+        // and in a text comparison made Postgres reject the statement.
+        const durability = goal.target_item_id === "vial" ? 1 : 100;
         const invRes = await client.query<{ id: string }>(
           `INSERT INTO inventory_items
              (child_user_id, item_id, financial_goal_id,
               durability_current, durability_max, is_broken)
-           VALUES ($1, $2, $3,
-                   CASE WHEN $2 = 'vial' THEN 1 ELSE 100 END,
-                   CASE WHEN $2 = 'vial' THEN 1 ELSE 100 END,
-                   false)
+           VALUES ($1, $2, $3, $4, $4, false)
            RETURNING id`,
-          [childUserId, goal.target_item_id, goalId],
+          [childUserId, goal.target_item_id, goalId, durability],
         );
 
         return { ok: true, inventoryItemId: invRes.rows[0]!.id };

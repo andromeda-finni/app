@@ -155,6 +155,7 @@ test("GET /economy/state returns the complete two-screen read model", async () =
       parentTasks: [],
       recentTransactions: [],
       recentDays: [],
+      savingsHistory: [],
     });
   } finally {
     pool.query = originalQuery;

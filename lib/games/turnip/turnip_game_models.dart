@@ -7,6 +7,14 @@ const turnipQuestId = 'Q_TURNIP_HARVEST';
 enum TurnipCharacter { grandmother, granddaughter, zhuchka, cat, mouse }
 
 extension TurnipCharacterData on TurnipCharacter {
+  String get serverCode => switch (this) {
+    TurnipCharacter.grandmother => 'grandmother',
+    TurnipCharacter.granddaughter => 'granddaughter',
+    TurnipCharacter.zhuchka => 'zhuchka',
+    TurnipCharacter.cat => 'cat',
+    TurnipCharacter.mouse => 'mouse',
+  };
+
   String get label => switch (this) {
     TurnipCharacter.grandmother => 'Бабушка',
     TurnipCharacter.granddaughter => 'Внучка',
@@ -16,11 +24,11 @@ extension TurnipCharacterData on TurnipCharacter {
   };
 
   String get assetPath => switch (this) {
-    TurnipCharacter.grandmother => 'assets/games/turnip/grandmother.png',
-    TurnipCharacter.granddaughter => 'assets/games/turnip/granddaughter.png',
-    TurnipCharacter.zhuchka => 'assets/games/turnip/zhuchka.png',
-    TurnipCharacter.cat => 'assets/games/turnip/cat.png',
-    TurnipCharacter.mouse => 'assets/games/turnip/mouse.png',
+    TurnipCharacter.grandmother => 'assets/games/turnip/grandmother.webp',
+    TurnipCharacter.granddaughter => 'assets/games/turnip/granddaughter.webp',
+    TurnipCharacter.zhuchka => 'assets/games/turnip/zhuchka.webp',
+    TurnipCharacter.cat => 'assets/games/turnip/cat.webp',
+    TurnipCharacter.mouse => 'assets/games/turnip/mouse.webp',
   };
 }
 

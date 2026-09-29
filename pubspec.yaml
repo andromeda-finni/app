@@ -65,34 +65,39 @@ flutter:
   # so declaring whole folders pulled ~56MB of mostly unused images into the
   # APK. Add a line here when a screen starts using another image.
   assets:
-    - assets/backgrounds/town.png
-    - assets/backgrounds/shop.png
-    - assets/backgrounds/paper.png
-    - assets/backgrounds/home_room.png
-    - assets/backgrounds/meadow_foreground.png
-    - assets/backgrounds/scene_transition.png
-    - assets/map/quest_map_scenarios_v03.png
-    - assets/icons/arrow_left.png
-    - assets/icons/sweet.png
-    - assets/icons/ball.png
-    - assets/icons/pig.png
-    - assets/icons/coin.png
-    - assets/icons/leaf.png
-    - assets/icons/chest.png
-    - assets/icons/bowl.png
-    - assets/icons/eat.png
-    - assets/icons/leaf_small.png
-    - assets/images/morozko_chest.png
-    - assets/images/artifacts/saucer.png
-    - assets/images/artifacts/vial.png
-    - assets/images/artifacts/tablecloth.png
-    - assets/images/artifacts/horseshoe.png
-    - assets/images/artifacts/shield.png
-    - assets/images/artifacts/purse.png
-    - assets/images/artifacts/boots.png
-    - assets/icons/clew.png
+    - assets/backgrounds/town.webp
+    - assets/backgrounds/shop.webp
+    - assets/backgrounds/paper.webp
+    - assets/backgrounds/meadow_foreground.webp
+    - assets/backgrounds/scene_transition.webp
+    - assets/shop/category_needs-v2.webp
+    - assets/shop/category_wants-v2.webp
+    - assets/shop/category_dreams-v2.webp
+    - assets/shop/title_sign.webp
+    - assets/shop/items/apple.webp
+    - assets/shop/items/carrot.webp
+    - assets/map/quest_map_scenarios_v03.webp
+    - assets/icons/arrow_left.webp
+    - assets/icons/sweet.webp
+    - assets/icons/ball.webp
+    - assets/icons/pig.webp
+    - assets/icons/coin.webp
+    - assets/icons/leaf.webp
+    - assets/icons/chest.webp
+    - assets/icons/bowl.webp
+    - assets/icons/eat.webp
+    - assets/images/morozko_chest.webp
+    - assets/images/artifacts/saucer.webp
+    - assets/images/artifacts/vial.webp
+    - assets/images/artifacts/tablecloth.webp
+    - assets/images/artifacts/horseshoe.webp
+    - assets/images/artifacts/shield.webp
+    - assets/images/artifacts/purse.webp
+    - assets/images/artifacts/boots.webp
+    - assets/backgrounds/home_room.webp
+    - assets/icons/leaf_small.webp
+    - assets/icons/clew.webp
     - assets/artifacts/items/
-    - assets/artifacts/outlines/
     # Every mood folder is in use: the home screen swaps the pet's drawing to
     # match its stats (see lib/core/pet_assets.dart).
     - assets/Cat/Red_collar/base/
@@ -100,20 +105,21 @@ flutter:
     - assets/Cat/Red_collar/sad/
     - assets/Cat/Red_collar/sleep/
     - assets/Cat/Red_collar/fully/
+    - assets/Cat/Base/playful.webp
     - assets/minigames/tugriki/
     - assets/minigames/mole/
-    - assets/Fox/fox_friendly.png
-    - assets/Fox/fox_sly.png
-    - assets/games/turnip/garden_background.png
-    - assets/games/turnip/grandpa_sad.png
-    - assets/games/turnip/grandpa_pulling.png
-    - assets/games/turnip/grandmother.png
-    - assets/games/turnip/granddaughter.png
-    - assets/games/turnip/zhuchka.png
-    - assets/games/turnip/cat.png
-    - assets/games/turnip/mouse.png
-    - assets/games/turnip/team_pulling.png
-    - assets/games/turnip/success_harvest.png
+    - assets/Fox/fox_friendly.webp
+    - assets/Fox/fox_sly.webp
+    - assets/games/turnip/garden_background.webp
+    - assets/games/turnip/grandpa_sad.webp
+    - assets/games/turnip/grandpa_pulling.webp
+    - assets/games/turnip/grandmother.webp
+    - assets/games/turnip/granddaughter.webp
+    - assets/games/turnip/zhuchka.webp
+    - assets/games/turnip/cat.webp
+    - assets/games/turnip/mouse.webp
+    - assets/games/turnip/team_pulling.webp
+    - assets/games/turnip/success_harvest.webp
 
   # Bundled locally so typography is stable offline. PT Serif carries all
   # functional copy; Barocco Initial is reserved for decorative drop caps.
@@ -155,4 +161,3 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
-

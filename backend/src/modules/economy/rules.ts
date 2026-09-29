@@ -40,12 +40,15 @@ export function calculateDayOutcome(input: DayOutcomeInput): DayOutcome {
   const needCovered = input.actualNeed >= input.requiredNeed;
   const planFollowed =
     needCovered &&
+    input.actualNeed >= input.plannedNeed &&
     input.actualWant <= input.plannedWant &&
     input.netSavings >= input.plannedSavings;
 
   const recommendations: string[] = [];
   if (!needCovered) {
     recommendations.push("Сначала закрой обязательные траты на питомца.");
+  } else if (input.actualNeed < input.plannedNeed) {
+    recommendations.push("На нужное потрачено меньше, чем было в плане.");
   }
   if (input.actualWant > input.plannedWant) {
     recommendations.push("Сравни желания с планом перед следующей покупкой.");

@@ -66,7 +66,7 @@ class _FairytaleTitle extends StatelessWidget {
       Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset('assets/icons/leaf.png', width: 25, height: 25),
+          Image.asset('assets/icons/leaf.webp', width: 25, height: 25),
           const SizedBox(width: 9),
           Flexible(
             child: Text(
@@ -78,7 +78,7 @@ class _FairytaleTitle extends StatelessWidget {
           const SizedBox(width: 9),
           Transform.flip(
             flipX: true,
-            child: Image.asset('assets/icons/leaf.png', width: 25, height: 25),
+            child: Image.asset('assets/icons/leaf.webp', width: 25, height: 25),
           ),
         ],
       ),
@@ -237,7 +237,7 @@ class _EarnedMedallion extends StatelessWidget {
             style: AppTextStyles.swatchLabel.copyWith(color: AppColors.ink),
           ),
           const SizedBox(width: 8),
-          Image.asset('assets/icons/coin.png', width: 23, height: 23),
+          Image.asset('assets/icons/coin.webp', width: 23, height: 23),
           const SizedBox(width: 5),
           Text('$amount', style: AppTextStyles.counterValue),
         ],
@@ -312,7 +312,7 @@ class _AmountLine extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/icons/coin.png', width: 19, height: 19),
+            Image.asset('assets/icons/coin.webp', width: 19, height: 19),
             const SizedBox(width: 5),
             Text(
               '$amount',

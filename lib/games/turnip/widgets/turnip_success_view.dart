@@ -12,7 +12,7 @@ class TurnipPullingView extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         Image.asset(
-          'assets/games/turnip/garden_background.png',
+          'assets/games/turnip/garden_background.webp',
           fit: BoxFit.cover,
         ),
         DecoratedBox(
@@ -54,7 +54,7 @@ class TurnipPullingView extends StatelessWidget {
                       ],
                     ),
                     child: Image.asset(
-                      'assets/games/turnip/team_pulling.png',
+                      'assets/games/turnip/team_pulling.webp',
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -73,7 +73,10 @@ class TurnipSuccessView extends StatelessWidget {
     super.key,
     required this.rewardAmount,
     required this.statusNote,
+    required this.isSyncing,
+    required this.rewardWasAlreadyGranted,
     required this.onReplay,
+    this.onRetry,
     this.onExit,
   });
 
@@ -81,13 +84,18 @@ class TurnipSuccessView extends StatelessWidget {
   /// (yet), in which case [statusNote] explains why.
   final int? rewardAmount;
   final String? statusNote;
+  final bool isSyncing;
+  final bool rewardWasAlreadyGranted;
   final VoidCallback onReplay;
+  final VoidCallback? onRetry;
   final VoidCallback? onExit;
 
   @override
   Widget build(BuildContext context) {
     final rewardText = rewardAmount != null
-        ? 'Награда: $rewardAmount монет'
+        ? rewardWasAlreadyGranted
+              ? 'Награда $rewardAmount монет уже была сохранена'
+              : 'Награда: $rewardAmount монет'
         : statusNote ?? 'Сохраняем результат…';
     return ColoredBox(
       color: AppColors.canvasWarm,
@@ -101,7 +109,7 @@ class TurnipSuccessView extends StatelessWidget {
                   image: true,
                   label: 'Счастливые герои рядом с вытащенной репкой',
                   child: Image.asset(
-                    'assets/games/turnip/success_harvest.png',
+                    'assets/games/turnip/success_harvest.webp',
                     fit: BoxFit.cover,
                     width: double.infinity,
                     alignment: const Alignment(0, -0.18),
@@ -156,7 +164,7 @@ class TurnipSuccessView extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Image.asset(
-                                  'assets/icons/coin.png',
+                                  'assets/icons/coin.webp',
                                   width: 24,
                                   height: 24,
                                 ),
@@ -176,6 +184,18 @@ class TurnipSuccessView extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: AppSpacing.md),
+                      if (onRetry != null && !isSyncing) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            key: const ValueKey('turnip-retry-sync'),
+                            onPressed: onRetry,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Повторить сохранение'),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                      ],
                       Row(
                         children: [
                           Expanded(

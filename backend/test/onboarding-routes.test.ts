@@ -28,6 +28,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       return {
         rows: [
           {
+            difficulty: "ADVANCED",
             onboarding_step: currentStep,
             onboarding_completed_at: completedAt,
             pet_name: "Мурзик",
@@ -87,6 +88,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
     });
     assert.equal(status.statusCode, 200);
     assert.deepEqual(status.json(), {
+      difficulty: "ADVANCED",
       currentStep: 2,
       completed: false,
       pet: { petName: "Мурзик", furOptionId: "FUR_GRAY" },
@@ -138,6 +140,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       headers: { authorization: "Bearer token" },
     });
     assert.deepEqual(completedStatus.json(), {
+      difficulty: "ADVANCED",
       currentStep: 4,
       completed: true,
       pet: { petName: "Мурзик", furOptionId: "FUR_GRAY" },

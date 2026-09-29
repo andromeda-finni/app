@@ -16,7 +16,7 @@ class OnboardingPaperBackground extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.canvas,
         image: DecorationImage(
-          image: AssetImage('assets/backgrounds/paper.png'),
+          image: AssetImage('assets/backgrounds/paper.webp'),
           fit: BoxFit.cover,
           opacity: 0.045,
         ),

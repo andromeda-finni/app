@@ -125,7 +125,7 @@ class _PetCareScreenState extends State<PetCareScreen> {
                       PetScene(
                         key: const Key('meadow-pet-scene'),
                         pet: _pet,
-                        backgroundAsset: 'assets/backgrounds/town.png',
+                        backgroundAsset: 'assets/backgrounds/town.webp',
                         backgroundAlignment: Alignment.bottomCenter,
                         height: sceneHeight,
                         petHeightFactor: 0.68,

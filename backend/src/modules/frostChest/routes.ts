@@ -81,6 +81,15 @@ export async function frostChestRoutes(app: FastifyInstance): Promise<void> {
               throw new HttpError(409, "active_day_with_confirmed_plan_required");
             }
             const period = periodRes.rows[0];
+            // Report an already open chest before any balance rule, so the
+            // child is told the real reason instead of a reserve shortfall.
+            const openRes = await client.query(
+              `SELECT 1 FROM frost_chests WHERE child_user_id = $1 AND status = 'ACTIVE'`,
+              [childUserId],
+            );
+            if ((openRes.rowCount ?? 0) > 0) {
+              throw new HttpError(409, "chest_already_active");
+            }
             const reserveRes = await client.query<{ balance: number; need_spent: string }>(
               `SELECT w.balance,
                       COALESCE((SELECT SUM(p.total_price)

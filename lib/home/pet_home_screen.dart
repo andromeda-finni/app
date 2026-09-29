@@ -53,7 +53,7 @@ class _PetHomeScreenState extends State<PetHomeScreen> {
           fit: StackFit.expand,
           children: [
             Image.asset(
-              'assets/backgrounds/town.png',
+              'assets/backgrounds/town.webp',
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
               excludeFromSemantics: true,
@@ -163,7 +163,7 @@ class _HomeStatusBar extends StatelessWidget {
       runSpacing: AppSpacing.xs,
       children: [
         _StatusChip(icon: Icons.calendar_today_rounded, label: 'День $day'),
-        _StatusChip(asset: 'assets/icons/coin.png', label: '$balance монет'),
+        _StatusChip(asset: 'assets/icons/coin.webp', label: '$balance монет'),
       ],
     );
   }

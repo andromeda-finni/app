@@ -15,51 +15,60 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
     "/shop-items",
     { preHandler: [requireAuth, requireRole("CHILD")] },
     async () => {
-          const res = await pool.query(
-            `SELECT id, kind, name, price, rarity, effect_code
-               FROM shop_items WHERE active AND kind IN ('NEED', 'WANT') ORDER BY kind, price`,
-          );
-          return res.rows;
-        },
+      const res = await pool.query(
+        `SELECT id, kind, name, price, rarity, effect_code, energy_delta, joy_delta
+           FROM shop_items WHERE active AND kind IN ('NEED', 'WANT') ORDER BY kind, price`,
       );
+      return res.rows;
+    },
+  );
 
-      // Feeding / playing with / caring for the pet are all just NEED/WANT
-      // purchases from the child's point of view — spend earned coins on
-      // something that helps (or merely delights) the pet.
-      app.post<{ Body: { itemId: string; quantity?: number; idempotencyKey: string } }>(
-        "/purchases",
+  // Feeding / playing with / caring for the pet are all just NEED/WANT
+  // purchases from the child's point of view — spend earned coins on
+  // something that helps (or merely delights) the pet.
+  app.post<{
+    Body: { itemId: string; quantity?: number; idempotencyKey: string };
+  }>(
+    "/purchases",
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: bodySchema(
         {
-          preHandler: [requireAuth, requireRole("CHILD")],
-          schema: bodySchema(
-            {
-              itemId: shortIdSchema,
-              quantity: { type: "integer", minimum: 1, maximum: 20 },
-              idempotencyKey: idempotencyKeySchema,
-            },
-            ["itemId", "idempotencyKey"],
-          ),
+          itemId: shortIdSchema,
+          quantity: { type: "integer", minimum: 1, maximum: 20 },
+          idempotencyKey: idempotencyKeySchema,
         },
-        async (req, reply) => {
-          const childUserId = req.authUser!.id;
-          const { itemId, idempotencyKey } = req.body;
-          const quantity = req.body.quantity ?? 1;
+        ["itemId", "idempotencyKey"],
+      ),
+    },
+    async (req, reply) => {
+      const childUserId = req.authUser!.id;
+      const { itemId, idempotencyKey } = req.body;
+      const quantity = req.body.quantity ?? 1;
 
-          // Claiming the key and spending the money share one transaction, so a
-          // retry (e.g. after a timeout that hid a successful commit from the
-          // client) replays the original result instead of charging twice — and
-          // two simultaneous retries can't both get through.
-          const outcome = await withTransaction((client) =>
-            withIdempotency(
-              client,
-              {
-                childUserId,
-                scope: "purchase",
-                key: idempotencyKey,
-                params: { itemId, quantity },
-              },
-              async () => {
-            const itemRes = await client.query<{ kind: "NEED" | "WANT"; price: number }>(
-              `SELECT kind, price FROM shop_items WHERE id = $1 AND active AND kind IN ('NEED', 'WANT')`,
+      // Claiming the key and spending the money share one transaction, so a
+      // retry (e.g. after a timeout that hid a successful commit from the
+      // client) replays the original result instead of charging twice — and
+      // two simultaneous retries can't both get through.
+      const outcome = await withTransaction((client) =>
+        withIdempotency(
+          client,
+          {
+            childUserId,
+            scope: "purchase",
+            key: idempotencyKey,
+            params: { itemId, quantity },
+          },
+          async () => {
+            const itemRes = await client.query<{
+              kind: "NEED" | "WANT";
+              price: number;
+              energy_delta: number;
+              joy_delta: number;
+            }>(
+              `SELECT kind, price, energy_delta, joy_delta
+                 FROM shop_items
+                WHERE id = $1 AND active AND kind IN ('NEED', 'WANT')`,
               [itemId],
             );
             const item = itemRes.rows[0];
@@ -79,7 +88,9 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
               [childUserId],
             );
             const period = periodRes.rows[0];
-            if (!period) throw new HttpError(409, "active_day_with_confirmed_plan_required");
+            if (!period) {
+              throw new HttpError(409, "active_day_with_confirmed_plan_required");
+            }
 
             const needSpentRes = await client.query<{ spent: string }>(
               `SELECT
@@ -118,9 +129,11 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
               );
               const eventReserve = eventRes.rows[0]?.amount_due ?? 0;
               if (balance - totalPrice < eventReserve) {
-                throw new HttpError(409, "active_event_reserve_is_unavailable_for_purchases", {
-                  reserve: eventReserve,
-                });
+                throw new HttpError(
+                  409,
+                  "active_event_reserve_is_unavailable_for_purchases",
+                  { reserve: eventReserve },
+                );
               }
             }
 
@@ -134,9 +147,11 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
                 0,
               );
               if (balance - totalPrice < remainingReserve) {
-                throw new HttpError(409, "food_reserve_is_unavailable_for_wants", {
-                  reserve: remainingReserve,
-                });
+                throw new HttpError(
+                  409,
+                  "food_reserve_is_unavailable_for_wants",
+                  { reserve: remainingReserve },
+                );
               }
               impulsive = needSpent < period.need_amount;
             }
@@ -177,7 +192,15 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
             const purchaseRes = await client.query<{ id: string }>(
               `INSERT INTO purchases (child_user_id, item_id, item_kind, transaction_id, quantity, unit_price, total_price)
                VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-              [childUserId, itemId, item.kind, txn.id, quantity, item.price, totalPrice],
+              [
+                childUserId,
+                itemId,
+                item.kind,
+                txn.id,
+                quantity,
+                item.price,
+                totalPrice,
+              ],
             );
 
             let balanceAfter = txn.balanceAfter;
@@ -207,16 +230,26 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
               }
             }
 
-            if (impulsive) {
-              await client.query(
-                `UPDATE pets
-                    SET energy_level = GREATEST(0, energy_level - $1),
-                        joy_level = GREATEST(0, joy_level - $2),
-                        updated_at = now()
-                  WHERE child_user_id = $3`,
-                [IMPULSE_ENERGY_PENALTY, IMPULSE_JOY_PENALTY, childUserId],
-              );
-            }
+            const petRes = await client.query<{
+              energy_level: number;
+              joy_level: number;
+            }>(
+              `UPDATE pets
+                  SET energy_level = LEAST(100, GREATEST(0,
+                        energy_level + $1 - $2)),
+                      joy_level = LEAST(100, GREATEST(0,
+                        joy_level + $3 - $4)),
+                      updated_at = now()
+                WHERE child_user_id = $5
+                RETURNING energy_level, joy_level`,
+              [
+                item.energy_delta * quantity,
+                impulsive ? IMPULSE_ENERGY_PENALTY : 0,
+                item.joy_delta * quantity,
+                impulsive ? IMPULSE_JOY_PENALTY : 0,
+                childUserId,
+              ],
+            );
 
             return {
               purchaseId: purchaseRes.rows[0]!.id,
@@ -225,6 +258,7 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
               status: "COMPLETED" as const,
               cashbackAmount,
               artifactEffect,
+              pet: petRes.rows[0] ?? null,
             };
           },
         ),

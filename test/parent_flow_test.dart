@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/main.dart';
 import 'package:andromeda_app/parent/parent_home_screen.dart';
+import 'package:andromeda_app/parent/parent_access_gate.dart';
 import 'package:andromeda_app/settings/child_settings_screen.dart';
 
 import 'support/fake_auth_storage.dart';
@@ -20,6 +21,18 @@ http.Response _json(Object? body, [int status = 200]) => http.Response(
 
 const _childId = '18b24a3b-4078-4df9-a084-133b56a676fd';
 const _secondChildId = '94216594-af3f-4d4b-bdef-6e4163dcb2c0';
+
+class _FakeParentAccessStorage implements ParentAccessStorage {
+  _FakeParentAccessStorage([this.pin]);
+
+  String? pin;
+
+  @override
+  Future<String?> readPin() async => pin;
+
+  @override
+  Future<void> savePin(String value) async => pin = value;
+}
 
 Map<String, dynamic> _overview([String petName = 'Пушок']) => {
   'pet': {
@@ -94,6 +107,62 @@ void main() {
 
     expect(find.text('Я ребёнок'), findsOneWidget);
     expect(find.text('Я родитель'), findsOneWidget);
+  });
+
+  testWidgets('the first parent entry creates a six digit device gate', (
+    tester,
+  ) async {
+    final storage = _FakeParentAccessStorage();
+    var unlocked = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ParentAccessGate(
+          storage: storage,
+          onBack: () {},
+          onUnlocked: () => unlocked = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const ValueKey('parent-pin')), '123456');
+    await tester.enterText(
+      find.byKey(const ValueKey('parent-pin-confirm')),
+      '123456',
+    );
+    await tester.tap(find.text('Сохранить код'));
+    await tester.pump();
+
+    expect(storage.pin, '123456');
+    expect(unlocked, true);
+  });
+
+  testWidgets('a saved parent cabinet stays locked after a wrong code', (
+    tester,
+  ) async {
+    final storage = _FakeParentAccessStorage('654321');
+    var unlocks = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ParentAccessGate(
+          storage: storage,
+          onBack: () {},
+          onUnlocked: () => unlocks++,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const ValueKey('parent-pin')), '111111');
+    await tester.tap(find.text('Открыть кабинет'));
+    await tester.pump();
+    expect(unlocks, 0);
+    expect(find.textContaining('Неверный код'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const ValueKey('parent-pin')), '654321');
+    await tester.tap(find.text('Открыть кабинет'));
+    await tester.pump();
+    expect(unlocks, 1);
   });
 
   testWidgets('a new parent creates a cabinet and gets a one-time code', (
@@ -311,6 +380,14 @@ void main() {
   ) async {
     String? sentCode;
     final client = MockClient((request) async {
+      if (request.url.path == '/child/settings') {
+        return _json({
+          'difficulty': 'SIMPLE',
+          'soundEnabled': true,
+          'musicEnabled': true,
+          'largeTextEnabled': false,
+        });
+      }
       if (request.url.path == '/child/parent-link') {
         return _json({'linked': false, 'linkedAt': null});
       }

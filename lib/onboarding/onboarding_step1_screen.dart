@@ -97,9 +97,9 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
                         SizedBox(
                           height: sceneHeight,
                           child: OnboardingScene(
-                            background: 'assets/backgrounds/town.png',
+                            background: 'assets/backgrounds/town.webp',
                             foreground:
-                                'assets/backgrounds/meadow_foreground.png',
+                                'assets/backgrounds/meadow_foreground.webp',
                             // Base pose until a colour is chosen, then the cat
                             // in that coat so the choice is reflected at once.
                             cat: catAssetForFur(_data.furColorId),

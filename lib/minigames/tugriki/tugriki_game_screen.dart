@@ -61,6 +61,9 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
   int? _rewardAmount;
   String? _rewardNote;
   bool _isSyncing = false;
+  bool _serverQuestCompleted = false;
+  bool _rewardWasAlreadyGranted = false;
+  Future<void>? _startFuture;
 
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
@@ -78,7 +81,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
     );
 
     if (widget.apiClient != null) {
-      _startServerQuest();
+      _startFuture = _startServerQuest();
     }
   }
 
@@ -94,7 +97,17 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
         '/quests/$kTugrikiQuestId/start',
       );
       if (!mounted) return;
-      setState(() => _assignmentId = res['assignmentId'] as String?);
+      setState(() {
+        if (res['completed'] == true) {
+          _serverQuestCompleted = true;
+          _assignmentId = null;
+          _rewardNote =
+              'Награда за это задание уже получена. Сейчас это тренировка.';
+        } else {
+          _assignmentId = res['assignmentId'] as String?;
+          _rewardNote = null;
+        }
+      });
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _rewardNote = questProblemMessage(error));
@@ -108,20 +121,32 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
       );
       return;
     }
-    if (_assignmentId == null) return; // _rewardNote already explains why.
+    await _startFuture;
+    if (!mounted || _serverQuestCompleted) return;
+    if (_assignmentId == null) {
+      _startFuture = _startServerQuest();
+      await _startFuture;
+    }
+    if (!mounted || _assignmentId == null || _serverQuestCompleted) return;
     setState(() => _isSyncing = true);
     try {
       final result = await widget.apiClient!.post(
         '/assignments/$_assignmentId/answer',
-        body: {'stepNo': 1, 'selectedOptionCode': 'VERIFIED'},
+        body: {
+          'stepNo': 1,
+          'selectedOptionCode': (_selectedGoodIds.toList()..sort()).join(','),
+        },
       );
       if (!mounted) return;
       setState(() {
         if (result['questCompleted'] == true) {
           _rewardAmount = (result['rewardAmount'] as num?)?.toInt();
+          _rewardWasAlreadyGranted = result['rewardAlreadyGranted'] == true;
+          _serverQuestCompleted = true;
+          _assignmentId = null;
+          _rewardNote = null;
         } else {
-          _rewardNote =
-              'Сервер не принял результат. Попробуй ещё раз чуть позже.';
+          _rewardNote = questRecoveryMessage(result);
         }
       });
     } on ApiException catch (error) {
@@ -331,7 +356,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
 
   /// 2/3 ЭКРАНА: ПОЛНОЦЕННАЯ СЦЕНА В СТИЛЕ «КЛУБА РОМАНТИКИ»
   /// Персонажи появляются по очереди, анимированно выходят на передний план,
-  /// говорят по тапу. Картинка square.png кадрируется правильно, без искажений.
+  /// говорят по тапу. Картинка square.webp кадрируется правильно, без искажений.
   Widget _buildRomanceClubScene() {
     final bool showGroshik = _step != NovelStep.s1SparrowIntro;
     final bool isSparrowSpeaking =
@@ -371,7 +396,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Фон площади: вертикальная иллюстрация square.png с верхней центровкой
+              // Фон площади: вертикальная иллюстрация square.webp с верхней центровкой
               ClipRect(
                 child: Image.asset(
                   TugrikiAssets.square,
@@ -1204,7 +1229,9 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
                     _isSyncing
                         ? 'Сохраняем результат…'
                         : _rewardAmount != null
-                        ? '+$_rewardAmount монет начислено в кошелёк питомца!'
+                        ? _rewardWasAlreadyGranted
+                              ? 'Награда $_rewardAmount монет уже была сохранена.'
+                              : '+$_rewardAmount монет начислено в кошелёк питомца!'
                         : _rewardNote ?? 'Результат не сохранён.',
                     style: TextStyle(
                       fontFamily: AppFonts.body,
@@ -1220,10 +1247,27 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
             ),
           ],
         ),
-        StoryButton(
-          label: 'Вернуться на карту',
-          showFlourish: true,
-          onPressed: _exit,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!_isSyncing &&
+                _rewardAmount == null &&
+                !_serverQuestCompleted &&
+                widget.apiClient != null) ...[
+              OutlinedButton.icon(
+                key: const ValueKey('tugriki-retry-sync'),
+                onPressed: _completeServerQuest,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Повторить сохранение'),
+              ),
+              const SizedBox(height: 8),
+            ],
+            StoryButton(
+              label: 'Вернуться на карту',
+              showFlourish: true,
+              onPressed: _exit,
+            ),
+          ],
         ),
       ],
     );

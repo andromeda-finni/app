@@ -15,6 +15,7 @@ class ItemArtwork extends StatelessWidget {
     this.semanticLabel,
     this.size = 112,
     this.borderRadius = AppRadii.lg,
+    this.backgroundColor = const Color(0xFFFFF1D2),
   });
 
   final String? itemId;
@@ -22,6 +23,7 @@ class ItemArtwork extends StatelessWidget {
   final String? semanticLabel;
   final double size;
   final double borderRadius;
+  final Color backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +33,7 @@ class ItemArtwork extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
         child: ColoredBox(
-          color: const Color(0xFFFFF1D2),
+          color: backgroundColor,
           child: path == null || path.isEmpty
               ? _fallback()
               : Image.asset(

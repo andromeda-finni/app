@@ -9,6 +9,7 @@ import 'package:http/testing.dart';
 import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/economy/item_art_catalog.dart';
 import 'package:andromeda_app/home/main_shell.dart';
+import 'package:andromeda_app/shop/widgets/artifact_product_card.dart';
 
 import 'support/fake_auth_storage.dart';
 import 'support/economy_fixture.dart';
@@ -136,12 +137,33 @@ void main() {
       isTrue,
     );
     expect(localArtifactBenefitDescriptions.keys, contains('boots'));
+    expect(localPurchaseArtwork['FOOD_APPLE'], contains('apple'));
+    expect(localPurchaseArtwork['FOOD_CARROT'], contains('carrot'));
+    expect(localPurchaseArtwork['PET_MEAL'], contains('bowl'));
   });
 
   testWidgets('every catalog artwork is bundled and can be loaded', (
     tester,
   ) async {
-    for (final assetPath in localItemArtwork.values) {
+    for (final assetPath in {
+      ...localItemArtwork.values,
+      ...localPurchaseArtwork.values,
+    }) {
+      final bytes = await rootBundle.load(assetPath);
+      expect(bytes.lengthInBytes, greaterThan(0), reason: assetPath);
+    }
+  });
+
+  testWidgets('shop scene assets are bundled and can be loaded', (
+    tester,
+  ) async {
+    for (final assetPath in const [
+      'assets/minigames/mole/shop.webp',
+      'assets/shop/category_needs-v2.webp',
+      'assets/shop/category_wants-v2.webp',
+      'assets/shop/category_dreams-v2.webp',
+      'assets/shop/title_sign.webp',
+    ]) {
       final bytes = await rootBundle.load(assetPath);
       expect(bytes.lengthInBytes, greaterThan(0), reason: assetPath);
     }
@@ -167,6 +189,83 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('Надо'), findsOneWidget);
+    expect(find.text('Хочу'), findsOneWidget);
+    expect(find.text('Мечты'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shop-category-needs')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shop-category-wants')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shop-category-dreams')), findsOneWidget);
+  });
+
+  testWidgets('category plaques reflow with enlarged text', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final data = _state(withGoal: true);
+    final auth = FakeAuthStorage(initialToken: 'token');
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(1.3)),
+          child: child!,
+        ),
+        home: MainShell(
+          apiClient: ApiClient(
+            httpClient: MockClient((request) async => _jsonResponse(data)),
+            authStorage: auth,
+            baseUrl: 'http://test',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Магазин'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Еда и забота'), findsOneWidget);
+    expect(find.text('Для радости'), findsOneWidget);
+    expect(find.text('Большие цели'), findsOneWidget);
+  });
+
+  testWidgets('shop menu and product catalog support 200 percent text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final data = _state(withGoal: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: MainShell(
+          apiClient: ApiClient(
+            httpClient: MockClient((request) async => _jsonResponse(data)),
+            authStorage: FakeAuthStorage(initialToken: 'token'),
+            baseUrl: 'http://test',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Магазин'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const ValueKey('shop-category-needs')));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Полезный обед'), findsOneWidget);
+    expect(find.text('Купить за 6'), findsOneWidget);
   });
 
   testWidgets('savings art and Frost status fit a narrow phone', (
@@ -179,7 +278,7 @@ void main() {
     final data = _state(withGoal: true);
     (data['artifacts'] as List<dynamic>).firstWhere(
       (item) => item['id'] == 'boots',
-    )['image_asset'] = 'assets/images/morozko_chest.png';
+    )['image_asset'] = 'assets/images/morozko_chest.webp';
     data['activeFrostChest'] = {
       'id': 'frost-1',
       'principal_amount': 10,
@@ -202,7 +301,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('Сапоги-скороходы'), findsOneWidget);
-    expect(find.text('Сундук закрыт'), findsOneWidget);
+    expect(find.text('Внутри 10 монет'), findsOneWidget);
     expect(find.text('Осталось 4 игровых дня'), findsOneWidget);
     expect(
       find.byWidgetPredicate(
@@ -210,10 +309,40 @@ void main() {
             widget is Image &&
             widget.image is AssetImage &&
             (widget.image as AssetImage).assetName ==
-                'assets/images/morozko_chest.png',
+                'assets/images/morozko_chest.webp',
       ),
       findsNWidgets(2),
     );
+  });
+
+  testWidgets('an unplanned day keeps the shop closed and leads to the plan', (
+    tester,
+  ) async {
+    final data = _state(withGoal: true);
+    (data['activeDay'] as Map<String, dynamic>)['budget_plan_status'] = 'DRAFT';
+    await _pumpShell(
+      tester,
+      MockClient((request) async => _jsonResponse(data)),
+    );
+
+    await tester.tap(find.text('Магазин'));
+    await tester.pumpAndSettle();
+
+    // One explanation, and the shop itself stays closed behind it.
+    expect(find.text('Сначала составим план'), findsOneWidget);
+    expect(find.byKey(const ValueKey('shop-category-needs')), findsNothing);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(FilledButton, 'Составить план'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Сначала составим план'), findsNothing);
+    expect(find.text('Утвердить план'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('starting the first day routes to goal selection in the store', (
@@ -239,7 +368,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(mutationCalls, 0);
-    expect(find.text('Выбор мечты'), findsOneWidget);
+    expect(find.text('Магазин'), findsWidgets);
     expect(find.text('Сначала выбери мечту'), findsOneWidget);
     expect(find.text('Полезный обед'), findsNothing);
   });
@@ -264,10 +393,11 @@ void main() {
 
     await tester.tap(find.text('Копилка'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Выбрать'));
+    await tester.ensureVisible(find.text('Выбрать мечту'));
+    await tester.tap(find.text('Выбрать мечту'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Выбор мечты'), findsOneWidget);
+    expect(find.text('Магазин'), findsWidgets);
     expect(
       find.text(
         'Покупки временно скрыты. Выбери артефакт, на который будешь копить.',
@@ -280,7 +410,7 @@ void main() {
     final bootsCard = find.byKey(const ValueKey('artifact-card-boots'));
     final chooseBoots = find.descendant(
       of: bootsCard,
-      matching: find.widgetWithText(FilledButton, 'Выбрать целью'),
+      matching: find.widgetWithText(FilledButton, 'Копить на это'),
     );
     await tester.scrollUntilVisible(
       chooseBoots,
@@ -310,6 +440,11 @@ void main() {
 
     await tester.tap(find.text('Магазин'));
     await tester.pumpAndSettle();
+    final dreamsCategory = find.byKey(const ValueKey('shop-category-dreams'));
+    await tester.ensureVisible(dreamsCategory);
+    await tester.pumpAndSettle();
+    await tester.tap(dreamsCategory);
+    await tester.pumpAndSettle();
     final bootsCard = find.byKey(const ValueKey('artifact-card-boots'));
     await tester.scrollUntilVisible(
       bootsCard,
@@ -322,7 +457,17 @@ void main() {
       find.descendant(of: bootsCard, matching: find.text('Моя цель')),
       findsOneWidget,
     );
-    expect(find.text('Доступно после текущей цели'), findsWidgets);
+    expect(
+      find.text('Твоя цель — наверху. Следи, сколько уже накоплено'),
+      findsOneWidget,
+    );
+    final orderedIds = tester
+        .widgetList<ArtifactProductCard>(find.byType(ArtifactProductCard))
+        .map((card) => card.item.id)
+        .toList();
+    expect(orderedIds.first, 'boots');
+    expect(find.text('Сначала заверши текущую цель'), findsWidgets);
+    expect(find.text('Накоплено 0 · осталось 150 монет'), findsOneWidget);
   });
 
   testWidgets('an owned artifact is removed from the goal catalog', (
@@ -347,6 +492,11 @@ void main() {
 
     await tester.tap(find.text('Магазин'));
     await tester.pumpAndSettle();
+    final dreamsCategory = find.byKey(const ValueKey('shop-category-dreams'));
+    await tester.ensureVisible(dreamsCategory);
+    await tester.pumpAndSettle();
+    await tester.tap(dreamsCategory);
+    await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('Все доступные артефакты уже получены.'),
       400,
@@ -365,6 +515,11 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final data = _state(withGoal: false);
+    data['artifacts'] = [
+      (data['artifacts'] as List<dynamic>).firstWhere(
+        (item) => item['id'] == 'boots',
+      ),
+    ];
     await tester.pumpWidget(
       MaterialApp(
         builder: (context, child) => MediaQuery(
@@ -385,7 +540,13 @@ void main() {
 
     await tester.tap(find.text('Копилка'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Выбрать'));
+    // At 320x568 with enlarged text the call to action sits under the nav
+    // bar; this test is about the store cards, so press it directly.
+    tester
+        .widget<FilledButton>(
+          find.widgetWithText(FilledButton, 'Выбрать мечту'),
+        )
+        .onPressed!();
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('Мечты'),
@@ -395,16 +556,22 @@ void main() {
     await tester.pumpAndSettle();
     final firstCard = find.byKey(const ValueKey('artifact-card-boots'));
     await tester.ensureVisible(firstCard);
+    final bootsTitle = find.descendant(
+      of: firstCard,
+      matching: find.text('Сапоги-скороходы'),
+    );
+    await tester.drag(
+      find.byKey(const ValueKey('shop-dreams')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(bootsTitle);
+    await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
     expect(firstCard, findsOneWidget);
     expect(
-      find.descendant(
-        of: firstCard,
-        matching: find.text(
-          'Пока надеты, открывают четвёртое задание за день.',
-        ),
-      ),
+      find.text('Пока надеты, открывают четвёртое задание за день.'),
       findsOneWidget,
     );
   });
@@ -422,7 +589,11 @@ void main() {
       }
       expect(request.url.path, '/purchases');
       purchaseCalls++;
-      return _jsonResponse({'balanceAfter': 22}, 201);
+      return _jsonResponse({
+        'balanceAfter': 22,
+        'impulsive': false,
+        'pet': {'energy_level': 100, 'joy_level': 70},
+      }, 201);
     });
     await _pumpShell(tester, client);
 
@@ -430,8 +601,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Надо'), findsOneWidget);
     expect(find.text('Хочу'), findsOneWidget);
+    final wantsCategory = find.byKey(const ValueKey('shop-category-wants'));
+    await tester.ensureVisible(wantsCategory);
+    await tester.pumpAndSettle();
+    await tester.tap(wantsCategory);
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '8 монет'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Купить за 8'));
     await tester.pumpAndSettle();
     expect(purchaseCalls, 0);
     expect(find.text('Купить Мячик?'), findsOneWidget);
@@ -439,11 +615,42 @@ void main() {
     await tester.pumpAndSettle();
     expect(purchaseCalls, 0);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, '8 монет'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Купить за 8'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Купить'));
     await tester.pumpAndSettle();
     expect(purchaseCalls, 1);
+    expect(find.text('Покупка готова'), findsOneWidget);
+    expect(find.text('Монеты: 30 → 22'), findsOneWidget);
+    expect(find.text('Радость питомца теперь 70 из 100'), findsOneWidget);
+  });
+
+  testWidgets('insufficient coins route the child to the quest map', (
+    tester,
+  ) async {
+    final data = _state(withGoal: true);
+    data['wallets'] = {'SPENDABLE': 0, 'SAVINGS': 0, 'FROZEN': 0};
+    await _pumpShell(
+      tester,
+      MockClient((request) async => _jsonResponse(data)),
+    );
+
+    await tester.tap(find.text('Магазин'));
+    await tester.pumpAndSettle();
+    final wantsCategory = find.byKey(const ValueKey('shop-category-wants'));
+    await tester.ensureVisible(wantsCategory);
+    await tester.pumpAndSettle();
+    await tester.tap(wantsCategory);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Не хватает 8 монет. Выполни задание.'), findsOneWidget);
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Найти монеты на карте'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('quest-map-scroll')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('an unpaid pet event reserve cannot be spent in the store', (
@@ -464,9 +671,11 @@ void main() {
 
     await tester.tap(find.text('Магазин'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('shop-category-needs')));
+    await tester.pumpAndSettle();
 
-    final mealButton = tester.widget<OutlinedButton>(
-      find.widgetWithText(OutlinedButton, '6 монет'),
+    final mealButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Сначала обязательные траты'),
     );
     expect(mealButton.onPressed, isNull);
     expect(

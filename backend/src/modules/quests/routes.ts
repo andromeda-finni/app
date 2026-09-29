@@ -9,22 +9,56 @@ import { ECONOMY_RULES } from "../economy/rules.js";
 
 interface UiSpec {
   correctOptionCode?: string;
+  answerValidation?: {
+    kind?: string;
+    expectedSequence?: string[];
+    budget?: number;
+    itemPrices?: Record<string, number>;
+  };
   [key: string]: unknown;
 }
 
+function answerMatches(uiSpec: UiSpec | null, selectedOptionCode?: string): boolean {
+  const validation = uiSpec?.answerValidation;
+  if (validation?.kind === "ORDERED_SEQUENCE") {
+    const expected = validation.expectedSequence;
+    if (!expected?.length || !selectedOptionCode) return false;
+    return selectedOptionCode === expected.join(",");
+  }
+
+  if (validation?.kind === "BUDGET_SELECTION") {
+    const budget = validation.budget;
+    const itemPrices = validation.itemPrices;
+    if (!Number.isInteger(budget) || (budget ?? 0) < 0 || !itemPrices || !selectedOptionCode) {
+      return false;
+    }
+    const selectedIds = selectedOptionCode.split(",").filter(Boolean);
+    if (selectedIds.length === 0 || new Set(selectedIds).size !== selectedIds.length) {
+      return false;
+    }
+    let total = 0;
+    for (const itemId of selectedIds) {
+      const price = itemPrices[itemId];
+      if (!Number.isInteger(price) || (price ?? -1) < 0) return false;
+      total += price!;
+    }
+    return total <= budget!;
+  }
+
+  return typeof uiSpec?.correctOptionCode === "string" &&
+    uiSpec.correctOptionCode === selectedOptionCode;
+}
+
 export async function questRoutes(app: FastifyInstance): Promise<void> {
-  // System quests told by the "Хитрый Лис" character, filtered to the
-  // child's current difficulty (см. ML-adaptive difficulty note in db/README —
-  // today this is a static filter; swapping in a model later only changes
-  // how `difficulty` gets set on child_profiles, not this endpoint).
+  // Difficulty controls the amount of guidance inside a game. The story/map
+  // catalogue is shared: filtering SIMPLE quest definitions out for an
+  // ADVANCED child would leave the map empty rather than make play harder.
   app.get(
     "/quests",
     { preHandler: [requireAuth, requireRole("CHILD")] },
     async (req) => {
-      const childRes = await pool.query<{ difficulty: string }>(
-        `SELECT difficulty FROM child_profiles WHERE user_id = $1`,
-        [req.authUser!.id],
-      );
+      // The daily paid-quest limit (3, or 4 with boots) is enforced when a
+      // reward is paid, not by hiding catalogue entries.
       const perksRes = await pool.query<{ boots_active: boolean; saucer_active: boolean }>(
         `SELECT
            EXISTS (
@@ -45,10 +79,8 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
       const res = await pool.query(
         `SELECT id, topic_id, title, character_code, location_code, difficulty, reward_amount
            FROM quest_definitions
-          WHERE active AND difficulty = $1
-          ORDER BY id
-          LIMIT $2`,
-        [childRes.rows[0]?.difficulty ?? "SIMPLE", perks?.boots_active ? 4 : 3],
+          WHERE active
+          ORDER BY id`,
       );
       return res.rows.map((quest) => ({
         ...quest,
@@ -82,8 +114,8 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
 
         const questRes = await client.query<{ reward_amount: number }>(
           `SELECT reward_amount FROM quest_definitions
-            WHERE id = $1 AND active AND difficulty = $2`,
-          [questId, child.difficulty],
+            WHERE id = $1 AND active`,
+          [questId],
         );
         const quest = questRes.rows[0];
         if (!quest) throw new HttpError(404, "quest_not_found");
@@ -125,14 +157,17 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
           status: string;
           reward_amount: number;
           next_step_no: number;
+          balance_after: number | null;
         }>(
           `SELECT a.id, a.status, a.reward_amount,
                   COALESCE((
                     SELECT MAX(qsp.step_no) + 1
                       FROM quest_step_progress qsp
                      WHERE qsp.assignment_id = a.id AND qsp.outcome = 'SUCCESS'
-                  ), 1)::int AS next_step_no
+                  ), 1)::int AS next_step_no,
+                  reward_txn.balance_after
              FROM assignments a
+             LEFT JOIN transactions reward_txn ON reward_txn.id = a.reward_transaction_id
             WHERE a.child_user_id = $1 AND a.quest_id = $2 AND a.origin = 'SYSTEM'
               AND a.status IN ('IN_PROGRESS', 'COMPLETED')
             ORDER BY a.created_at DESC LIMIT 1`,
@@ -140,7 +175,15 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         );
         const existing = existingRes.rows[0];
         if (existing?.status === "COMPLETED") {
-          throw new HttpError(409, "quest_already_completed");
+          return {
+            assignmentId: existing.id,
+            rewardAmount: existing.reward_amount,
+            balanceAfter: existing.balance_after,
+            resumed: false,
+            completed: true,
+            rewardAlreadyGranted: true,
+            nextStepNo: existing.next_step_no,
+          };
         }
         if (existing) {
           return {
@@ -164,7 +207,7 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         };
       });
 
-      reply.code(result.resumed ? 200 : 201).send(result);
+      reply.code(result.resumed || result.completed ? 200 : 201).send(result);
     },
   );
 
@@ -196,7 +239,11 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
       if (!step) throw new HttpError(404, "step_not_found");
 
       // Never leak the correct answer to the client.
-      const { correctOptionCode: _omit, ...safeUiSpec } = step.ui_spec ?? {};
+      const {
+        correctOptionCode: _omitAnswer,
+        answerValidation: _omitValidation,
+        ...safeUiSpec
+      } = step.ui_spec ?? {};
       return { ...step, ui_spec: safeUiSpec };
     },
   );
@@ -229,14 +276,34 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
           quest_id: string;
           reward_amount: number;
           status: string;
+          balance_after: number | null;
         }>(
-          `SELECT quest_id, reward_amount, status FROM assignments
-            WHERE id = $1 AND child_user_id = $2 AND origin = 'SYSTEM' FOR UPDATE`,
+          `SELECT a.quest_id, a.reward_amount, a.status, reward_txn.balance_after
+             FROM assignments a
+             LEFT JOIN transactions reward_txn ON reward_txn.id = a.reward_transaction_id
+            WHERE a.id = $1 AND a.child_user_id = $2 AND a.origin = 'SYSTEM'
+            FOR UPDATE OF a`,
           [assignmentId, childUserId],
         );
         const assignment = assignmentRes.rows[0];
         if (!assignment) throw new HttpError(404, "assignment_not_found");
-        if (assignment.status !== "IN_PROGRESS") throw new HttpError(409, "assignment_not_in_progress");
+        // The transaction may have committed while its HTTP response was lost.
+        // Replaying the final answer must report the already-issued reward,
+        // not turn a successful child experience into a false failure.
+        if (assignment.status === "COMPLETED") {
+          return {
+            outcome: "SUCCESS" as const,
+            feedback: "Результат уже сохранён.",
+            questCompleted: true,
+            rewardAmount: assignment.reward_amount,
+            balanceAfter: assignment.balance_after,
+            rewardAlreadyGranted: true,
+            replayed: true,
+          };
+        }
+        if (assignment.status !== "IN_PROGRESS") {
+          throw new HttpError(409, "assignment_not_in_progress");
+        }
 
         // Steps must be answered in order: stepNo can only be attempted once
         // every earlier step already has a recorded SUCCESS.
@@ -263,9 +330,14 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         const step = stepRes.rows[0];
         if (!step) throw new HttpError(404, "step_not_found");
 
-        const correctOptionCode = step.ui_spec?.correctOptionCode;
+        const previousRes = await client.query<{ outcome: string }>(
+          `SELECT outcome FROM quest_step_progress
+            WHERE assignment_id = $1 AND step_no = $2`,
+          [assignmentId, stepNo],
+        );
+        const wasAlreadySuccessful = previousRes.rows[0]?.outcome === "SUCCESS";
         const outcome: "SUCCESS" | "RECOVERABLE_ERROR" =
-          !correctOptionCode || correctOptionCode === selectedOptionCode
+          wasAlreadySuccessful || answerMatches(step.ui_spec, selectedOptionCode)
             ? "SUCCESS"
             : "RECOVERABLE_ERROR";
 
@@ -273,8 +345,19 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
           `INSERT INTO quest_step_progress (assignment_id, step_no, outcome, selected_option_code)
            VALUES ($1, $2, $3, $4)
            ON CONFLICT (assignment_id, step_no)
-           DO UPDATE SET outcome = EXCLUDED.outcome, selected_option_code = EXCLUDED.selected_option_code,
-                         completed_at = now()`,
+           DO UPDATE SET
+             outcome = CASE
+               WHEN quest_step_progress.outcome = 'SUCCESS' THEN quest_step_progress.outcome
+               ELSE EXCLUDED.outcome
+             END,
+             selected_option_code = CASE
+               WHEN quest_step_progress.outcome = 'SUCCESS' THEN quest_step_progress.selected_option_code
+               ELSE EXCLUDED.selected_option_code
+             END,
+             completed_at = CASE
+               WHEN quest_step_progress.outcome = 'SUCCESS' THEN quest_step_progress.completed_at
+               ELSE now()
+             END`,
           [assignmentId, stepNo, outcome, selectedOptionCode ?? null],
         );
 

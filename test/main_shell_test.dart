@@ -43,6 +43,14 @@ Widget _shell({VoidCallback? onSwitchAudience}) {
         'parentTasks': <Object>[],
         'shopItems': <Object>[],
         'artifacts': <Object>[],
+        'inventory': <Object>[],
+        'recentDays': <Object>[],
+      },
+      '/child/settings' => {
+        'difficulty': 'SIMPLE',
+        'soundEnabled': true,
+        'musicEnabled': true,
+        'largeTextEnabled': false,
       },
       _ => null,
     };

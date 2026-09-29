@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/child_difficulty.dart';
 import '../economy/savings_screen.dart';
 import '../insurance/insurance_screen.dart';
 import '../map/quest_map_screen.dart';
@@ -16,9 +17,15 @@ import 'widgets/app_nav_bar.dart';
 /// switch, so each keeps its scroll position and any in-progress input while
 /// the child moves between them.
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, required this.apiClient, this.onSwitchAudience});
+  const MainShell({
+    super.key,
+    required this.apiClient,
+    this.initialDifficulty = ChildDifficulty.beginner,
+    this.onSwitchAudience,
+  });
 
   final ApiClient apiClient;
+  final ChildDifficulty initialDifficulty;
 
   /// Returns to the child/parent role choice; wired from the settings screen.
   final VoidCallback? onSwitchAudience;
@@ -34,9 +41,29 @@ class _MainShellState extends State<MainShell> {
   int _storeRevision = 0;
   int _savingsRevision = 0;
   int _mapRevision = 0;
+  bool _focusHomePlan = false;
   StoreMode _storeMode = StoreMode.normal;
   bool _planningRequired = false;
-  ChildSettingsSnapshot _settings = const ChildSettingsSnapshot();
+  late ChildSettingsSnapshot _settings;
+
+  @override
+  void initState() {
+    super.initState();
+    _settings = ChildSettingsSnapshot(difficulty: widget.initialDifficulty);
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final settings = ChildSettingsSnapshot.fromJson(
+        await widget.apiClient.get('/child/settings'),
+      );
+      if (mounted) setState(() => _settings = settings);
+    } on ApiException {
+      // Keep safe local defaults; the settings screen exposes an explicit
+      // retry/error state if the child opens it while the server is offline.
+    }
+  }
 
   void _openSettings() {
     Navigator.of(context).push(
@@ -44,7 +71,10 @@ class _MainShellState extends State<MainShell> {
         builder: (screenContext) => ChildSettingsScreen(
           apiClient: widget.apiClient,
           initialSettings: _settings,
-          onSettingsChanged: (next) => setState(() => _settings = next),
+          onSettingsChanged: (next) => setState(() {
+            if (next.difficulty != _settings.difficulty) _mapRevision++;
+            _settings = next;
+          }),
           onSwitchAudience: () {
             Navigator.of(screenContext).pop();
             widget.onSwitchAudience?.call();
@@ -85,6 +115,14 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  void _openPlan() {
+    setState(() {
+      _focusHomePlan = true;
+      _homeRevision++;
+      _index = 0;
+    });
+  }
+
   void _selectTab(int index) {
     if (_planningRequired && (index == 1 || index == 2)) {
       showDialog<void>(
@@ -97,7 +135,14 @@ class _MainShellState extends State<MainShell> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Хорошо'),
+              child: const Text('Позже'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _openPlan();
+              },
+              child: const Text('Составить план'),
             ),
           ],
         ),
@@ -105,6 +150,8 @@ class _MainShellState extends State<MainShell> {
       return;
     }
     setState(() {
+      // A plan request is one-shot; later visits to the home must not reopen it.
+      _focusHomePlan = false;
       if (index == 0) _homeRevision++;
       // Re-read quest progress so a game finished elsewhere opens the next node.
       if (index == 1) _mapRevision++;
@@ -115,12 +162,14 @@ class _MainShellState extends State<MainShell> {
       }
       if (index == 3) _savingsRevision++;
       _index = index;
+      if (index != 0) _focusHomePlan = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final media = MediaQuery.of(context);
+    final content = Scaffold(
       backgroundColor: AppColors.parchment,
       body: SafeArea(
         bottom: false,
@@ -139,6 +188,7 @@ class _MainShellState extends State<MainShell> {
                 if (_planningRequired == required || !mounted) return;
                 setState(() => _planningRequired = required);
               },
+              focusPlan: _focusHomePlan,
             ),
             QuestMapScreen(
               key: ValueKey('map-$_mapRevision'),
@@ -146,6 +196,7 @@ class _MainShellState extends State<MainShell> {
               // A tab root has nothing to go back to; the header hides the
               // arrow instead of offering a button that does nothing.
               showBack: false,
+              difficulty: _settings.difficulty,
             ),
             ShopScreen(
               key: ValueKey('store-$_storeRevision'),
@@ -153,6 +204,8 @@ class _MainShellState extends State<MainShell> {
               mode: _storeMode,
               onBack: () => setState(() => _index = _storeReturnIndex),
               onGoalSelected: _goalSelected,
+              onOpenPlan: _openPlan,
+              onOpenQuests: () => _selectTab(1),
             ),
             SavingsScreen(
               key: ValueKey('savings-$_savingsRevision'),
@@ -169,6 +222,14 @@ class _MainShellState extends State<MainShell> {
         currentIndex: _index,
         onSelected: _selectTab,
       ),
+    );
+    return MediaQuery(
+      data: media.copyWith(
+        textScaler: _settings.largeText
+            ? media.textScaler.clamp(minScaleFactor: 1.15, maxScaleFactor: 2.0)
+            : media.textScaler,
+      ),
+      child: content,
     );
   }
 }

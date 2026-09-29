@@ -33,7 +33,7 @@ class TurnipIntroView extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     Image.asset(
-                      'assets/games/turnip/garden_background.png',
+                      'assets/games/turnip/garden_background.webp',
                       fit: BoxFit.cover,
                       alignment: const Alignment(-0.35, 0),
                     ),
@@ -52,7 +52,7 @@ class TurnipIntroView extends StatelessWidget {
                       width: portraitSize,
                       height: portraitSize,
                       child: Image.asset(
-                        'assets/games/turnip/grandpa_sad.png',
+                        'assets/games/turnip/grandpa_sad.webp',
                         key: const ValueKey('turnip-intro-grandpa-portrait'),
                         fit: BoxFit.contain,
                         semanticLabel: 'Крупный портрет грустного Дедушки',

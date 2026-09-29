@@ -45,35 +45,38 @@ INSERT INTO quest_steps (quest_id, step_no, instruction, expected_action_code, s
    'Лис обещает удвоить монеты, если отдать их сейчас. Что выбрать?',
    'CHOOSE_OPTION', 'Верно! Слишком щедрое обещание лучше проверить.', 'Подумай, почему незнакомцу нельзя отдавать накопления.',
    '{"options": [{"code": "A", "label": "Отдать монеты"}, {"code": "B", "label": "Отказаться"}], "correctOptionCode": "B"}'),
-  -- The fair is one interactive story; the client checks the child's answers
-  -- locally and reports the whole run as a single verified step.
+  -- The fair is one interactive story. The client sends the chosen goods and
+  -- the server independently checks that every item exists and the total fits
+  -- the 20-coin budget.
   ('Q_TUGRIKI_CURRENCY', 1,
    'Пересчитай цены ярмарки из тугриков в монеты и уложись в бюджет.',
    'COMPLETE_STORY',
    'Ярмарка пройдена: ты умеешь пересчитывать цены по курсу.',
    'Вспомни курс: за 1 тугрик отдают 2 монетки.',
-   '{"correctOptionCode": "VERIFIED"}')
+   '{"answerValidation":{"kind":"BUDGET_SELECTION","budget":20,"itemPrices":{"soup":8,"juice":4,"fruits":6,"pie":4}}}')
 ON CONFLICT (quest_id, step_no) DO NOTHING;
 
-INSERT INTO shop_items (id, kind, name, price, rarity, effect_code, repair_cost_per_point) VALUES
-  ('FOOD_APPLE', 'NEED', 'Яблоко', 5, NULL, NULL, 0.20),
-  ('FOOD_CARROT', 'NEED', 'Морковка', 5, NULL, NULL, 0.20),
-  ('PET_MEAL', 'NEED', 'Обед для питомца', 10, NULL, NULL, 0.20),
-  ('TOY_BALL', 'WANT', 'Мячик', 8, NULL, NULL, 0.20),
-  ('CANDY', 'WANT', 'Конфета', 6, NULL, NULL, 0.20),
-  ('saucer', 'ARTIFACT', 'Серебряное блюдечко и наливное яблочко', 80, 'RARE', 'COST_FORESIGHT', 0.20),
-  ('vial', 'ARTIFACT', 'Склянка с живой водой', 90, 'RARE', 'SECOND_CHANCE', 100.00),
-  ('tablecloth', 'ARTIFACT', 'Скатерть-самобранка', 105, 'EPIC', 'NOURISHING_HOME', 0.20),
-  ('horseshoe', 'ARTIFACT', 'Золотая подкова', 120, 'EPIC', 'NEED_CASHBACK', 0.20),
-  ('shield', 'ARTIFACT', 'Богатырский щит', 130, 'EPIC', 'VIGILANCE_SHIELD', 0.20),
-  ('purse', 'ARTIFACT', 'Кошель-самотряс', 140, 'LEGENDARY', 'MAGIC_REMAINDER', 0.20),
-  ('boots', 'ARTIFACT', 'Сапоги-скороходы', 150, 'LEGENDARY', 'QUEST_PATH', 0.20)
+INSERT INTO shop_items (id, kind, name, price, rarity, effect_code, repair_cost_per_point, energy_delta, joy_delta) VALUES
+  ('FOOD_APPLE', 'NEED', 'Яблоко', 5, NULL, NULL, 0.20, 10, 0),
+  ('FOOD_CARROT', 'NEED', 'Морковка', 5, NULL, NULL, 0.20, 10, 0),
+  ('PET_MEAL', 'NEED', 'Обед для питомца', 10, NULL, NULL, 0.20, 25, 0),
+  ('TOY_BALL', 'WANT', 'Мячик', 8, NULL, NULL, 0.20, 0, 20),
+  ('CANDY', 'WANT', 'Конфета', 6, NULL, NULL, 0.20, 0, 8),
+  ('saucer', 'ARTIFACT', 'Серебряное блюдечко и наливное яблочко', 80, 'RARE', 'COST_FORESIGHT', 0.20, 0, 0),
+  ('vial', 'ARTIFACT', 'Склянка с живой водой', 90, 'RARE', 'SECOND_CHANCE', 100.00, 0, 0),
+  ('tablecloth', 'ARTIFACT', 'Скатерть-самобранка', 105, 'EPIC', 'NOURISHING_HOME', 0.20, 0, 0),
+  ('horseshoe', 'ARTIFACT', 'Золотая подкова', 120, 'EPIC', 'NEED_CASHBACK', 0.20, 0, 0),
+  ('shield', 'ARTIFACT', 'Богатырский щит', 130, 'EPIC', 'VIGILANCE_SHIELD', 0.20, 0, 0),
+  ('purse', 'ARTIFACT', 'Кошель-самотряс', 140, 'LEGENDARY', 'MAGIC_REMAINDER', 0.20, 0, 0),
+  ('boots', 'ARTIFACT', 'Сапоги-скороходы', 150, 'LEGENDARY', 'QUEST_PATH', 0.20, 0, 0)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   price = EXCLUDED.price,
   rarity = EXCLUDED.rarity,
   effect_code = EXCLUDED.effect_code,
   repair_cost_per_point = EXCLUDED.repair_cost_per_point,
+  energy_delta = EXCLUDED.energy_delta,
+  joy_delta = EXCLUDED.joy_delta,
   active = true;
 
 UPDATE shop_items

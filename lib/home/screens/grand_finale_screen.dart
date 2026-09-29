@@ -231,7 +231,7 @@ class _GoldenGateScene extends StatelessWidget {
                 child: CustomPaint(painter: _GoldenGatePainter()),
               ),
               Image.asset(
-                'assets/Cat/Base/playful.png',
+                'assets/Cat/Base/playful.webp',
                 fit: BoxFit.contain,
                 height: 190,
                 errorBuilder: (_, _, _) => const Icon(
@@ -337,7 +337,7 @@ class _Diploma extends StatelessWidget {
               color: AppTheme.parchment,
               borderRadius: BorderRadius.circular(17),
               image: const DecorationImage(
-                image: AssetImage('assets/backgrounds/paper.png'),
+                image: AssetImage('assets/backgrounds/paper.webp'),
                 fit: BoxFit.cover,
                 opacity: 0.23,
               ),

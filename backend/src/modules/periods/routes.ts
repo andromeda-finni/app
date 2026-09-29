@@ -318,7 +318,12 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
         const period = periodRes.rows[0];
         if (!period) throw new HttpError(404, "period_not_found");
         if (period.status === "COMPLETED") {
-          return readDaySummary(client, childUserId, periodId);
+          // Same shape as the first close. Artifact effects were applied and
+          // shown then; a replay never applies them again, so none are new.
+          return {
+            ...(await readDaySummary(client, childUserId, periodId)),
+            artifactEffects: [],
+          };
         }
         if (period.status !== "ACTIVE") {
           throw new HttpError(409, "period_cannot_be_closed");

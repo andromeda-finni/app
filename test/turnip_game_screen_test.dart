@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -227,6 +228,7 @@ void main() {
       'POST /quests/$turnipQuestId/start',
       'POST /assignments/a-1/answer',
     ]);
+    expect(calls, contains('POST /assignments/a-1/answer'));
     expect(find.text('Награда: 10 монет'), findsOneWidget);
 
     // Replaying is practice: no second submission and no second reward.
@@ -241,4 +243,72 @@ void main() {
     expect(calls, hasLength(2));
     expect(find.textContaining('Награда:'), findsNothing);
   });
+
+  testWidgets(
+    'a fast finish waits for the server start instead of losing the reward',
+    (tester) async {
+      final startResponse = Completer<http.Response>();
+      final calls = <String>[];
+      String? answerBody;
+      final client = MockClient((request) async {
+        calls.add('${request.method} ${request.url.path}');
+        if (request.url.path == '/quests/$turnipQuestId/start') {
+          return startResponse.future;
+        }
+        if (request.url.path == '/assignments/a-delayed/answer') {
+          answerBody = request.body;
+          return http.Response(
+            jsonEncode({
+              'outcome': 'SUCCESS',
+              'questCompleted': true,
+              'rewardAmount': 10,
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        return http.Response('{}', 404);
+      });
+
+      await tester.pumpWidget(
+        _game(
+          TurnipDifficulty.normal,
+          apiClient: ApiClient(
+            httpClient: client,
+            authStorage: FakeAuthStorage(initialToken: 'tok'),
+            baseUrl: 'http://test',
+          ),
+        ),
+      );
+      await tester.pump();
+      await _finishIntro(tester);
+      for (final character in TurnipCharacter.values) {
+        await tester.tap(
+          find.byKey(ValueKey('turnip-piece-${character.name}')),
+        );
+        await tester.pump();
+      }
+      await tester.pump(const Duration(seconds: 1));
+      expect(calls, ['POST /quests/$turnipQuestId/start']);
+
+      startResponse.complete(
+        http.Response(
+          jsonEncode({'assignmentId': 'a-delayed', 'rewardAmount': 10}),
+          201,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(calls, [
+        'POST /quests/$turnipQuestId/start',
+        'POST /assignments/a-delayed/answer',
+      ]);
+      expect(
+        jsonDecode(answerBody!)['selectedOptionCode'],
+        'grandmother,granddaughter,zhuchka,cat,mouse',
+      );
+      expect(find.text('Награда: 10 монет'), findsOneWidget);
+    },
+  );
 }

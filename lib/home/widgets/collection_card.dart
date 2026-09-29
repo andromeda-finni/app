@@ -46,7 +46,7 @@ class CollectionCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Image.asset('assets/icons/chest.png', width: 32, height: 32),
+              Image.asset('assets/icons/chest.webp', width: 32, height: 32),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(

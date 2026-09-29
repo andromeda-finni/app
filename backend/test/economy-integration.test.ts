@@ -17,7 +17,9 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
   const { shopRoutes } = await import("../src/modules/shop/routes.js");
   const { frostChestRoutes } = await import("../src/modules/frostChest/routes.js");
   const { economyRoutes } = await import("../src/modules/economy/routes.js");
+  const { questRoutes } = await import("../src/modules/quests/routes.js");
   const { petRoutes } = await import("../src/modules/pet/routes.js");
+  const { childSettingsRoutes } = await import("../src/modules/childSettings/routes.js");
   const originalRandom = Math.random;
   // This test exercises the base economy lifecycle. Event behavior has its
   // own integration test and must not make this one probabilistic.
@@ -27,12 +29,71 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
     if (error instanceof HttpError) reply.code(error.statusCode).send({ error: error.code });
     else reply.code((error as { statusCode?: number }).statusCode ?? 500).send({ error: String(error) });
   });
-  for (const routes of [authRoutes, goalRoutes, walletRoutes, periodRoutes, shopRoutes, frostChestRoutes, economyRoutes, petRoutes]) await app.register(routes);
+  for (const routes of [
+    authRoutes,
+    goalRoutes,
+    walletRoutes,
+    periodRoutes,
+    shopRoutes,
+    frostChestRoutes,
+    economyRoutes,
+    petRoutes,
+    childSettingsRoutes,
+    questRoutes,
+  ]) {
+    await app.register(routes);
+  }
   try {
-    const registration = await app.inject({ method: "POST", url: "/auth/child/register", payload: {} });
+    const registration = await app.inject({
+      method: "POST",
+      url: "/auth/child/register",
+      payload: { difficulty: "ADVANCED" },
+    });
     assert.equal(registration.statusCode, 201);
     const { token, userId } = registration.json();
     const headers = { authorization: `Bearer ${token}` };
+    const advancedQuests = await app.inject({
+      method: "GET",
+      url: "/quests",
+      headers,
+    });
+    assert.equal(advancedQuests.statusCode, 200, advancedQuests.body);
+    assert.ok(
+      advancedQuests
+        .json()
+        .some((quest: { id?: string }) => quest.id === "Q_TURNIP_HARVEST"),
+      "advanced guidance must keep the shared quest map available",
+    );
+    const initialSettings = await app.inject({ method: 'GET', url: '/child/settings', headers });
+    assert.equal(initialSettings.statusCode, 200, initialSettings.body);
+    assert.equal(initialSettings.json().difficulty, 'ADVANCED');
+    assert.equal(initialSettings.json().largeTextEnabled, false);
+    const savedSettings = await app.inject({
+      method: 'PUT',
+      url: '/child/settings',
+      headers,
+      payload: {
+        difficulty: 'SIMPLE',
+        soundEnabled: false,
+        musicEnabled: true,
+        largeTextEnabled: true,
+      },
+    });
+    assert.equal(savedSettings.statusCode, 200, savedSettings.body);
+    assert.deepEqual(
+      {
+        difficulty: savedSettings.json().difficulty,
+        soundEnabled: savedSettings.json().soundEnabled,
+        musicEnabled: savedSettings.json().musicEnabled,
+        largeTextEnabled: savedSettings.json().largeTextEnabled,
+      },
+      {
+        difficulty: 'SIMPLE',
+        soundEnabled: false,
+        musicEnabled: true,
+        largeTextEnabled: true,
+      },
+    );
     const post = async (url: string, payload: object = {}, expected = 200) => {
       if ('idempotencyKey' in payload) payload = { ...payload, idempotencyKey: `integration-${payload.idempotencyKey}` };
       const response = await app.inject({ method: "POST", url, headers, payload });
@@ -72,10 +133,26 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
     await Promise.all([post('/savings/deposit', deposit), post('/savings/deposit', deposit)]);
     assert.equal((await state()).wallets.SAVINGS, 20);
     await post('/savings/withdraw', { amount: -5, idempotencyKey: 'negative' }, 400);
-    await post('/savings/withdraw', { amount: 100, idempotencyKey: 'too-much' }, 409);
+    // Only the published transfer steps are accepted.
+    await post('/savings/deposit', { amount: 3, idempotencyKey: 'odd-step' }, 400);
+    await post('/savings/withdraw', { amount: 100, idempotencyKey: 'not-a-step' }, 400);
+    await post('/savings/withdraw', { amount: 10, idempotencyKey: 'more-than-saved-1' });
+    await post('/savings/withdraw', { amount: 10, idempotencyKey: 'more-than-saved-2' });
+    await post('/savings/withdraw', { amount: 5, idempotencyKey: 'more-than-saved' }, 409);
+    await post('/savings/deposit', { amount: 10, idempotencyKey: 'refill-1' });
+    await post('/savings/deposit', { amount: 10, idempotencyKey: 'refill-2' });
     // Fixture credit is also a real ledger entry, never a direct balance edit.
     await withTransaction(client => postTransaction(client, { childUserId: userId, walletKind: 'SPENDABLE', eventType: 'QUEST_REWARD', deltaAmount: 300, idempotencyKey: 'test-funding' }));
-    await post('/savings/deposit', { amount: chosen.target_amount - 20, idempotencyKey: 'reach' });
+    // Two different transfers at once must both apply, not deadlock on the
+    // child row that the idempotency key's foreign key also locks.
+    await Promise.all([
+      post('/savings/deposit', { amount: 10, idempotencyKey: 'parallel-a' }),
+      post('/savings/deposit', { amount: 10, idempotencyKey: 'parallel-b' }),
+    ]);
+    assert.equal((await state()).wallets.SAVINGS, 40);
+    for (let saved = 40, step = 0; saved < chosen.target_amount; saved += 10, step++) {
+      await post('/savings/deposit', { amount: 10, idempotencyKey: `reach-${step}` });
+    }
     assert.equal((await state()).activeGoal.status, 'ACHIEVED');
     await post('/savings/withdraw', { amount: 5, idempotencyKey: 'withdraw' });
     assert.equal((await state()).activeGoal.status, 'ACTIVE');
@@ -138,6 +215,27 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
     assert.equal(missedNeed.actual.need, 0);
     assert.match(missedNeed.feedback, /завтра попробуем ещё раз/);
     await post(`/frost-chests/${chest.id}/collect`, {}, 404);
+
+    // Catalog effects and the gentle impulse consequence are applied by the
+    // server in the same idempotent purchase transaction.
+    await pool.query(
+      `UPDATE pets SET energy_level = 50, joy_level = 50 WHERE child_user_id = $1`,
+      [userId],
+    );
+    const careDay = (await post('/periods', {}, 201)).periodId;
+    await plan(careDay);
+    const food = await post('/purchases', {
+      itemId: 'FOOD_APPLE',
+      idempotencyKey: 'pet-effect-food',
+    }, 201);
+    assert.deepEqual(food.pet, { energy_level: 60, joy_level: 50 });
+    const play = await post('/purchases', {
+      itemId: 'TOY_BALL',
+      idempotencyKey: 'pet-effect-play',
+    }, 201);
+    assert.equal(play.impulsive, true);
+    assert.deepEqual(play.pet, { energy_level: 55, joy_level: 65 });
+
     const ledger = await pool.query(`SELECT w.kind, w.balance, COALESCE(SUM(t.delta_amount), 0)::int AS total FROM wallets w LEFT JOIN transactions t ON t.child_user_id = w.child_user_id AND t.wallet_kind = w.kind WHERE w.child_user_id = $1 GROUP BY w.kind, w.balance`, [userId]);
     for (const row of ledger.rows) assert.equal(row.balance, row.total);
     assert.equal((await app.inject({ method: 'POST', url: '/goals', payload: { targetItemId: 'shield' } })).statusCode, 401);

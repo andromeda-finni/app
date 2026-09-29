@@ -32,3 +32,23 @@ test("period feedback stays encouraging when only the allocation missed", async 
   );
   assert.doesNotMatch(text, /расстро/);
 });
+
+test("a day does not count as following the plan when planned needs were skipped", async () => {
+  process.env["APP_DATABASE_URL"] =
+    "postgres://test:test@localhost:5432/test?sslmode=disable";
+  const { calculateDayOutcome } = await import("../src/modules/economy/rules.js");
+
+  const outcome = calculateDayOutcome({
+    requiredNeed: 10,
+    plannedNeed: 20,
+    plannedWant: 10,
+    plannedSavings: 0,
+    actualNeed: 10,
+    actualWant: 0,
+    netSavings: 0,
+  });
+
+  assert.equal(outcome.needCovered, true);
+  assert.equal(outcome.planFollowed, false);
+  assert.match(outcome.recommendations.join(" "), /меньше, чем было в плане/);
+});

@@ -204,7 +204,7 @@ class _Document extends StatelessWidget {
                     style: AppTextStyles.counterValue.copyWith(fontSize: 15),
                   ),
                   const SizedBox(width: 4),
-                  Image.asset('assets/icons/coin.png', width: 17, height: 17),
+                  Image.asset('assets/icons/coin.webp', width: 17, height: 17),
                 ],
               ),
               if (i != episode.receiptLines.length - 1)

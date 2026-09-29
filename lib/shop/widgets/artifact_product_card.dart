@@ -1,78 +1,133 @@
 import 'package:flutter/material.dart';
 
 import '../../economy/economy_state.dart';
-import '../../economy/item_art_catalog.dart';
 import '../../economy/item_artwork.dart';
 import '../../theme/app_theme.dart';
 
 enum ArtifactProductState { available, selected, locked }
 
-/// Reusable artifact card for the store and future product-catalog surfaces.
+/// Compact goal card used by the store's savings-goal catalog.
+///
+/// The card keeps browsing information separate from the goal action. The
+/// leading area opens details, while the bottom control communicates the
+/// server-authoritative goal state in words as well as colour.
 class ArtifactProductCard extends StatelessWidget {
   const ArtifactProductCard({
     super.key,
     required this.item,
     required this.state,
+    required this.savedAmount,
+    required this.onDetails,
     this.onSelect,
   });
 
   final EconomyItem item;
   final ArtifactProductState state;
+  final int savedAmount;
+  final VoidCallback onDetails;
   final VoidCallback? onSelect;
 
   @override
   Widget build(BuildContext context) {
     final selected = state == ArtifactProductState.selected;
-    final benefit = resolveArtifactBenefitDescription(item.id);
+    final missing = (item.price - savedAmount).clamp(0, item.price);
+    final progress = item.price == 0
+        ? 0.0
+        : (savedAmount / item.price).clamp(0, 1).toDouble();
+
     return Semantics(
       key: ValueKey('artifact-card-${item.id}'),
       container: true,
       label:
-          '${item.name}, ${item.price} монет, ${_rarityLabel(item.rarity)}, '
-          '${benefit == null ? '' : 'эффект: $benefit, '}${_stateLabel(state)}',
+          '${item.name}, ${item.price} монет, ${_stateLabel(state)}${selected ? ', накоплено $savedAmount, осталось $missing' : ''}',
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.sm),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: selected
-                ? const [Color(0xFFF1F6E9), Color(0xFFE4EED8)]
-                : const [Color(0xFFFFFBF3), Color(0xFFFFF0D5)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: const Color(0xFFFFF8E9),
           borderRadius: BorderRadius.circular(AppRadii.lg),
           border: Border.all(
-            color: selected ? AppColors.leafGreen : const Color(0xFFE8C98E),
+            color: selected ? AppColors.leafGreen : const Color(0xFFD9AF70),
             width: selected ? 2 : 1,
           ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
-              child: ItemArtwork(
-                itemId: item.id,
-                imageAsset: item.imageAsset,
-                semanticLabel: item.name,
-                size: 154,
-                borderRadius: AppRadii.lg,
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onDetails,
+                borderRadius: BorderRadius.circular(AppRadii.md),
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xxs),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final vertical =
+                          constraints.maxWidth < 300 ||
+                          MediaQuery.textScalerOf(context).scale(1) > 1.5;
+                      final art = ItemArtwork(
+                        itemId: item.id,
+                        imageAsset: item.imageAsset,
+                        semanticLabel: item.name,
+                        size: vertical ? 96 : 88,
+                        borderRadius: AppRadii.md,
+                        backgroundColor: const Color(0xFFFFEBC0),
+                      );
+                      final details = _ArtifactSummary(
+                        item: item,
+                        selected: selected,
+                      );
+                      if (vertical) {
+                        return Column(
+                          children: [
+                            art,
+                            const SizedBox(height: AppSpacing.xs),
+                            details,
+                          ],
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          art,
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(child: details),
+                          const SizedBox(width: AppSpacing.xs),
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            color: AppColors.inkMuted,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(child: _RarityBadge(rarity: item.rarity)),
-                const SizedBox(width: 8),
-                _Price(price: item.price),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(item.name, style: AppTextStyles.cardTitle),
-            if (benefit != null) ...[
-              const SizedBox(height: 10),
-              _BenefitDescription(description: benefit),
+            if (selected) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Semantics(
+                label: 'Накоплено $savedAmount из ${item.price} монет',
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 9,
+                    backgroundColor: AppColors.parchmentDark,
+                    color: AppColors.leafGreen,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                missing == 0
+                    ? 'Цель собрана — забери её в Копилке'
+                    : 'Накоплено $savedAmount · осталось $missing монет',
+                style: AppTextStyles.swatchLabel,
+                textAlign: TextAlign.center,
+              ),
             ],
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.sm),
             _action(),
           ],
         ),
@@ -87,8 +142,8 @@ class ArtifactProductCard extends StatelessWidget {
         minimumSize: const Size.fromHeight(50),
         backgroundColor: AppColors.crimson,
       ),
-      icon: const Icon(Icons.flag_outlined),
-      label: const Text('Выбрать целью'),
+      icon: const Icon(Icons.savings_outlined),
+      label: const Text('Копить на это'),
     ),
     ArtifactProductState.selected => Container(
       constraints: const BoxConstraints(minHeight: 50),
@@ -119,93 +174,56 @@ class ArtifactProductCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.parchment,
         borderRadius: BorderRadius.circular(AppRadii.md),
+        border: Border.all(color: AppColors.fieldBorder),
       ),
-      child: Text(
-        'Доступно после текущей цели',
-        textAlign: TextAlign.center,
-        style: AppTextStyles.supporting,
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.lock_outline_rounded, size: 20, color: AppColors.inkMuted),
+          SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              'Сначала заверши текущую цель',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.supporting,
+            ),
+          ),
+        ],
       ),
     ),
   };
 }
 
-class _BenefitDescription extends StatelessWidget {
-  const _BenefitDescription({required this.description});
+class _ArtifactSummary extends StatelessWidget {
+  const _ArtifactSummary({required this.item, required this.selected});
 
-  final String description;
+  final EconomyItem item;
+  final bool selected;
 
   @override
-  Widget build(BuildContext context) => Row(
+  Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const Padding(
-        padding: EdgeInsets.only(top: 2),
-        child: Icon(Icons.auto_awesome, size: 18, color: AppColors.coinGold),
-      ),
-      const SizedBox(width: 8),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Что умеет', style: AppTextStyles.swatchLabel),
-            const SizedBox(height: 2),
-            Text(description, style: AppTextStyles.supporting),
-          ],
+      if (selected)
+        Text(
+          'МОЯ ЦЕЛЬ',
+          style: AppTextStyles.stepCounter.copyWith(color: AppColors.leafGreen),
         ),
+      Text(item.name, style: AppTextStyles.cardRowLabel),
+      const SizedBox(height: AppSpacing.xs),
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset('assets/icons/coin.webp', width: 22, height: 22),
+          const SizedBox(width: AppSpacing.xxs),
+          Text('${item.price} монет', style: AppTextStyles.cardRowLabel),
+        ],
       ),
+      const SizedBox(height: AppSpacing.xxs),
+      Text('Нажми, чтобы узнать подробнее', style: AppTextStyles.stepCounter),
     ],
   );
 }
-
-class _Price extends StatelessWidget {
-  const _Price({required this.price});
-
-  final int price;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Image.asset('assets/icons/coin.png', width: 24, height: 24),
-      const SizedBox(width: 5),
-      Text('$price', style: AppTextStyles.cardRowLabel),
-    ],
-  );
-}
-
-class _RarityBadge extends StatelessWidget {
-  const _RarityBadge({required this.rarity});
-
-  final String? rarity;
-
-  @override
-  Widget build(BuildContext context) {
-    final (color, icon) = switch (rarity) {
-      'LEGENDARY' => (const Color(0xFF9C5D16), Icons.auto_awesome),
-      'EPIC' => (AppColors.crimson, Icons.diamond_outlined),
-      _ => (AppColors.leafGreen, Icons.star_outline),
-    };
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 18, color: color),
-        const SizedBox(width: 5),
-        Flexible(
-          child: Text(
-            _rarityLabel(rarity),
-            style: AppTextStyles.swatchLabel.copyWith(color: color),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-String _rarityLabel(String? rarity) => switch (rarity) {
-  'LEGENDARY' => 'Легендарный',
-  'EPIC' => 'Эпический',
-  _ => 'Редкий',
-};
 
 String _stateLabel(ArtifactProductState state) => switch (state) {
   ArtifactProductState.available => 'можно выбрать целью',

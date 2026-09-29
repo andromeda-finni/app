@@ -33,7 +33,7 @@ class PlantainTableCard extends StatelessWidget {
           ListTile(
             minTileHeight: 68,
             leading: Image.asset(
-              'assets/icons/leaf_small.png',
+              'assets/icons/leaf_small.webp',
               width: 44,
               height: 44,
             ),

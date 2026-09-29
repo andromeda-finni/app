@@ -4,6 +4,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/child_difficulty.dart';
 import '../core/pet_assets.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../games/turnip/turnip_game_screen.dart';
@@ -18,6 +19,7 @@ class QuestMapScreen extends StatefulWidget {
     this.apiClient,
     this.showBack = true,
     this.initialUnlockedIndex = 0,
+    this.difficulty = ChildDifficulty.beginner,
   });
 
   /// Source of progress and the server every launched game reports to.
@@ -29,6 +31,7 @@ class QuestMapScreen extends StatefulWidget {
   final bool showBack;
 
   final int initialUnlockedIndex;
+  final ChildDifficulty difficulty;
 
   @override
   State<QuestMapScreen> createState() => _QuestMapScreenState();
@@ -36,7 +39,7 @@ class QuestMapScreen extends StatefulWidget {
 
 class _QuestMapScreenState extends State<QuestMapScreen>
     with TickerProviderStateMixin {
-  static const _mapAsset = 'assets/map/quest_map_scenarios_v03.png';
+  static const _mapAsset = 'assets/map/quest_map_scenarios_v03.webp';
   static const _sourceWidth = 821.0;
   static const _sourceHeight = 1915.0;
 
@@ -294,7 +297,9 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       QuestMapDestination.turnip => navigator.push<void>(
         MaterialPageRoute(
           builder: (gameContext) => TurnipGameScreen(
-            difficulty: TurnipDifficulty.normal,
+            difficulty: widget.difficulty == ChildDifficulty.advanced
+                ? TurnipDifficulty.hard
+                : TurnipDifficulty.normal,
             apiClient: widget.apiClient,
             petName: _petName,
             onExit: () => Navigator.of(gameContext).pop(),

@@ -343,7 +343,7 @@ class _PlantainArtwork extends StatelessWidget {
                   size: 142,
                   color: AppColors.amber.withValues(alpha: 0.68),
                 ),
-                Image.asset('assets/icons/leaf.png', width: 105, height: 105),
+                Image.asset('assets/icons/leaf.webp', width: 105, height: 105),
               ],
             ),
           );
@@ -531,7 +531,7 @@ class _BalancePill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('assets/icons/coin.png', width: 22, height: 22),
+            Image.asset('assets/icons/coin.webp', width: 22, height: 22),
             const SizedBox(width: 5),
             Text('$wallet монет', style: AppTextStyles.cardRowLabel),
           ],

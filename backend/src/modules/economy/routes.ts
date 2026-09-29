@@ -35,7 +35,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
         [childUserId],
       );
 
-      const [petRes, walletsRes, dayRes, eventRes, insuranceRes, goalRes, frostRes, shopRes, artifactRes, inventoryRes, transactionsRes, historyRes, questsRes, tasksRes] =
+      const [petRes, walletsRes, dayRes, eventRes, insuranceRes, goalRes, frostRes, shopRes, artifactRes, inventoryRes, transactionsRes, historyRes, questsRes, tasksRes, savingsHistoryRes] =
         await Promise.all([
           pool.query(
             `SELECT pet_name, fur_option_id, accessory_option_id, energy_level,
@@ -119,7 +119,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
             [childUserId],
           ),
           pool.query(
-            `SELECT id, kind, name, price FROM shop_items
+            `SELECT id, kind, name, price, energy_delta, joy_delta FROM shop_items
               WHERE active AND kind IN ('NEED','WANT') ORDER BY kind, price`,
           ),
           pool.query(
@@ -169,7 +169,6 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
             `SELECT q.id, q.title, q.reward_amount,
                     a.id AS assignment_id, a.status AS assignment_status
                FROM quest_definitions q
-               JOIN child_profiles cp ON cp.user_id = $1 AND cp.difficulty = q.difficulty
                LEFT JOIN LATERAL (
                  SELECT id, status FROM assignments
                   WHERE child_user_id = $1 AND origin = 'SYSTEM' AND quest_id = q.id
@@ -182,6 +181,16 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
             `SELECT id, title, reward_amount, status
                FROM assignments WHERE child_user_id = $1 AND origin = 'PARENT'
               ORDER BY created_at DESC LIMIT 10`,
+            [childUserId],
+          ),
+          // The Копилка screen explains how the balance got here; the general
+          // recent list can be crowded out by purchases and rewards.
+          pool.query(
+            `SELECT event_type, delta_amount, balance_after, occurred_at,
+                    reference_type = 'budget_plan' AS from_plan
+               FROM transactions
+              WHERE child_user_id = $1 AND wallet_kind = 'SAVINGS'
+              ORDER BY occurred_at DESC, id DESC LIMIT 5`,
             [childUserId],
           ),
         ]);
@@ -224,6 +233,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
         quests: questsRes.rows,
         parentTasks: tasksRes.rows,
         recentTransactions: transactionsRes.rows,
+        savingsHistory: savingsHistoryRes.rows,
         recentDays: history,
       };
     },

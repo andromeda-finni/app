@@ -3,7 +3,7 @@ import test from "node:test";
 
 import Fastify from "fastify";
 
-test("boots expose four quest slots and saucer exposes the reward forecast", async () => {
+test("the quest catalogue is never trimmed and saucer exposes the reward forecast", async () => {
   process.env["APP_DATABASE_URL"] =
     "postgres://test:test@localhost:5432/test?sslmode=disable";
   const [{ pool }, { questRoutes }] = await Promise.all([
@@ -12,7 +12,7 @@ test("boots expose four quest slots and saucer exposes the reward forecast", asy
   ]);
   const app = Fastify();
   const originalQuery = pool.query;
-  let requestedLimit: unknown;
+  let catalogueParams: unknown[] | undefined;
 
   pool.query = (async (text: string, params: unknown[] = []) => {
     if (text.includes("FROM auth_credentials")) {
@@ -31,7 +31,7 @@ test("boots expose four quest slots and saucer exposes the reward forecast", asy
       };
     }
     if (text.includes("FROM quest_definitions")) {
-      requestedLimit = params[1];
+      catalogueParams = params;
       return {
         rows: [{ id: "quest-1", title: "Quest", reward_amount: 15 }],
         rowCount: 1,
@@ -49,7 +49,9 @@ test("boots expose four quest slots and saucer exposes the reward forecast", asy
     });
 
     assert.equal(response.statusCode, 200);
-    assert.equal(requestedLimit, 4);
+    // Boots raise the daily *paid* limit when a reward is paid out; hiding
+    // catalogue entries would only blank out parts of the map.
+    assert.deepEqual(catalogueParams, []);
     assert.deepEqual(response.json()[0].forecast, {
       rewardAmount: 15,
       energyCost: null,

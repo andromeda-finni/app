@@ -9,19 +9,19 @@ const furColorOptions = [
     id: 'FUR_GRAY',
     label: 'серый',
     swatch: 0xFF85817E,
-    catAsset: 'assets/Cat/Red_collar/base/striped.png',
+    catAsset: 'assets/Cat/Red_collar/base/striped.webp',
   ),
   FurColorOption(
     id: 'FUR_ORANGE',
     label: 'рыжий',
     swatch: 0xFFD27A32,
-    catAsset: 'assets/Cat/Red_collar/base/red.png',
+    catAsset: 'assets/Cat/Red_collar/base/red.webp',
   ),
   FurColorOption(
     id: 'FUR_WHITE',
     label: 'белый',
     swatch: 0xFFF3EDE2,
-    catAsset: 'assets/Cat/Red_collar/base/white.png',
+    catAsset: 'assets/Cat/Red_collar/base/white.webp',
   ),
 ];
 

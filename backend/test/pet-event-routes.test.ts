@@ -62,6 +62,10 @@ test("rolling a pet event changes health atomically and rolls back on failure", 
         if (failHealthUpdate) throw new Error("health update failed");
         return { rows: [], rowCount: 1 };
       }
+      // No protective artifact is owned in these scenarios.
+      if (text.includes("FROM inventory_items")) {
+        return { rows: [], rowCount: 0 };
+      }
       throw new Error(`Unexpected transaction query in test: ${text}`);
     },
     release: () => undefined,
@@ -228,6 +232,10 @@ test("next-day insurance covers an event or expires after a calm day", async () 
       }
       if (text.includes("UPDATE insurance_policies")) {
         return { rows: [], rowCount: 1 };
+      }
+      // No protective artifact is owned in these scenarios.
+      if (text.includes("FROM inventory_items")) {
+        return { rows: [], rowCount: 0 };
       }
       throw new Error(`Unexpected transaction query in test: ${text}`);
     },
