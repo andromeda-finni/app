@@ -360,13 +360,19 @@ class _MainShellState extends State<MainShell> {
               const SizedBox.shrink(),
               const SizedBox.shrink(),
             ] else ...[
-              QuestMapScreen(
-                key: ValueKey('map-$_mapRevision'),
-                apiClient: widget.apiClient,
-                // A tab root has nothing to go back to; the header hides the
-                // arrow instead of offering a button that does nothing.
-                showBack: false,
-                difficulty: _settings.difficulty,
+              // IndexedStack keeps hidden tabs alive; the map's looping scene
+              // animations must not keep ticking (and draining the battery)
+              // while another tab is on screen.
+              TickerMode(
+                enabled: _index == 1,
+                child: QuestMapScreen(
+                  key: ValueKey('map-$_mapRevision'),
+                  apiClient: widget.apiClient,
+                  // A tab root has nothing to go back to; the header hides the
+                  // arrow instead of offering a button that does nothing.
+                  showBack: false,
+                  difficulty: _settings.difficulty,
+                ),
               ),
               ShopScreen(
                 key: ValueKey('store-$_storeRevision'),

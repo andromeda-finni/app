@@ -207,7 +207,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final message = switch (effectCode) {
       'MAGIC_REMAINDER' => 'Кошель-самотряс: +2 монеты!',
       'NOURISHING_HOME' => 'Скатерть сохранила сытость питомца.',
-      'COST_FORESIGHT' => 'Блюдечко подскажет на карте награды за задания.',
       'SECOND_CHANCE' => 'Живая вода защитила питомца!',
       _ => 'Сработала способность артефакта!',
     };

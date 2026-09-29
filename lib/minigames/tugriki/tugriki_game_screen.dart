@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
+import '../../core/pet_assets.dart';
 import '../../onboarding/widgets/back_circle_button.dart';
 import '../../onboarding/widgets/story_button.dart';
 import '../../theme/app_theme.dart';
@@ -29,6 +30,7 @@ class TugrikiGameScreen extends StatefulWidget {
     this.apiClient,
     this.onExit,
     this.petName = 'Питомец',
+    this.furOptionId,
   });
 
   final ApiClient? apiClient;
@@ -36,6 +38,7 @@ class TugrikiGameScreen extends StatefulWidget {
 
   /// The name the child gave the pet, who is a character in this story.
   final String petName;
+  final String? furOptionId;
 
   @override
   State<TugrikiGameScreen> createState() => _TugrikiGameScreenState();
@@ -437,7 +440,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
                     scale: (!isSparrowSpeaking && showGroshik) ? 1.04 : 0.94,
                     alignment: Alignment.bottomLeft,
                     child: Image.asset(
-                      TugrikiAssets.catStriped,
+                      catAsset(furOptionId: widget.furOptionId),
                       height: charHeight * 0.92,
                       fit: BoxFit.contain,
                     ),

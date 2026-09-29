@@ -138,6 +138,11 @@ void main() {
   testWidgets('the selected tab is crimson and filled, the others are not', (
     tester,
   ) async {
+    // The painted map loops its scene animations while visible; like a
+    // phone with reduced motion, the test asks for a still map to settle.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     await tester.pumpWidget(_shell());
     await tester.pumpAndSettle();
 

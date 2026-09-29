@@ -34,7 +34,8 @@ const Map<String, String> localPurchaseArtwork = {
 /// sites in backend/src/modules): a card must never promise a bonus the
 /// economy does not grant. Change the text together with the rule.
 const Map<String, String> localArtifactBenefitDescriptions = {
-  'saucer': 'На карте подсказывает, сколько монет принесёт задание.',
+  'saucer':
+      'Сказочный артефакт для коллекции. Его особая сила ещё в разработке.',
   'vial': 'Один раз автоматически отменяет беду с питомцем и лечит его.',
   'tablecloth':
       'Каждое утро поднимает сытость питомца до 40%, если она ниже. '

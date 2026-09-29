@@ -628,6 +628,11 @@ void main() {
   testWidgets('insufficient coins route the child to the quest map', (
     tester,
   ) async {
+    // The painted map loops its scene animations while visible; like a
+    // phone with reduced motion, the test asks for a still map to settle.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     final data = _state(withGoal: true);
     data['wallets'] = {'SPENDABLE': 0, 'SAVINGS': 0, 'FROZEN': 0};
     await _pumpShell(

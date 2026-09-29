@@ -54,7 +54,7 @@ const artifactCatalog = <ArtifactDefinition>[
     name: 'Серебряное блюдечко',
     assetPath: 'assets/artifacts/items/05-silver-saucer-apple.webp',
     rarity: 'RARE',
-    ability: 'Открывает точный прогноз выгоды заданий.',
+    ability: 'Сказочный артефакт для коллекции. Особая сила ещё в разработке.',
     wearable: false,
   ),
   ArtifactDefinition(

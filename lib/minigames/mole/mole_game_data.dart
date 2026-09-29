@@ -4,7 +4,7 @@ const kMoleQuestId = 'Q_MOLE_FINE_PRINT';
 
 abstract final class MoleAssets {
   static const root = 'assets/minigames/mole';
-  static const zemelik = '$root/zemelik.webp';
+  static const zemelik = '$root/zemelik_mole.webp';
   static const house = '$root/mole_house.webp';
   static const shop = '$root/shop.webp';
   static const magnifier = '$root/magnifier.webp';

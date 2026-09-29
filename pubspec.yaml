@@ -77,7 +77,14 @@ flutter:
     - assets/shop/title_sign.webp
     - assets/shop/items/apple.webp
     - assets/shop/items/carrot.webp
-    - assets/map/quest_map_scenarios_v03.webp
+    - assets/map/quest_map_scenarios_v05_clean.webp
+    - assets/map/checkpoint_road_v2.webp
+    - assets/map/cat_idle/striped.webp
+    - assets/map/cat_idle/red.webp
+    - assets/map/cat_idle/white.webp
+    - assets/map/cat_walk/striped.webp
+    - assets/map/cat_walk/red.webp
+    - assets/map/cat_walk/white.webp
     - assets/icons/arrow_left.webp
     - assets/icons/sweet.webp
     - assets/icons/ball.webp

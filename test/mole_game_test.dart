@@ -114,6 +114,11 @@ void main() {
   testWidgets('the quest map offers the mole game on a small phone', (
     tester,
   ) async {
+    // The painted map loops its scene animations while visible; like a
+    // phone with reduced motion, the test asks for a still map to settle.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
     // The game used to be reached from a separate hub screen; it is now
     // entered from the "Карта" tab, so that is where it has to fit.
     final dpr = tester.view.devicePixelRatio;
