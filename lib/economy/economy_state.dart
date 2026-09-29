@@ -195,6 +195,7 @@ final class EconomyState {
     required this.parentTasks,
     required this.transactions,
     required this.recentDays,
+    this.savingsHistory = const [],
   });
 
   final EconomyRules rules;
@@ -215,6 +216,9 @@ final class EconomyState {
   final List<Map<String, dynamic>> parentTasks;
   final List<Map<String, dynamic>> transactions;
   final List<Map<String, dynamic>> recentDays;
+
+  /// Latest movements of the SAVINGS wallet, newest first.
+  final List<Map<String, dynamic>> savingsHistory;
 
   factory EconomyState.fromJson(Map<String, dynamic> json) {
     final pet = _asMap(json['pet']) ?? const {};
@@ -243,6 +247,7 @@ final class EconomyState {
       parentTasks: _asList(json['parentTasks']),
       transactions: _asList(json['recentTransactions']),
       recentDays: _asList(json['recentDays']),
+      savingsHistory: _asList(json['savingsHistory']),
     );
   }
 }

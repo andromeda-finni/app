@@ -133,10 +133,26 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
     await Promise.all([post('/savings/deposit', deposit), post('/savings/deposit', deposit)]);
     assert.equal((await state()).wallets.SAVINGS, 20);
     await post('/savings/withdraw', { amount: -5, idempotencyKey: 'negative' }, 400);
-    await post('/savings/withdraw', { amount: 100, idempotencyKey: 'too-much' }, 409);
+    // Only the published transfer steps are accepted.
+    await post('/savings/deposit', { amount: 3, idempotencyKey: 'odd-step' }, 400);
+    await post('/savings/withdraw', { amount: 100, idempotencyKey: 'not-a-step' }, 400);
+    await post('/savings/withdraw', { amount: 10, idempotencyKey: 'more-than-saved-1' });
+    await post('/savings/withdraw', { amount: 10, idempotencyKey: 'more-than-saved-2' });
+    await post('/savings/withdraw', { amount: 5, idempotencyKey: 'more-than-saved' }, 409);
+    await post('/savings/deposit', { amount: 10, idempotencyKey: 'refill-1' });
+    await post('/savings/deposit', { amount: 10, idempotencyKey: 'refill-2' });
     // Fixture credit is also a real ledger entry, never a direct balance edit.
     await withTransaction(client => postTransaction(client, { childUserId: userId, walletKind: 'SPENDABLE', eventType: 'QUEST_REWARD', deltaAmount: 300, idempotencyKey: 'test-funding' }));
-    await post('/savings/deposit', { amount: chosen.target_amount - 20, idempotencyKey: 'reach' });
+    // Two different transfers at once must both apply, not deadlock on the
+    // child row that the idempotency key's foreign key also locks.
+    await Promise.all([
+      post('/savings/deposit', { amount: 10, idempotencyKey: 'parallel-a' }),
+      post('/savings/deposit', { amount: 10, idempotencyKey: 'parallel-b' }),
+    ]);
+    assert.equal((await state()).wallets.SAVINGS, 40);
+    for (let saved = 40, step = 0; saved < chosen.target_amount; saved += 10, step++) {
+      await post('/savings/deposit', { amount: 10, idempotencyKey: `reach-${step}` });
+    }
     assert.equal((await state()).activeGoal.status, 'ACHIEVED');
     await post('/savings/withdraw', { amount: 5, idempotencyKey: 'withdraw' });
     assert.equal((await state()).activeGoal.status, 'ACTIVE');

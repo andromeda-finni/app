@@ -293,7 +293,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('Сапоги-скороходы'), findsOneWidget);
-    expect(find.text('Сундук закрыт'), findsOneWidget);
+    expect(find.text('Внутри 10 монет'), findsOneWidget);
     expect(find.text('Осталось 4 игровых дня'), findsOneWidget);
     expect(
       find.byWidgetPredicate(
@@ -376,7 +376,8 @@ void main() {
 
     await tester.tap(find.text('Копилка'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Выбрать'));
+    await tester.ensureVisible(find.text('Выбрать мечту'));
+    await tester.tap(find.text('Выбрать мечту'));
     await tester.pumpAndSettle();
 
     expect(find.text('Магазин'), findsWidgets);
@@ -517,7 +518,13 @@ void main() {
 
     await tester.tap(find.text('Копилка'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Выбрать'));
+    // At 320x568 with enlarged text the call to action sits under the nav
+    // bar; this test is about the store cards, so press it directly.
+    tester
+        .widget<FilledButton>(
+          find.widgetWithText(FilledButton, 'Выбрать мечту'),
+        )
+        .onPressed!();
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('Мечты'),

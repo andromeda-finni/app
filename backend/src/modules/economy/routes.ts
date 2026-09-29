@@ -35,7 +35,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
         [childUserId],
       );
 
-      const [petRes, walletsRes, dayRes, eventRes, goalRes, frostRes, shopRes, artifactRes, inventoryRes, transactionsRes, historyRes, questsRes, tasksRes] =
+      const [petRes, walletsRes, dayRes, eventRes, goalRes, frostRes, shopRes, artifactRes, inventoryRes, transactionsRes, historyRes, questsRes, tasksRes, savingsHistoryRes] =
         await Promise.all([
           pool.query(
             `SELECT pet_name, fur_option_id, energy_level, joy_level, health_level, evolution_stage
@@ -149,6 +149,16 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
               ORDER BY created_at DESC LIMIT 10`,
             [childUserId],
           ),
+          // The Копилка screen explains how the balance got here; the general
+          // recent list can be crowded out by purchases and rewards.
+          pool.query(
+            `SELECT event_type, delta_amount, balance_after, occurred_at,
+                    reference_type = 'budget_plan' AS from_plan
+               FROM transactions
+              WHERE child_user_id = $1 AND wallet_kind = 'SAVINGS'
+              ORDER BY occurred_at DESC, id DESC LIMIT 5`,
+            [childUserId],
+          ),
         ]);
 
       const day = dayRes.rows[0] as Record<string, unknown> | undefined;
@@ -188,6 +198,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
         quests: questsRes.rows,
         parentTasks: tasksRes.rows,
         recentTransactions: transactionsRes.rows,
+        savingsHistory: savingsHistoryRes.rows,
         recentDays: history,
       };
     },

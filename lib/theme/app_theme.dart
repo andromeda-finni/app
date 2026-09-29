@@ -18,6 +18,23 @@ abstract final class AppColors {
   static const cardBg = Color(0xFFFFFBF4);
   static const coinGold = Color(0xFFD99524);
   static const infoBg = Color(0xFFFFF1D5);
+
+  // Savings: the warm gold of a dream being saved for.
+  static const goalSurface = Color(0xFFFFF4DC);
+  static const goalSurfaceDeep = Color(0xFFFFE9BD);
+  static const goalBorder = Color(0xFFEBCB91);
+  static const progressTrack = Color(0xFFEAD7B5);
+
+  // Сундук Морозко: a cool winter palette so frozen coins never read as
+  // spendable ones.
+  static const frostBlue = Color(0xFF337FB4);
+  static const frostDone = Color(0xFF4A9BCB);
+  static const frostSoft = Color(0xFFDCEFF8);
+  static const frostSurface = Color(0xFFF4FBFF);
+  static const frostSurfaceDeep = Color(0xFFDDEFF9);
+  static const frostBorder = Color(0xFFC8E0EC);
+  static const frostIdle = Color(0xFFD1E3EE);
+  static const frostIdleIcon = Color(0xFF7F9FB2);
 }
 
 abstract final class AppSpacing {
