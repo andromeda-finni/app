@@ -30,11 +30,21 @@ const Map<String, String> localPurchaseArtwork = {
 
 /// Child-friendly descriptions of artifact effects shown in the store.
 ///
-/// Only effects the server actually applies belong here: a card must never
-/// promise a bonus the economy does not grant. Add an entry together with the
-/// backend rule that implements it.
+/// Each text states what the server actually does (see useArtifact call
+/// sites in backend/src/modules): a card must never promise a bonus the
+/// economy does not grant. Change the text together with the rule.
 const Map<String, String> localArtifactBenefitDescriptions = {
-  // quests/routes.ts raises the daily paid-quest limit while boots are worn.
+  'saucer': 'На карте подсказывает, сколько монет принесёт задание.',
+  'vial': 'Один раз автоматически отменяет беду с питомцем и лечит его.',
+  'tablecloth':
+      'Каждое утро поднимает сытость питомца до 40%, если она ниже. '
+      'Хватает на четыре дня.',
+  'horseshoe': 'Сразу возвращает 10% монет за покупки из раздела «Надо».',
+  'shield':
+      'Перед опасной сделкой показывает признаки риска и один раз даёт '
+      'отменить ошибку.',
+  'purse':
+      'Если в конце дня осталось хотя бы 10 монет, утром добавляет 2 монеты.',
   'boots': 'Пока надеты, открывают четвёртое задание за день.',
 };
 

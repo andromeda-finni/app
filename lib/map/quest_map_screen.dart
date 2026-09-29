@@ -8,8 +8,10 @@ import '../core/child_difficulty.dart';
 import '../core/pet_assets.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../games/turnip/turnip_game_screen.dart';
+import '../minigames/bakery/bakery_game_screen.dart';
 import '../minigames/mole/mole_game_screen.dart';
 import '../minigames/tugriki/tugriki_game_screen.dart';
+import '../minigames/park/park_project_screen.dart';
 import '../theme/app_theme.dart';
 import 'quest_map_data.dart';
 
@@ -60,6 +62,11 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   // Neutral until the server answers: the child names the pet themselves.
   String _petName = 'Питомец';
   String? _furOptionId;
+  String? _parkScene;
+
+  /// Quest rewards, shown only while a working Серебряное блюдечко is owned:
+  /// the saucer's ability is to foresee what a quest will pay.
+  Map<String, int> _saucerForecast = const {};
   int _movementVersion = 0;
   double _renderedMapHeight = 0;
   double _viewportHeight = 0;
@@ -96,9 +103,32 @@ class _QuestMapScreenState extends State<QuestMapScreen>
           if (quest is Map && quest['assignment_status'] == 'COMPLETED')
             quest['id'] as String,
       };
+      final saucerWorks = (economy['inventory'] as List? ?? const []).any(
+        (item) =>
+            item is Map &&
+            item['item_id'] == 'saucer' &&
+            item['is_broken'] != true &&
+            ((item['durability_current'] as num?)?.toInt() ?? 1) > 0,
+      );
+      final forecast = <String, int>{
+        if (saucerWorks)
+          for (final quest in (economy['quests'] as List? ?? const []))
+            if (quest is Map && quest['reward_amount'] is num)
+              quest['id'] as String: (quest['reward_amount'] as num).toInt(),
+      };
       final pet = economy['pet'] as Map?;
       final name = pet?['pet_name'];
       final fur = pet?['fur_option_id'];
+      String? parkScene;
+      if (completed.contains('Q_TUGRIKI_CURRENCY')) {
+        try {
+          final park = await widget.apiClient!.get('/park-project');
+          parkScene = park['scene'] as String?;
+        } on ApiException {
+          // Keep the rewarded quest path usable when this optional story
+          // status cannot be refreshed yet.
+        }
+      }
       if (!mounted) return;
       final unlocked = unlockedIndexFor(completed);
       setState(() {
@@ -107,6 +137,8 @@ class _QuestMapScreenState extends State<QuestMapScreen>
             .length;
         if (name is String && name.trim().isNotEmpty) _petName = name;
         if (fur is String) _furOptionId = fur;
+        _parkScene = parkScene;
+        _saucerForecast = forecast;
         if (unlocked != _unlockedIndex) {
           _unlockedIndex = unlocked;
           if (_catAnimation == null) {
@@ -124,6 +156,15 @@ class _QuestMapScreenState extends State<QuestMapScreen>
 
   bool _isLocked(QuestMapNode node) =>
       questMapNodes.indexOf(node) > _unlockedIndex;
+
+  String? get _parkStatusText => switch (_parkScene) {
+    'FIRST_OFFER' || 'SECOND_OFFER' => 'Есть просьба',
+    'WAITING_SECOND' || 'WAITING_COMMUNITY' => 'Ждём новостей',
+    'FUNDED' || 'BUILDING' => 'Парк строится',
+    'ALMOST_READY' => 'Почти готово',
+    'OPEN' => 'Парк открыт',
+    _ => null,
+  };
 
   @override
   void dispose() {
@@ -281,8 +322,14 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: const Color(0x663B2F27),
-      builder: (context) =>
-          _QuestDetailsSheet(node: node, locked: _isLocked(node)),
+      builder: (context) => _QuestDetailsSheet(
+        node: node,
+        locked: _isLocked(node),
+        parkStatus: node.destination == QuestMapDestination.badger
+            ? _parkStatusText
+            : null,
+        forecastReward: _saucerForecast[node.destination.questId],
+      ),
     );
 
     if (shouldOpen != true || !mounted) return;
@@ -311,11 +358,31 @@ class _QuestMapScreenState extends State<QuestMapScreen>
           builder: (_) => MoleGameScreen(apiClient: widget.apiClient),
         ),
       ),
+      QuestMapDestination.bakery => navigator.push<void>(
+        MaterialPageRoute(
+          builder: (gameContext) => BakeryGameScreen(
+            difficulty: widget.difficulty,
+            apiClient: widget.apiClient,
+            onExit: () => Navigator.of(gameContext).pop(),
+          ),
+        ),
+      ),
       QuestMapDestination.tugriki => navigator.push<void>(
         MaterialPageRoute(
           builder: (gameContext) => TugrikiGameScreen(
             apiClient: widget.apiClient,
             petName: _petName,
+            onExit: () => Navigator.of(gameContext).pop(),
+          ),
+        ),
+      ),
+      QuestMapDestination.badger => navigator.push<void>(
+        MaterialPageRoute(
+          builder: (gameContext) => ParkProjectScreen(
+            difficulty: widget.difficulty,
+            apiClient: widget.apiClient,
+            petName: _petName,
+            furOptionId: _furOptionId,
             onExit: () => Navigator.of(gameContext).pop(),
           ),
         ),
@@ -442,6 +509,14 @@ class _QuestMapScreenState extends State<QuestMapScreen>
                   children: [
                     if (locked)
                       const Positioned(top: 6, right: 10, child: _LockBadge()),
+                    if (!locked &&
+                        node.destination == QuestMapDestination.badger)
+                      if (_parkStatusText case final status?)
+                        Positioned(
+                          top: 4,
+                          right: 6,
+                          child: _ParkStatusBadge(text: status),
+                        ),
                     Positioned.fill(
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
@@ -571,7 +646,7 @@ class _MapNodeLabel extends StatelessWidget {
       ),
       child: Text(
         node.isPlayable && node.showPlayAction
-            ? '${node.labelOnMap} · Играть'
+            ? '${node.labelOnMap} · ${node.destination == QuestMapDestination.badger ? 'Зайти' : 'Играть'}'
             : node.labelOnMap,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
@@ -608,6 +683,31 @@ class _LockBadge extends StatelessWidget {
     child: Padding(
       padding: EdgeInsets.all(5),
       child: Icon(Icons.lock_rounded, size: 18, color: AppColors.inkMuted),
+    ),
+  );
+}
+
+class _ParkStatusBadge extends StatelessWidget {
+  const _ParkStatusBadge({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+    decoration: BoxDecoration(
+      color: AppColors.cardBg.withValues(alpha: 0.96),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: AppColors.leafGreen, width: 1.5),
+    ),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontFamily: AppFonts.body,
+        color: AppColors.leafGreen,
+        fontWeight: FontWeight.bold,
+        fontSize: 11,
+      ),
     ),
   );
 }
@@ -695,10 +795,19 @@ class _MapHeader extends StatelessWidget {
 }
 
 class _QuestDetailsSheet extends StatelessWidget {
-  const _QuestDetailsSheet({required this.node, required this.locked});
+  const _QuestDetailsSheet({
+    required this.node,
+    required this.locked,
+    this.parkStatus,
+    this.forecastReward,
+  });
 
   final QuestMapNode node;
   final bool locked;
+  final String? parkStatus;
+
+  /// Set only when the saucer is working; null hides the hint.
+  final int? forecastReward;
 
   @override
   Widget build(BuildContext context) {
@@ -793,6 +902,15 @@ class _QuestDetailsSheet extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 14),
+                  if (parkStatus case final status?) ...[
+                    Text(
+                      status,
+                      style: AppTextStyles.sectionTitle.copyWith(
+                        color: AppColors.leafGreen,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -810,6 +928,33 @@ class _QuestDetailsSheet extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 18),
+                  if (forecastReward != null && !locked) ...[
+                    Container(
+                      key: const Key('saucer-forecast'),
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.infoBg,
+                        borderRadius: BorderRadius.circular(AppRadii.md),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.auto_awesome,
+                            color: AppColors.coinGold,
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              'Блюдечко подсказывает: за это задание '
+                              '$forecastReward монет.',
+                              style: AppTextStyles.cardRowLabel,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
                   if (node.isPlayable && !locked)
                     ElevatedButton.icon(
                       key: Key('play-${node.id}'),
@@ -821,8 +966,10 @@ class _QuestDetailsSheet extends StatelessWidget {
                         shape: const StadiumBorder(),
                       ),
                       icon: const Icon(Icons.play_arrow_rounded),
-                      label: const Text(
-                        'Играть',
+                      label: Text(
+                        node.destination == QuestMapDestination.badger
+                            ? 'К Барсуку'
+                            : 'Играть',
                         style: TextStyle(
                           fontFamily: AppFonts.body,
                           fontWeight: FontWeight.bold,

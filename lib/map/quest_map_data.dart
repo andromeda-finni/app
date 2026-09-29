@@ -2,16 +2,19 @@ import 'package:flutter/widgets.dart';
 
 import '../games/turnip/turnip_game_models.dart';
 import '../minigames/mole/mole_game_data.dart';
+import '../minigames/bakery/bakery_game_data.dart';
 import '../minigames/tugriki/tugriki_game_data.dart';
 
-enum QuestMapDestination { upcoming, turnip, mole, tugriki }
+enum QuestMapDestination { upcoming, turnip, mole, bakery, tugriki, badger }
 
 extension QuestMapDestinationQuest on QuestMapDestination {
   /// Server quest behind a playable node; story-only nodes have none.
   String? get questId => switch (this) {
     QuestMapDestination.turnip => turnipQuestId,
     QuestMapDestination.mole => kMoleQuestId,
+    QuestMapDestination.bakery => kBakeryQuestId,
     QuestMapDestination.tugriki => kTugrikiQuestId,
+    QuestMapDestination.badger => null,
     QuestMapDestination.upcoming => null,
   };
 }
@@ -49,6 +52,7 @@ class QuestMapNode {
   final bool? catFacesRight;
 
   bool get isPlayable => destination != QuestMapDestination.upcoming;
+  bool get isRewardedQuest => destination.questId != null;
   Offset get catStop => questMapPath[pathIndex];
   String get labelOnMap => mapLabel ?? character;
 }
@@ -139,6 +143,7 @@ const questMapNodes = <QuestMapNode>[
     topics: ['Расходы', 'Выручка', 'Прибыль'],
     heroBounds: Rect.fromLTWH(420, 245, 365, 330),
     pathIndex: 9,
+    destination: QuestMapDestination.bakery,
     catFacesRight: true,
   ),
   QuestMapNode(
@@ -158,10 +163,12 @@ const questMapNodes = <QuestMapNode>[
     id: 'badger',
     title: 'Сказочный парк',
     character: 'Барсук',
-    description: 'Реши, готов ли ты сделать вклад в общий парк, и следи за ходом строительства.',
-    topics: ['Общие деньги', 'Вклад', 'Городской бюджет'],
+    description: 'Реши, хочешь ли ты добавить монеты на общий парк, и следи, как его строят.',
+    topics: ['Общие деньги', 'Помощь городу', 'Парк'],
     heroBounds: Rect.fromLTWH(215, 25, 455, 255),
     pathIndex: 13,
+    destination: QuestMapDestination.badger,
+    mapLabel: 'Барсук',
   ),
 ];
 
@@ -178,4 +185,4 @@ int unlockedIndexFor(Set<String> completedQuestIds) {
 
 /// Number of nodes that are real, server-rewarded games.
 int get playableQuestCount =>
-    questMapNodes.where((node) => node.isPlayable).length;
+    questMapNodes.where((node) => node.isRewardedQuest).length;

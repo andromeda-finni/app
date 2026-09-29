@@ -12,6 +12,7 @@ interface UiSpec {
   answerValidation?: {
     kind?: string;
     expectedSequence?: string[];
+    acceptedOptions?: string[];
     budget?: number;
     itemPrices?: Record<string, number>;
   };
@@ -43,6 +44,15 @@ function answerMatches(uiSpec: UiSpec | null, selectedOptionCode?: string): bool
       total += price!;
     }
     return total <= budget!;
+  }
+
+  if (validation?.kind === "ONE_OF") {
+    const accepted = validation.acceptedOptions;
+    return Boolean(
+      selectedOptionCode &&
+      accepted?.length &&
+      accepted.includes(selectedOptionCode),
+    );
   }
 
   return typeof uiSpec?.correctOptionCode === "string" &&
@@ -113,9 +123,14 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         if (!child) throw new HttpError(404, "child_profile_not_found");
 
         const questRes = await client.query<{ reward_amount: number }>(
-          `SELECT reward_amount FROM quest_definitions
+          `SELECT CASE
+                    WHEN $2 = 'ADVANCED'
+                    THEN COALESCE(advanced_reward_amount, reward_amount)
+                    ELSE reward_amount
+                  END AS reward_amount
+             FROM quest_definitions
             WHERE id = $1 AND active`,
-          [questId],
+          [questId, child.difficulty],
         );
         const quest = questRes.rows[0];
         if (!quest) throw new HttpError(404, "quest_not_found");

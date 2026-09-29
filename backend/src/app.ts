@@ -23,6 +23,7 @@ import { economyRoutes } from "./modules/economy/routes.js";
 import { insuranceRoutes } from "./modules/insurance/routes.js";
 import { inventoryRoutes } from "./modules/inventory/routes.js";
 import { childSettingsRoutes } from "./modules/childSettings/routes.js";
+import { parkProjectRoutes } from "./modules/parkProject/routes.js";
 
 /**
  * The migrations this build's SQL assumes. `/health` refuses to report ready
@@ -37,6 +38,7 @@ import { childSettingsRoutes } from "./modules/childSettings/routes.js";
 const REQUIRED_SCHEMA_VERSIONS = [
   "0027_artifact_durability.sql",
   "0029_child_display_settings.sql",
+  "0032_park_project.sql",
 ] as const;
 
 const LOOPBACK_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
@@ -160,6 +162,7 @@ export async function buildApp() {
   await app.register(shopRoutes);
   await app.register(periodRoutes);
   await app.register(questRoutes);
+  await app.register(parkProjectRoutes);
   await app.register(parentTaskRoutes);
   await app.register(frostChestRoutes);
   await app.register(goalRoutes);

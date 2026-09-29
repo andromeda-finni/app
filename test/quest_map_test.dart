@@ -9,24 +9,49 @@ import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/games/turnip/turnip_game_screen.dart';
 import 'package:andromeda_app/map/quest_map_data.dart';
 import 'package:andromeda_app/map/quest_map_screen.dart';
+import 'package:andromeda_app/minigames/park/park_project_screen.dart';
 import 'package:andromeda_app/theme/app_theme.dart';
 
 import 'support/fake_auth_storage.dart';
 
-Widget _map({List<String> completed = const [], bool showBack = false}) {
-  final client = MockClient(
-    (request) async => http.Response(
+Widget _map({
+  List<String> completed = const [],
+  bool showBack = false,
+  List<Map<String, Object>> inventory = const [],
+}) {
+  final client = MockClient((request) async {
+    if (request.url.path == '/park-project') {
+      return http.Response(
+        jsonEncode({
+          'stage': 'FIRST_OFFER',
+          'scene': 'FIRST_OFFER',
+          'targetAmount': 100,
+          'collectedAmount': 80,
+          'offerAmount': 20,
+          'spendableBalance': 75,
+          'availableToContribute': 75,
+          'canContribute': true,
+          'childContribution': 0,
+          'completed': false,
+          'daysToNextStage': null,
+        }),
+        200,
+      );
+    }
+    return http.Response(
       jsonEncode({
         'pet': {'pet_name': 'Мурзик', 'fur_option_id': 'FUR_GRAY'},
         'quests': [
           for (final id in completed)
-            {'id': id, 'assignment_status': 'COMPLETED'},
+            {'id': id, 'assignment_status': 'COMPLETED', 'reward_amount': 15},
+          {'id': 'Q_TURNIP_HARVEST', 'reward_amount': 10},
         ],
+        'inventory': inventory,
       }),
       200,
       headers: {'content-type': 'application/json; charset=utf-8'},
-    ),
-  );
+    );
+  });
   return MaterialApp(
     theme: AppTheme.light,
     home: QuestMapScreen(
@@ -64,12 +89,12 @@ void main() {
       expect(unlockedIndexFor(const {'Q_TURNIP_HARVEST'}), indexOf('mole'));
     });
 
-    test('finishing the mole opens the path up to Tugriki', () {
+    test('finishing the mole opens the path up to the bakery', () {
       // Story-only nodes in between have nothing to complete, so they must not
       // block the child from reaching Tugriki.
       expect(
         unlockedIndexFor(const {'Q_TURNIP_HARVEST', 'Q_MOLE_FINE_PRINT'}),
-        indexOf('tugriki'),
+        indexOf('bakery'),
       );
     });
 
@@ -78,17 +103,22 @@ void main() {
         unlockedIndexFor(const {
           'Q_TURNIP_HARVEST',
           'Q_MOLE_FINE_PRINT',
+          'Q_BAKERY_PROFIT',
           'Q_TUGRIKI_CURRENCY',
         }),
         questMapNodes.length - 1,
       );
     });
 
-    test('every playable node maps to a server quest', () {
-      for (final node in questMapNodes.where((n) => n.isPlayable)) {
+    test('every rewarded node maps to a server quest', () {
+      for (final node in questMapNodes.where((n) => n.isRewardedQuest)) {
         expect(node.destination.questId, isNotNull, reason: node.id);
       }
-      expect(playableQuestCount, 3);
+      expect(playableQuestCount, 4);
+      expect(
+        questMapNodes.singleWhere((node) => node.id == 'badger').isPlayable,
+        isTrue,
+      );
     });
   });
 
@@ -96,7 +126,7 @@ void main() {
     await tester.pumpWidget(_map());
     await tester.pumpAndSettle();
 
-    expect(find.text('Пройдено 0 из 3'), findsOneWidget);
+    expect(find.text('Пройдено 0 из 4'), findsOneWidget);
     // As a tab the map has no back arrow: there is nothing to go back to.
     expect(find.byTooltip('Назад'), findsNothing);
 
@@ -115,29 +145,53 @@ void main() {
     expect(find.byType(TurnipGameScreen), findsOneWidget);
   });
 
-  testWidgets('server progress opens the path up to Tugriki', (tester) async {
+  testWidgets('server progress opens the bakery before Tugriki', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       _map(completed: const ['Q_TURNIP_HARVEST', 'Q_MOLE_FINE_PRINT']),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Пройдено 2 из 3'), findsOneWidget);
+    expect(find.text('Пройдено 2 из 4'), findsOneWidget);
 
     await _openNode(tester, 'tugriki');
-    expect(find.text('Играть'), findsOneWidget);
+    expect(find.text('Сначала пройди предыдущее задание'), findsOneWidget);
     await tester.tap(find.byTooltip('Закрыть'));
     await tester.pump(const Duration(milliseconds: 500));
 
     await _openNode(tester, 'bakery');
-    expect(
-      find.text('Сценарий готов · мини-игра появится позже'),
-      findsOneWidget,
-    );
+    expect(find.text('Играть'), findsOneWidget);
     await tester.tap(find.byTooltip('Закрыть'));
     await tester.pump(const Duration(milliseconds: 500));
 
     await _openNode(tester, 'badger');
     expect(find.text('Сначала пройди предыдущее задание'), findsOneWidget);
+  });
+
+  testWidgets('finishing Tugriki opens the long park quest', (tester) async {
+    await tester.pumpWidget(
+      _map(
+        completed: const [
+          'Q_TURNIP_HARVEST',
+          'Q_MOLE_FINE_PRINT',
+          'Q_BAKERY_PROFIT',
+          'Q_TUGRIKI_CURRENCY',
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _openNode(tester, 'badger');
+    expect(find.text('Есть просьба'), findsWidgets);
+    expect(find.text('К Барсуку'), findsOneWidget);
+    await tester.tap(find.text('К Барсуку'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ParkProjectScreen), findsOneWidget);
+    expect(find.text('Знакомство с Барсуком'), findsOneWidget);
+    expect(find.textContaining('Привет, Мурзик!'), findsOneWidget);
+    expect(find.text('80 из 100'), findsNothing);
   });
 
   for (final width in [320.0, 360.0, 412.0]) {
@@ -155,6 +209,33 @@ void main() {
       expect(find.byKey(const Key('quest-map-kitten')), findsOneWidget);
       expect(find.byTooltip('Назад'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final (label, broken, shown) in [
+    ('a working saucer foresees the reward', false, true),
+    ('a broken saucer foresees nothing', true, false),
+  ]) {
+    testWidgets(label, (tester) async {
+      await tester.pumpWidget(
+        _map(
+          inventory: [
+            {
+              'id': 'inventory-saucer',
+              'item_id': 'saucer',
+              'durability_current': broken ? 0 : 60,
+              'is_broken': broken,
+            },
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await _openNode(tester, 'turnip');
+      expect(
+        find.text('Блюдечко подсказывает: за это задание 10 монет.'),
+        shown ? findsOneWidget : findsNothing,
+      );
     });
   }
 }

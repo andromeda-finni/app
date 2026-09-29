@@ -197,8 +197,14 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
           want: 0,
           savings: chosen.target_amount + 5,
         });
-        // A lost response is safe: replaying close returns the persisted result.
-        assert.deepEqual(await post(`/periods/${dayId}/close`), closed);
+        // A lost response is safe: replaying close returns the persisted
+        // result. Artifact effects fired on the first close only, so a replay
+        // reports none instead of pretending they fired twice.
+        const { artifactEffects: _fired, ...summary } = closed;
+        const replay = await post(`/periods/${dayId}/close`);
+        assert.deepEqual(replay.artifactEffects, []);
+        const { artifactEffects: _none, ...replayed } = replay;
+        assert.deepEqual(replayed, summary);
       }
     }
     const before = (await state()).wallets;

@@ -12,6 +12,7 @@ import '../settings/child_settings_screen.dart';
 import '../shop/shop_screen.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
+import 'home_tour.dart';
 import 'widgets/app_nav_bar.dart';
 
 /// The app once onboarding is done: four tabs behind one bottom bar.
@@ -24,11 +25,13 @@ class MainShell extends StatefulWidget {
     super.key,
     required this.apiClient,
     this.initialDifficulty = ChildDifficulty.beginner,
+    this.showHomeTour = false,
     this.onSwitchAudience,
   });
 
   final ApiClient apiClient;
   final ChildDifficulty initialDifficulty;
+  final bool showHomeTour;
 
   /// Returns to the child/parent role choice; wired from the settings screen.
   final VoidCallback? onSwitchAudience;
@@ -38,6 +41,8 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
+  final _tourOverlayKey = GlobalKey(debugLabel: 'home-tour-overlay');
+  final _tourTargets = HomeTourTargets();
   int _index = 0;
   int _storeReturnIndex = 0;
   int _homeRevision = 0;
@@ -48,6 +53,12 @@ class _MainShellState extends State<MainShell> {
   StoreMode _storeMode = StoreMode.normal;
   bool _planningRequired = false;
   late ChildSettingsSnapshot _settings;
+  bool _homeReady = false;
+  bool _tourCompleted = false;
+  bool _tourBusy = false;
+  int _tourStep = 0;
+  String? _tourError;
+  List<Rect> _spotlights = const [];
 
   @override
   void initState() {
@@ -58,6 +69,123 @@ class _MainShellState extends State<MainShell> {
       musicEnabled: _settings.music,
     );
     _loadSettings();
+  }
+
+  @override
+  void dispose() {
+    _tourTargets.dispose();
+    super.dispose();
+  }
+
+  bool get _tourActive => widget.showHomeTour && _homeReady && !_tourCompleted;
+
+  void _homeDidBecomeReady() {
+    if (!widget.showHomeTour || _homeReady) return;
+    setState(() => _homeReady = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _prepareTourStep(0));
+  }
+
+  Duration _tourMotionDuration() =>
+      MediaQuery.maybeOf(context)?.disableAnimations == true
+      ? Duration.zero
+      : const Duration(milliseconds: 260);
+
+  Future<void> _prepareTourStep(int step) async {
+    if (!mounted || !_tourActive || _tourBusy) return;
+    setState(() {
+      _tourStep = step;
+      _tourError = null;
+      _spotlights = const [];
+    });
+
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || !_tourTargets.scrollController.hasClients) return;
+
+    final controller = _tourTargets.scrollController;
+    if (step < 2) {
+      await controller.animateTo(
+        0,
+        duration: _tourMotionDuration(),
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      final planContext = _tourTargets.plan.currentContext;
+      if (planContext == null) {
+        await controller.animateTo(
+          controller.position.maxScrollExtent.clamp(0, 520),
+          duration: _tourMotionDuration(),
+          curve: Curves.easeOutCubic,
+        );
+        await WidgetsBinding.instance.endOfFrame;
+      }
+      final visiblePlanContext = _tourTargets.plan.currentContext;
+      if (visiblePlanContext != null && visiblePlanContext.mounted) {
+        await Scrollable.ensureVisible(
+          visiblePlanContext,
+          alignment: 0.08,
+          duration: _tourMotionDuration(),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) _refreshSpotlights();
+  }
+
+  void _refreshSpotlights() {
+    final overlayBox = _tourOverlayKey.currentContext?.findRenderObject();
+    if (overlayBox is! RenderBox || !overlayBox.hasSize) return;
+    final viewport = Offset.zero & overlayBox.size;
+    final rects = <Rect>[];
+    for (final key in _tourTargets.keysForStep(_tourStep)) {
+      final targetBox = key.currentContext?.findRenderObject();
+      if (targetBox is! RenderBox || !targetBox.hasSize) continue;
+      final origin = targetBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+      final rect = origin & targetBox.size;
+      if (rect.overlaps(viewport)) rects.add(rect.intersect(viewport));
+    }
+    if (mounted) setState(() => _spotlights = rects);
+  }
+
+  Future<void> _nextTourStep() async {
+    if (_tourStep < 2) {
+      await _prepareTourStep(_tourStep + 1);
+      return;
+    }
+    await _finishTour();
+  }
+
+  Future<void> _finishTour() async {
+    if (_tourBusy) return;
+    setState(() {
+      _tourBusy = true;
+      _tourError = null;
+    });
+    try {
+      final response = await widget.apiClient.put('/onboarding/home-tour');
+      if (response['homeTourCompleted'] != true) {
+        throw const FormatException('Invalid home tour response');
+      }
+      if (_tourTargets.scrollController.hasClients) {
+        await _tourTargets.scrollController.animateTo(
+          0,
+          duration: _tourMotionDuration(),
+          curve: Curves.easeOutCubic,
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _tourBusy = false;
+        _tourCompleted = true;
+        _spotlights = const [];
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _tourBusy = false;
+        _tourError = 'Не получилось сохранить. Попробовать ещё раз.';
+      });
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -203,6 +331,7 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
+    final tourPending = widget.showHomeTour && !_tourCompleted;
     final content = Scaffold(
       backgroundColor: AppColors.parchment,
       body: SafeArea(
@@ -223,38 +352,46 @@ class _MainShellState extends State<MainShell> {
                 setState(() => _planningRequired = required);
               },
               focusPlan: _focusHomePlan,
+              tourTargets: widget.showHomeTour ? _tourTargets : null,
+              onTourReady: _homeDidBecomeReady,
             ),
-            QuestMapScreen(
-              key: ValueKey('map-$_mapRevision'),
-              apiClient: widget.apiClient,
-              // A tab root has nothing to go back to; the header hides the
-              // arrow instead of offering a button that does nothing.
-              showBack: false,
-              difficulty: _settings.difficulty,
-            ),
-            ShopScreen(
-              key: ValueKey('store-$_storeRevision'),
-              apiClient: widget.apiClient,
-              mode: _storeMode,
-              onBack: () => setState(() => _index = _storeReturnIndex),
-              onGoalSelected: _goalSelected,
-              onOpenPlan: _openPlan,
-              onOpenQuests: () => _selectTab(1),
-            ),
-            SavingsScreen(
-              key: ValueKey('savings-$_savingsRevision'),
-              apiClient: widget.apiClient,
-              onBack: () => setState(() => _index = 0),
-              onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
-              onBrowseGoals: () => _openGoalStore(StoreMode.browseGoals),
-              onOpenSettings: _openSettings,
-            ),
+            if (tourPending) ...[
+              const SizedBox.shrink(),
+              const SizedBox.shrink(),
+              const SizedBox.shrink(),
+            ] else ...[
+              QuestMapScreen(
+                key: ValueKey('map-$_mapRevision'),
+                apiClient: widget.apiClient,
+                // A tab root has nothing to go back to; the header hides the
+                // arrow instead of offering a button that does nothing.
+                showBack: false,
+                difficulty: _settings.difficulty,
+              ),
+              ShopScreen(
+                key: ValueKey('store-$_storeRevision'),
+                apiClient: widget.apiClient,
+                mode: _storeMode,
+                onBack: () => setState(() => _index = _storeReturnIndex),
+                onGoalSelected: _goalSelected,
+                onOpenPlan: _openPlan,
+                onOpenQuests: () => _selectTab(1),
+              ),
+              SavingsScreen(
+                key: ValueKey('savings-$_savingsRevision'),
+                apiClient: widget.apiClient,
+                onBack: () => setState(() => _index = 0),
+                onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
+                onBrowseGoals: () => _openGoalStore(StoreMode.browseGoals),
+                onOpenSettings: _openSettings,
+              ),
+            ],
           ],
         ),
       ),
-      bottomNavigationBar: AppNavBar(
-        currentIndex: _index,
-        onSelected: _selectTab,
+      bottomNavigationBar: KeyedSubtree(
+        key: _tourTargets.navigation,
+        child: AppNavBar(currentIndex: _index, onSelected: _selectTab),
       ),
     );
     return MediaQuery(
@@ -263,7 +400,25 @@ class _MainShellState extends State<MainShell> {
             ? media.textScaler.clamp(minScaleFactor: 1.15, maxScaleFactor: 2.0)
             : media.textScaler,
       ),
-      child: content,
+      child: Stack(
+        key: _tourOverlayKey,
+        children: [
+          Positioned.fill(
+            child: ExcludeSemantics(excluding: _tourActive, child: content),
+          ),
+          if (_tourActive)
+            Positioned.fill(
+              child: HomeTourOverlay(
+                step: _tourStep,
+                spotlights: _spotlights,
+                busy: _tourBusy,
+                error: _tourError,
+                onNext: _nextTourStep,
+                onBack: () => _prepareTourStep(_tourStep - 1),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

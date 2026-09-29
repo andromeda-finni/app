@@ -199,6 +199,7 @@ class _StartupGateState extends State<_StartupGate> {
               completed: true,
               data: data,
               difficulty: _onboarding.difficulty ?? ChildDifficulty.beginner,
+              homeTourCompleted: false,
             );
             _state = _StartupState.hasPet;
           }),
@@ -213,6 +214,7 @@ class _StartupGateState extends State<_StartupGate> {
               completed: _onboarding.completed,
               data: _onboarding.data,
               difficulty: difficulty,
+              homeTourCompleted: _onboarding.homeTourCompleted,
             );
           }),
         );
@@ -220,6 +222,7 @@ class _StartupGateState extends State<_StartupGate> {
         return MainShell(
           apiClient: _api,
           initialDifficulty: _onboarding.difficulty ?? ChildDifficulty.beginner,
+          showHomeTour: !_onboarding.homeTourCompleted,
           onSwitchAudience: widget.onSwitchAudience,
         );
       case _StartupState.error:

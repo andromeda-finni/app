@@ -10,6 +10,7 @@ import '../events/pet_event_indicator.dart';
 import '../events/pet_event_models.dart';
 import '../services/pet_event_service.dart';
 import '../theme/app_theme.dart';
+import 'home_tour.dart';
 import 'models/home_economy_state.dart';
 import 'models/recent_day.dart';
 import 'pet_care_screen.dart';
@@ -36,6 +37,8 @@ class HomeScreen extends StatefulWidget {
     this.onPlanningRequiredChanged,
     this.refreshSignal = 0,
     this.focusPlan = false,
+    this.tourTargets,
+    this.onTourReady,
   });
 
   final ApiClient apiClient;
@@ -50,6 +53,12 @@ class HomeScreen extends StatefulWidget {
   /// Opens the day plan as soon as the home loads — used when another tab
   /// (e.g. a closed shop) sends the child here to plan first.
   final bool focusPlan;
+
+  /// Anchors for the first-run home tour; null when no tour is shown.
+  final HomeTourTargets? tourTargets;
+
+  /// Called once the home has real content the tour can point at.
+  final VoidCallback? onTourReady;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -106,6 +115,9 @@ class _HomeScreenState extends State<HomeScreen> {
       widget.onPlanningRequiredChanged?.call(
         next.activeDay != null && !next.activeDay!.isConfirmed,
       );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onTourReady?.call();
+      });
       if (widget.focusPlan && !_planFocused) {
         _planFocused = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -195,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final message = switch (effectCode) {
       'MAGIC_REMAINDER' => 'Кошель-самотряс: +2 монеты!',
       'NOURISHING_HOME' => 'Скатерть сохранила сытость питомца.',
-      'COST_FORESIGHT' => 'Блюдечко показало прогноз затрат.',
+      'COST_FORESIGHT' => 'Блюдечко подскажет на карте награды за задания.',
       'SECOND_CHANCE' => 'Живая вода защитила питомца!',
       _ => 'Сработала способность артефакта!',
     };
@@ -537,6 +549,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onOpenEvent: _openEvent,
         onSubmitParentTask: _submitParentTask,
         recentDays: _recentDays,
+        tourTargets: widget.tourTargets,
       ),
     };
   }
@@ -546,6 +559,7 @@ class _HomeContent extends StatelessWidget {
   const _HomeContent({
     required this.data,
     required this.recentDays,
+    this.tourTargets,
     required this.offline,
     required this.busy,
     required this.onRefresh,
@@ -564,6 +578,7 @@ class _HomeContent extends StatelessWidget {
 
   final HomeEconomyState data;
   final List<RecentDay> recentDays;
+  final HomeTourTargets? tourTargets;
   final bool offline;
   final bool busy;
   final Future<void> Function() onRefresh;
@@ -602,6 +617,7 @@ class _HomeContent extends StatelessWidget {
       color: AppColors.crimson,
       onRefresh: onRefresh,
       child: ListView(
+        controller: tourTargets?.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
         children: [
@@ -613,6 +629,7 @@ class _HomeContent extends StatelessWidget {
                   Row(
                     children: [
                       SizedBox(
+                        key: tourTargets?.settings,
                         width: 48,
                         height: 48,
                         child: IconButton(
@@ -623,35 +640,55 @@ class _HomeContent extends StatelessWidget {
                           color: AppColors.crimson,
                         ),
                       ),
-                      const Spacer(),
-                      _CoinPill(
-                        spendable: data.spendable,
-                        savings: data.savings,
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: KeyedSubtree(
+                            key: tourTargets?.wallet,
+                            child: _CoinPill(
+                              spendable: data.spendable,
+                              savings: data.savings,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
                   if (offline) const _OfflineBanner(),
                   Text('Доброе утро,', style: AppTextStyles.supporting),
-                  PetNameHeader(pet: data.pet, onRename: onRename),
+                  KeyedSubtree(
+                    key: tourTargets?.identity,
+                    child: PetNameHeader(pet: data.pet, onRename: onRename),
+                  ),
                   const SizedBox(height: 10),
-                  PetScene(
-                    key: const Key('home-pet-scene'),
-                    pet: data.pet,
-                    backgroundAsset: 'assets/backgrounds/home_room.webp',
-                    height: sceneHeight,
-                    petHeightFactor: 0.68,
-                    heroTag: 'home-pet',
+                  KeyedSubtree(
+                    key: tourTargets?.pet,
+                    child: PetScene(
+                      key: const Key('home-pet-scene'),
+                      pet: data.pet,
+                      backgroundAsset: 'assets/backgrounds/home_room.webp',
+                      height: sceneHeight,
+                      petHeightFactor: 0.68,
+                      heroTag: 'home-pet',
+                    ),
                   ),
                   if (activeEvent != null) ...[
                     const SizedBox(height: 10),
-                    PetEventBanner(
-                      event: activeEvent,
-                      petName: data.pet.name,
-                      onPressed: onOpenEvent,
+                    KeyedSubtree(
+                      key: tourTargets?.event,
+                      child: PetEventBanner(
+                        event: activeEvent,
+                        petName: data.pet.name,
+                        onPressed: onOpenEvent,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 10),
                   SizedBox(
+                    // The tour's "stats" step: the pet's gauges live behind
+                    // this button on the pet care screen.
+                    key: tourTargets?.stats,
                     width: double.infinity,
                     height: 52,
                     child: OutlinedButton.icon(
@@ -670,11 +707,14 @@ class _HomeContent extends StatelessWidget {
                   const SizedBox(height: 16),
                   DreamCard(goal: data.activeGoal, onTap: onOpenGoal),
                   const SizedBox(height: 16),
-                  _PlanButton(
-                    label: planLabel,
-                    busy: busy,
-                    pulse: day != null && !day.isConfirmed,
-                    onPressed: busy ? null : onOpenPlan,
+                  KeyedSubtree(
+                    key: tourTargets?.plan,
+                    child: _PlanButton(
+                      label: planLabel,
+                      busy: busy,
+                      pulse: day != null && !day.isConfirmed,
+                      onPressed: busy ? null : onOpenPlan,
+                    ),
                   ),
                   if (day != null && !day.isConfirmed) ...[
                     const SizedBox(height: 8),
@@ -803,21 +843,31 @@ class _CoinPill extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: AppColors.fieldBorder),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        // Wraps the savings group under the coins on a narrow phone with
+        // large text instead of pushing past the screen edge.
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 10,
+          runSpacing: 4,
           children: [
-            Image.asset('assets/icons/coin.webp', width: 24, height: 24),
-            const SizedBox(width: 5),
-            Text('$spendable', style: AppTextStyles.counterValue),
-            Container(
-              width: 1,
-              height: 25,
-              margin: const EdgeInsets.symmetric(horizontal: 10),
-              color: AppColors.fieldBorder,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset('assets/icons/coin.webp', width: 24, height: 24),
+                const SizedBox(width: 5),
+                Text('$spendable', style: AppTextStyles.counterValue),
+              ],
             ),
-            Image.asset('assets/icons/chest.webp', width: 26, height: 26),
-            const SizedBox(width: 5),
-            Text('$savings', style: AppTextStyles.counterValue),
+            Container(width: 1, height: 25, color: AppColors.fieldBorder),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset('assets/icons/chest.webp', width: 26, height: 26),
+                const SizedBox(width: 5),
+                Text('$savings', style: AppTextStyles.counterValue),
+              ],
+            ),
           ],
         ),
       ),

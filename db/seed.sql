@@ -15,7 +15,8 @@ INSERT INTO education_topics (id, title, skill_description, sort_order) VALUES
   ('SCAMS', 'Осторожно, обман', 'Учимся распознавать нечестные предложения', 3),
   ('CURRENCY', 'Иностранная валюта', 'Учимся переводить цены по курсу', 4),
   ('CONSUMER_RIGHTS', 'Проверяем покупки', 'Учимся замечать условия и ошибки в чеках', 5),
-  ('INCOME', 'Откуда берутся деньги', 'Учимся понимать, что доход появляется из общего труда', 6)
+  ('INCOME', 'Откуда берутся деньги', 'Учимся понимать, что доход появляется из общего труда', 6),
+  ('PROFIT', 'Выручка и прибыль', 'Учимся вычитать расходы из выручки', 7)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO quest_definitions (id, topic_id, title, location_code, difficulty, reward_amount) VALUES
@@ -26,11 +27,16 @@ INSERT INTO quest_definitions (id, topic_id, title, location_code, difficulty, r
   -- any other value is refused when the reward is paid out.
   ('Q_TUGRIKI_CURRENCY', 'CURRENCY', 'Ярмарка тугриков', 'MARKET', 'SIMPLE', 15),
   ('Q_MOLE_FINE_PRINT', 'CONSUMER_RIGHTS', 'Осторожно, мелкий шрифт', 'MARKET', 'SIMPLE', 15),
-  ('Q_TURNIP_HARVEST', 'INCOME', 'Репка', 'VILLAGE', 'SIMPLE', 10)
+  ('Q_TURNIP_HARVEST', 'INCOME', 'Репка', 'VILLAGE', 'SIMPLE', 10),
+  ('Q_BAKERY_PROFIT', 'PROFIT', 'Пекарня', 'TOWN', 'SIMPLE', 12)
 ON CONFLICT (id) DO UPDATE SET
   reward_amount = EXCLUDED.reward_amount,
   title = EXCLUDED.title,
   location_code = EXCLUDED.location_code;
+
+UPDATE quest_definitions
+   SET advanced_reward_amount = 15
+ WHERE id = 'Q_BAKERY_PROFIT';
 
 INSERT INTO quest_steps (quest_id, step_no, instruction, expected_action_code, success_feedback, recovery_feedback, ui_spec) VALUES
   ('Q_FIRST_BUDGET', 1,
@@ -53,7 +59,13 @@ INSERT INTO quest_steps (quest_id, step_no, instruction, expected_action_code, s
    'COMPLETE_STORY',
    'Ярмарка пройдена: ты умеешь пересчитывать цены по курсу.',
    'Вспомни курс: за 1 тугрик отдают 2 монетки.',
-   '{"answerValidation":{"kind":"BUDGET_SELECTION","budget":20,"itemPrices":{"soup":8,"juice":4,"fruits":6,"pie":4}}}')
+   '{"answerValidation":{"kind":"BUDGET_SELECTION","budget":20,"itemPrices":{"soup":8,"juice":4,"fruits":6,"pie":4}}}'),
+  ('Q_BAKERY_PROFIT', 1,
+   'Купи продукты, продай пирожки и вычисли прибыль после расходов.',
+   'COMPLETE_STORY',
+   'Верно: прибыль — это выручка за вычетом расходов.',
+   'Вычти из выручки все купленные продукты, включая необязательные.',
+   '{"answerValidation":{"kind":"ONE_OF","acceptedOptions":["8","2"]},"gameId":"bakery"}')
 ON CONFLICT (quest_id, step_no) DO NOTHING;
 
 INSERT INTO shop_items (id, kind, name, price, rarity, effect_code, repair_cost_per_point, energy_delta, joy_delta) VALUES
@@ -79,15 +91,20 @@ ON CONFLICT (id) DO UPDATE SET
   joy_delta = EXCLUDED.joy_delta,
   active = true;
 
+INSERT INTO quest_prerequisites (quest_id, prerequisite_quest_id)
+VALUES ('Q_TUGRIKI_CURRENCY', 'Q_BAKERY_PROFIT'),
+       ('Q_BAKERY_PROFIT', 'Q_MOLE_FINE_PRINT'),
+       ('Q_MOLE_FINE_PRINT', 'Q_TURNIP_HARVEST')
+ON CONFLICT DO NOTHING;
+
+DELETE FROM quest_prerequisites
+ WHERE quest_id = 'Q_TUGRIKI_CURRENCY'
+   AND prerequisite_quest_id = 'Q_MOLE_FINE_PRINT';
+
 UPDATE shop_items
    SET active = false
  WHERE kind = 'ARTIFACT'
    AND id NOT IN ('saucer', 'vial', 'tablecloth', 'horseshoe', 'shield', 'purse', 'boots');
-
-INSERT INTO quest_prerequisites (quest_id, prerequisite_quest_id)
-VALUES ('Q_TUGRIKI_CURRENCY', 'Q_MOLE_FINE_PRINT'),
-       ('Q_MOLE_FINE_PRINT', 'Q_TURNIP_HARVEST')
-ON CONFLICT DO NOTHING;
 
 INSERT INTO pet_event_definitions (id, title, description, cost_amount) VALUES
   ('POOR_PAW', 'Уколол лапку', 'Финни бегал по лесу за бабочкой и наступил на колючку. Нужен целебный подорожник и бинтик.', 10),

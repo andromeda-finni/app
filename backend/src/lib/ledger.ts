@@ -22,7 +22,8 @@ export type TransactionEventType =
   | "SCAM_OFFER_LOSS"
   | "CASHBACK"
   | "ARTIFACT_BONUS"
-  | "ARTIFACT_REPAIR";
+  | "ARTIFACT_REPAIR"
+  | "PARK_CONTRIBUTION";
 
 export interface PostTransactionInput {
   childUserId: string;

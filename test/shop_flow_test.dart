@@ -131,12 +131,11 @@ void main() {
       'boots',
     };
     expect(localItemArtwork.keys.toSet(), artifactIds);
-    // Descriptions exist only for effects the server really applies.
+    expect(localArtifactBenefitDescriptions.keys.toSet(), artifactIds);
     expect(
-      artifactIds.containsAll(localArtifactBenefitDescriptions.keys),
-      isTrue,
+      localArtifactBenefitDescriptions.values,
+      everyElement(isNot(isEmpty)),
     );
-    expect(localArtifactBenefitDescriptions.keys, contains('boots'));
     expect(localPurchaseArtwork['FOOD_APPLE'], contains('apple'));
     expect(localPurchaseArtwork['FOOD_CARROT'], contains('carrot'));
     expect(localPurchaseArtwork['PET_MEAL'], contains('bowl'));
@@ -571,6 +570,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(firstCard, findsOneWidget);
     expect(
+      // Tapping the title opens the artifact details with its real effect.
       find.text('Пока надеты, открывают четвёртое задание за день.'),
       findsOneWidget,
     );
