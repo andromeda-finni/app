@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/game_audio_service.dart';
 import '../core/pet_assets.dart';
 import '../day_summary/day_summary.dart';
 import '../day_summary/day_summary_screen.dart';
@@ -539,17 +542,23 @@ class _PetPortrait extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Питомец ${pet.name}, ${_moodWord(pet)}',
-      image: true,
-      child: SizedBox(
-        height: 260,
-        // Keyed by the asset so a mood change cross-fades instead of snapping.
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child: Image.asset(
-            pet.assetPath,
-            key: ValueKey(pet.assetPath),
-            fit: BoxFit.contain,
+      label: 'Питомец ${pet.name}, ${_moodWord(pet)}. Нажми, чтобы погладить.',
+      button: true,
+      onTap: () => unawaited(GameAudioService.instance.play(GameSound.catPurr)),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () =>
+            unawaited(GameAudioService.instance.play(GameSound.catPurr)),
+        child: SizedBox(
+          height: 260,
+          // Keyed by the asset so a mood change cross-fades instead of snapping.
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: Image.asset(
+              pet.assetPath,
+              key: ValueKey(pet.assetPath),
+              fit: BoxFit.contain,
+            ),
           ),
         ),
       ),

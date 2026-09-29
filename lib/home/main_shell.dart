@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/child_difficulty.dart';
+import '../core/game_audio_service.dart';
 import '../economy/savings_screen.dart';
 import '../map/quest_map_screen.dart';
 import '../settings/child_settings_screen.dart';
@@ -48,6 +51,10 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _settings = ChildSettingsSnapshot(difficulty: widget.initialDifficulty);
+    GameAudioService.instance.configure(
+      soundEnabled: _settings.sound,
+      musicEnabled: _settings.music,
+    );
     _loadSettings();
   }
 
@@ -56,7 +63,12 @@ class _MainShellState extends State<MainShell> {
       final settings = ChildSettingsSnapshot.fromJson(
         await widget.apiClient.get('/child/settings'),
       );
-      if (mounted) setState(() => _settings = settings);
+      if (!mounted) return;
+      GameAudioService.instance.configure(
+        soundEnabled: settings.sound,
+        musicEnabled: settings.music,
+      );
+      setState(() => _settings = settings);
     } on ApiException {
       // Keep safe local defaults; the settings screen exposes an explicit
       // retry/error state if the child opens it while the server is offline.
@@ -69,10 +81,23 @@ class _MainShellState extends State<MainShell> {
         builder: (screenContext) => ChildSettingsScreen(
           apiClient: widget.apiClient,
           initialSettings: _settings,
-          onSettingsChanged: (next) => setState(() {
-            if (next.difficulty != _settings.difficulty) _mapRevision++;
-            _settings = next;
-          }),
+          onSettingsChanged: (next) {
+            GameAudioService.instance.configure(
+              soundEnabled: next.sound,
+              musicEnabled: next.music,
+            );
+            if (_index == 1 && next.music) {
+              unawaited(
+                GameAudioService.instance.startAmbience(
+                  GameAmbience.forestBirds,
+                ),
+              );
+            }
+            setState(() {
+              if (next.difficulty != _settings.difficulty) _mapRevision++;
+              _settings = next;
+            });
+          },
           onSwitchAudience: () {
             Navigator.of(screenContext).pop();
             widget.onSwitchAudience?.call();
@@ -109,6 +134,14 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _selectTab(int index) {
+    unawaited(GameAudioService.instance.play(GameSound.uiTap));
+    if (index == 1) {
+      unawaited(
+        GameAudioService.instance.startAmbience(GameAmbience.forestBirds),
+      );
+    } else {
+      unawaited(GameAudioService.instance.stopAmbience());
+    }
     setState(() {
       if (index == 0) _homeRevision++;
       // Re-read quest progress so a game finished elsewhere opens the next node.

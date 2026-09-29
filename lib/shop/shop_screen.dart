@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/game_audio_service.dart';
 import '../economy/economy_action_ui.dart';
 import '../economy/economy_actions.dart';
 import '../economy/economy_state.dart';
@@ -183,6 +186,7 @@ class _ShopScreenState extends State<ShopScreen> {
         _busy = false;
         _pendingPurchaseId = null;
       });
+      unawaited(GameAudioService.instance.play(GameSound.purchase));
       await _showPurchaseResult(
         context,
         item: item,
