@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'audience/role_choice_screen.dart';
 import 'core/api_client.dart';
 import 'core/auth_storage.dart';
 import 'core/child_difficulty.dart';
+import 'core/game_audio_service.dart';
 import 'home/main_shell.dart';
 import 'home/pet_home_screen.dart';
 import 'onboarding/onboarding_data.dart';
@@ -18,7 +21,7 @@ void main() {
   runApp(const GroshikApp());
 }
 
-class GroshikApp extends StatelessWidget {
+class GroshikApp extends StatefulWidget {
   const GroshikApp({
     super.key,
     @visibleForTesting this.authStorage,
@@ -29,6 +32,43 @@ class GroshikApp extends StatelessWidget {
   final AuthStorage? authStorage;
   final ApiClient? apiClient;
   final AppAudience? initialAudience;
+
+  @override
+  State<GroshikApp> createState() => _GroshikAppState();
+}
+
+class _GroshikAppState extends State<GroshikApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(
+      GameAudioService.instance.startMusic(GameMusic.mainTheme),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        unawaited(GameAudioService.instance.resumeMusic());
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        unawaited(GameAudioService.instance.pauseMusic());
+        break;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    unawaited(GameAudioService.instance.stopMusic());
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,9 +82,9 @@ class GroshikApp extends StatelessWidget {
       home: _foxEventDemo
           ? const PetHomeScreen()
           : _AudienceGate(
-              authStorage: authStorage,
-              apiClient: apiClient,
-              initialAudience: initialAudience,
+              authStorage: widget.authStorage,
+              apiClient: widget.apiClient,
+              initialAudience: widget.initialAudience,
             ),
     );
   }

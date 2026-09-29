@@ -132,6 +132,7 @@ flutter:
     - assets/games/turnip/success_harvest.webp
     - assets/audio/sfx/
     - assets/audio/ambience/
+    - assets/audio/music/
     - assets/games/squirrel/
     - assets/games/ivan/
     - assets/games/goldfish/
