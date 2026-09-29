@@ -37,6 +37,7 @@ dependencies:
   flutter_secure_storage: ^11.2.0
   http: ^1.6.0
   share_plus: ^13.3.0
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -120,6 +121,8 @@ flutter:
     - assets/games/turnip/mouse.webp
     - assets/games/turnip/team_pulling.webp
     - assets/games/turnip/success_harvest.webp
+    - assets/audio/sfx/
+    - assets/audio/ambience/
 
   # Bundled locally so typography is stable offline. PT Serif carries all
   # functional copy; Barocco Initial is reserved for decorative drop caps.

@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../core/game_audio_service.dart';
 import '../../core/pet_assets.dart';
 import '../../theme/app_theme.dart';
 import '../models/pet.dart';
@@ -53,6 +56,8 @@ class _PetSceneState extends State<PetScene>
   Future<void> _react() async {
     if (_reacting) return;
     setState(() => _reacting = true);
+    // Petting purrs; GameAudioService stays silent when sounds are off.
+    unawaited(GameAudioService.instance.play(GameSound.catPurr));
     _breathe();
     await Future<void>.delayed(const Duration(milliseconds: 950));
     if (mounted) setState(() => _reacting = false);
