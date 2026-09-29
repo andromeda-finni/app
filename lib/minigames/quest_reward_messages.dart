@@ -17,6 +17,7 @@ String questProblemMessage(ApiException error) {
     'quest_prerequisite_not_completed' =>
       'Сначала пройди предыдущее задание на карте.',
     'quest_difficulty_mismatch' => 'Этот уровень относится к другой настройке сложности. Вернись на карту и открой задание снова.',
+    'pet_energy_insufficient' => 'Питомцу не хватает сил для нового квеста. Подожди восстановления или покорми его в магазине.',
     'quest_already_completed' =>
       'Это задание уже пройдено. Сейчас — тренировочный повтор без награды.',
     'earlier_steps_not_completed' =>

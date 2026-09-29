@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { withIdempotency } from "../../lib/idempotency.js";
 import { bodySchema, idempotencyKeySchema, shortIdSchema } from "../../lib/schema.js";
 import { useArtifact } from "../../lib/artifacts.js";
+import { recoverPetEnergy } from "../pet/energy.js";
 
 const IMPULSE_ENERGY_PENALTY = 5;
 const IMPULSE_JOY_PENALTY = 5;
@@ -63,10 +64,11 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
             const itemRes = await client.query<{
               kind: "NEED" | "WANT";
               price: number;
+              effect_code: string | null;
               energy_delta: number;
               joy_delta: number;
             }>(
-              `SELECT kind, price, energy_delta, joy_delta
+              `SELECT kind, price, effect_code, energy_delta, joy_delta
                  FROM shop_items
                 WHERE id = $1 AND active AND kind IN ('NEED', 'WANT')`,
               [itemId],
@@ -230,6 +232,11 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
               }
             }
 
+            // Apply elapsed recovery before a purchase changes the meter, so
+            // polling and buying food cannot lose a partially completed tick.
+            const currentPet = await recoverPetEnergy(client, childUserId);
+            if (!currentPet) throw new HttpError(404, "pet_not_created");
+
             const petRes = await client.query<{
               energy_level: number;
               joy_level: number;
@@ -239,6 +246,17 @@ export async function shopRoutes(app: FastifyInstance): Promise<void> {
                         energy_level + $1 - $2)),
                       joy_level = LEAST(100, GREATEST(0,
                         joy_level + $3 - $4)),
+                      last_energy_tick_at = CASE
+                        WHEN energy_level = 100
+                          OR LEAST(100, GREATEST(0, energy_level + $1 - $2)) IN (0, 100)
+                          THEN statement_timestamp()
+                        ELSE last_energy_tick_at
+                      END,
+                      energy_depleted_at = CASE
+                        WHEN LEAST(100, GREATEST(0, energy_level + $1 - $2)) = 0
+                          THEN statement_timestamp()
+                        ELSE NULL
+                      END,
                       updated_at = now()
                 WHERE child_user_id = $5
                 RETURNING energy_level, joy_level`,

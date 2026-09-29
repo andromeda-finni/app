@@ -60,6 +60,34 @@ test("horseshoe returns rounded-up cashback and loses durability on NEED purchas
       if (text.includes("INSERT INTO purchases")) {
         return { rows: [{ id: "purchase-1" }], rowCount: 1 };
       }
+      if (text.includes("WITH locked_pet AS")) {
+        const now = new Date("2026-09-29T12:00:00.000Z");
+        return {
+          rows: [
+            {
+              id: "pet-1",
+              child_user_id: "child-1",
+              pet_name: "Финни",
+              pet_name_status: "APPROVED",
+              fur_option_id: "FUR_GRAY",
+              accessory_option_id: null,
+              energy_level: 80,
+              joy_level: 70,
+              health_level: 100,
+              evolution_stage: 2,
+              successful_period_streak: 0,
+              equipped_inventory_item_id: null,
+              energy_depleted_at: null,
+              last_energy_tick_at: now,
+              created_at: now,
+              updated_at: now,
+              mode: "STANDARD",
+              server_now: now,
+            },
+          ],
+          rowCount: 1,
+        };
+      }
       if (text.includes("FROM inventory_items i")) {
         return {
           rows: [

@@ -32,6 +32,7 @@ export async function useArtifact(
     referenceType: string;
     referenceId: string;
     equippedOnly?: boolean;
+    inventoryItemId?: string;
   },
 ): Promise<ArtifactEffectResult | null> {
   const equippedJoin = args.equippedOnly
@@ -43,8 +44,9 @@ export async function useArtifact(
        ${equippedJoin}
       WHERE i.child_user_id = $1 AND i.item_id = $2
         AND NOT i.is_broken AND i.durability_current > 0
+        AND ($3::uuid IS NULL OR i.id = $3)
       FOR UPDATE OF i`,
-    [args.childUserId, args.itemId],
+    [args.childUserId, args.itemId, args.inventoryItemId ?? null],
   );
   const artifact = artifactRes.rows[0];
   if (!artifact) return null;

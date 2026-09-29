@@ -94,6 +94,23 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
     assert.equal(unreadyStart.statusCode, 409, unreadyStart.body);
     assert.equal(unreadyStart.json().error, "active_day_with_confirmed_plan_required");
 
+    const tired = await createReadyChild();
+    await pool.query(
+      `UPDATE pets
+          SET energy_level = 0,
+              energy_depleted_at = statement_timestamp(),
+              last_energy_tick_at = statement_timestamp()
+        WHERE child_user_id = $1`,
+      [tired.userId],
+    );
+    const tiredStart = await start("Q_TURNIP_HARVEST", tired.headers);
+    assert.equal(tiredStart.statusCode, 409, tiredStart.body);
+    assert.equal(tiredStart.json().error, "pet_energy_insufficient");
+    assert.deepEqual(tiredStart.json().details, {
+      energyLevel: 0,
+      requiredEnergy: 20,
+    });
+
     const progression = await createReadyChild();
 
     const locked = await start("Q_TUGRIKI_CURRENCY", progression.headers);
@@ -107,6 +124,7 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
 
     const turnipStart = await start("Q_TURNIP_HARVEST", progression.headers);
     assert.equal(turnipStart.statusCode, 201, turnipStart.body);
+    assert.equal(turnipStart.json().pet.energy_level, 80);
     const turnipDone = await answer(
       turnipStart.json().assignmentId as string,
       1,
@@ -130,10 +148,16 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
     assert.equal(completedTurnipStart.statusCode, 200, completedTurnipStart.body);
     assert.equal(completedTurnipStart.json().completed, true);
     assert.equal(completedTurnipStart.json().rewardAlreadyGranted, true);
+    const afterReplay = await pool.query<{ energy_level: number }>(
+      `SELECT energy_level FROM pets WHERE child_user_id = $1`,
+      [progression.userId],
+    );
+    assert.equal(afterReplay.rows[0]!.energy_level, 80);
 
     const firstStart = await start("Q_MOLE_FINE_PRINT", progression.headers);
     assert.equal(firstStart.statusCode, 201, firstStart.body);
     assert.equal(firstStart.json().nextStepNo, 1);
+    assert.equal(firstStart.json().pet.energy_level, 60);
     const moleAssignmentId = firstStart.json().assignmentId as string;
 
     assert.equal((await answer(moleAssignmentId, 1, "12", progression.headers)).statusCode, 200);
@@ -147,6 +171,11 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
     assert.equal(resumed.json().assignmentId, moleAssignmentId);
     assert.equal(resumed.json().resumed, true);
     assert.equal(resumed.json().nextStepNo, 2);
+    const afterResume = await pool.query<{ energy_level: number }>(
+      `SELECT energy_level FROM pets WHERE child_user_id = $1`,
+      [progression.userId],
+    );
+    assert.equal(afterResume.rows[0]!.energy_level, 60);
 
     const moleAnswerCodes = ["", "12", "9", "ask", "19", "seller"];
     for (let stepNo = 2; stepNo <= 5; stepNo++) {

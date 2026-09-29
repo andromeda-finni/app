@@ -1,12 +1,60 @@
+import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
-import { WEARABLE_ARTIFACT_IDS, repairCost } from "../../lib/artifacts.js";
+import { WEARABLE_ARTIFACT_IDS, repairCost, useArtifact } from "../../lib/artifacts.js";
 import { withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { postTransaction } from "../../lib/ledger.js";
 import { bodySchema, paramsSchema, uuidSchema } from "../../lib/schema.js";
+import {
+  presentPet,
+  RESTORE_ENERGY_EFFECT,
+  restorePetEnergy,
+} from "../pet/energy.js";
 
 export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
+  app.post<{ Params: { inventoryItemId: string } }>(
+    "/inventory/:inventoryItemId/use",
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: paramsSchema({ inventoryItemId: uuidSchema }, ["inventoryItemId"]),
+    },
+    async (req) => {
+      const childUserId = req.authUser!.id;
+      const { inventoryItemId } = req.params;
+
+      return withTransaction(async (client) => {
+        const itemRes = await client.query<{ item_id: string }>(
+          `SELECT item_id
+             FROM inventory_items
+            WHERE id = $1 AND child_user_id = $2
+            FOR UPDATE`,
+          [inventoryItemId, childUserId],
+        );
+        const item = itemRes.rows[0];
+        if (!item) throw new HttpError(404, "inventory_item_not_found");
+        if (item.item_id !== "vial") {
+          throw new HttpError(409, "inventory_item_not_usable");
+        }
+
+        const effect = await useArtifact(client, {
+          childUserId,
+          itemId: "vial",
+          inventoryItemId,
+          effectCode: RESTORE_ENERGY_EFFECT,
+          durabilityCost: 1,
+          referenceType: "manual_energy_restore",
+          referenceId: randomUUID(),
+        });
+        if (!effect) throw new HttpError(409, "artifact_is_broken");
+
+        const pet = await restorePetEnergy(client, childUserId);
+        if (!pet) throw new HttpError(404, "pet_not_created");
+        return { ok: true, artifactEffect: effect, pet: presentPet(pet) };
+      });
+    },
+  );
+
   app.post<{ Body: { inventoryItemId?: string | null } }>(
     "/pet/equip",
     {

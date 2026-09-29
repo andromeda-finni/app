@@ -3,6 +3,7 @@ import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, shortIdSchema } from "../../lib/schema.js";
+import { presentPet, recoverPetEnergy, restorePetEnergy } from "./energy.js";
 
 // Minimal placeholder profanity/PII guard for the free-text pet name. Not a
 // production moderation system — swap for a proper service later; this just
@@ -65,17 +66,27 @@ export async function petRoutes(app: FastifyInstance): Promise<void> {
     "/pet",
     { preHandler: [requireAuth, requireRole("CHILD")] },
     async (req) => {
-      const res = await pool.query(
-        `SELECT id, pet_name, pet_name_status, fur_option_id, accessory_option_id,
-                energy_level, joy_level, health_level, evolution_stage,
-                successful_period_streak, equipped_inventory_item_id,
-                created_at, updated_at
-           FROM pets WHERE child_user_id = $1`,
-        [req.authUser!.id],
-      );
-      const pet = res.rows[0];
+      const pet = await recoverPetEnergy(pool, req.authUser!.id);
       if (!pet) throw new HttpError(404, "pet_not_created");
-      return pet;
+      return presentPet(pet);
+    },
+  );
+
+  app.post(
+    "/pet/recover-energy",
+    { preHandler: [requireAuth, requireRole("CHILD")] },
+    async (req) => {
+      const current = await recoverPetEnergy(pool, req.authUser!.id);
+      if (!current) throw new HttpError(404, "pet_not_created");
+
+      const runtimeMode = process.env["NODE_ENV"];
+      const allowed =
+        current.mode === "DEMO" || runtimeMode === "development" || runtimeMode === "test";
+      if (!allowed) throw new HttpError(403, "demo_energy_recovery_not_allowed");
+
+      const pet = await restorePetEnergy(pool, req.authUser!.id);
+      if (!pet) throw new HttpError(404, "pet_not_created");
+      return presentPet(pet);
     },
   );
 

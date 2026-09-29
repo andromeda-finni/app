@@ -6,6 +6,12 @@ import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, paramsSchema, shortIdSchema, uuidSchema } from "../../lib/schema.js";
 import { useArtifact } from "../../lib/artifacts.js";
 import { ECONOMY_RULES } from "../economy/rules.js";
+import {
+  ACTIVITY_ENERGY_COST,
+  presentPet,
+  recoverPetEnergy,
+  spendPetEnergy,
+} from "../pet/energy.js";
 import { answerMatches, type UiSpec } from "./validation.js";
 
 export async function questRoutes(app: FastifyInstance): Promise<void> {
@@ -164,16 +170,35 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
           };
         }
 
+        // Energy is charged only for a genuinely new run. Resuming an
+        // unfinished assignment or replaying a completed quest must never
+        // spend energy twice.
+        const pet = await recoverPetEnergy(client, childUserId);
+        if (!pet) throw new HttpError(404, "pet_not_created");
+        if (pet.energy_level < ACTIVITY_ENERGY_COST) {
+          throw new HttpError(409, "pet_energy_insufficient", {
+            energyLevel: pet.energy_level,
+            requiredEnergy: ACTIVITY_ENERGY_COST,
+          });
+        }
+
         const res = await client.query<{ id: string }>(
           `INSERT INTO assignments (child_user_id, period_id, origin, quest_id, reward_amount, status)
            VALUES ($1, $2, 'SYSTEM', $3, $4, 'IN_PROGRESS') RETURNING id`,
           [childUserId, period.id, questId, quest.reward_amount],
         );
+        const spentPet = await spendPetEnergy(client, childUserId);
+        if (!spentPet) {
+          throw new HttpError(409, "pet_energy_insufficient", {
+            requiredEnergy: ACTIVITY_ENERGY_COST,
+          });
+        }
         return {
           assignmentId: res.rows[0]!.id,
           rewardAmount: quest.reward_amount,
           resumed: false,
           nextStepNo: 1,
+          pet: presentPet(spentPet),
         };
       });
 

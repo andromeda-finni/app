@@ -16,6 +16,7 @@ import '../minigames/bakery/bakery_game_screen.dart';
 import '../minigames/mole/mole_game_screen.dart';
 import '../minigames/park/park_project_screen.dart';
 import '../minigames/tugriki/tugriki_game_screen.dart';
+import '../pet/pet_energy_status.dart';
 import '../theme/app_theme.dart';
 import 'quest_map_data.dart';
 
@@ -77,6 +78,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   // Neutral until the server answers: the child names the pet themselves.
   String _petName = 'Питомец';
   String? _furOptionId;
+  PetEnergyStatus _energy = const PetEnergyStatus.full();
   int _movementVersion = 0;
   double _renderedMapHeight = 0;
   double _viewportHeight = 0;
@@ -165,6 +167,9 @@ class _QuestMapScreenState extends State<QuestMapScreen>
           // status cannot be refreshed yet.
         }
       }
+      final energy = pet == null
+          ? const PetEnergyStatus.full()
+          : PetEnergyStatus.fromJson(Map<String, dynamic>.from(pet));
       if (!mounted) return;
       final previousCatIndex = catNodeIndexFor(_completedQuestIds);
       final nextCatIndex = catNodeIndexFor(completed);
@@ -172,6 +177,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       setState(() {
         if (name is String && name.trim().isNotEmpty) _petName = name;
         if (fur is String) _furOptionId = fur;
+        _energy = energy;
         _completedQuestIds
           ..clear()
           ..addAll(completed);
@@ -472,9 +478,49 @@ class _QuestMapScreenState extends State<QuestMapScreen>
 
   Future<void> _launchNode(QuestMapNode node) async {
     setState(() => _selectedNodeId = null);
+    if (_stateFor(node) == QuestMapNodeState.current &&
+        !await _ensureActivityEnergy()) {
+      return;
+    }
     await _launch(node.destination);
     // A finished game may have completed its quest and opened the next node.
     if (mounted && widget.apiClient != null) await _loadProgress();
+  }
+
+  Future<bool> _ensureActivityEnergy() async {
+    if (widget.apiClient == null) return true;
+    try {
+      final pet = await widget.apiClient!.get('/pet');
+      if (!mounted) return false;
+      setState(() => _energy = PetEnergyStatus.fromJson(pet));
+    } on ApiException {
+      // The start endpoint repeats the check atomically. If this lightweight
+      // refresh fails, let it produce the authoritative child-facing error.
+      return true;
+    }
+    if (!_energy.blocksActivities) return true;
+    if (!mounted) return false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const Key('energy-blocked-dialog'),
+        title: Text('$_petName отдыхает'),
+        content: Text(
+          'Для нового квеста нужно ${_energy.activityCost} энергии. '
+          'Сейчас у $_petName ${_energy.level}.\n\n'
+          'Следующие +${_energy.energyPerTick}: '
+          '${formatEnergyCountdown(_energy.untilNextTick())}. '
+          'Можно немного подождать или покормить питомца в магазине.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Хорошо'),
+          ),
+        ],
+      ),
+    );
+    return false;
   }
 
   Future<void> _showNodeDetails(QuestMapNode node) async {

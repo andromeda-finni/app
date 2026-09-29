@@ -25,6 +25,7 @@ Widget _map({
   bool failProgress = false,
   bool ambientMotion = false,
   ChildDifficulty difficulty = ChildDifficulty.beginner,
+  int energy = 100,
 }) {
   final client = MockClient((request) async {
     if (failProgress) {
@@ -55,22 +56,46 @@ Widget _map({
       'Q_BAKERY_PROFIT': 12,
       'Q_TUGRIKI_CURRENCY': 15,
     };
+    final now = DateTime.now().toUtc();
+    final pet = {
+      'pet_name': 'Мурзик',
+      'fur_option_id': 'FUR_GRAY',
+      'energy_level': energy,
+      'mode': 'STANDARD',
+      'server_time': now.toIso8601String(),
+      'energy_recovery': {
+        'max_energy': 100,
+        'activity_cost': 20,
+        'energy_per_tick': 20,
+        'tick_seconds': 180,
+        'next_tick_at': energy < 100
+            ? now.add(const Duration(minutes: 3)).toIso8601String()
+            : null,
+        'full_at': energy < 100
+            ? now.add(const Duration(minutes: 15)).toIso8601String()
+            : null,
+      },
+    };
     return http.Response(
-      jsonEncode({
-        'pet': {'pet_name': 'Мурзик', 'fur_option_id': 'FUR_GRAY'},
-        'quests': [
-          for (final entry in rewards.entries)
-            {
-              'id': entry.key,
-              'reward_amount': entry.value,
-              'assignment_status': completed.contains(entry.key)
-                  ? 'COMPLETED'
-                  : inProgress.contains(entry.key)
-                  ? 'IN_PROGRESS'
-                  : null,
-            },
-        ],
-      }),
+      jsonEncode(
+        request.url.path == '/pet'
+            ? pet
+            : {
+                'pet': pet,
+                'quests': [
+                  for (final entry in rewards.entries)
+                    {
+                      'id': entry.key,
+                      'reward_amount': entry.value,
+                      'assignment_status': completed.contains(entry.key)
+                          ? 'COMPLETED'
+                          : inProgress.contains(entry.key)
+                          ? 'IN_PROGRESS'
+                          : null,
+                    },
+                ],
+              },
+      ),
       200,
       headers: {'content-type': 'application/json; charset=utf-8'},
     );
@@ -277,6 +302,21 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
     }
     expect(find.byType(TurnipGameScreen), findsOneWidget);
+  });
+
+  testWidgets('insufficient pet energy blocks a new quest before navigation', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_map(energy: 0));
+    await tester.pumpAndSettle();
+
+    await _openNode(tester, 'turnip');
+    await tester.tap(find.text('Начать'));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.byKey(const Key('energy-blocked-dialog')), findsOneWidget);
+    expect(find.textContaining('нужно 20 энергии'), findsOneWidget);
+    expect(find.byType(TurnipGameScreen), findsNothing);
   });
 
   testWidgets('server progress walks the whole painted path', (tester) async {

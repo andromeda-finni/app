@@ -20,6 +20,7 @@ class PetCareScreen extends StatefulWidget {
     required this.onOpenEvent,
     required this.onEquipArtifact,
     required this.onRepairArtifact,
+    required this.onUseArtifact,
   });
 
   final HomeEconomyState state;
@@ -29,6 +30,7 @@ class PetCareScreen extends StatefulWidget {
   final VoidCallback onOpenEvent;
   final Future<HomeEconomyState> Function(ArtifactItem item) onEquipArtifact;
   final Future<HomeEconomyState> Function(ArtifactItem item) onRepairArtifact;
+  final Future<HomeEconomyState> Function(ArtifactItem item) onUseArtifact;
 
   @override
   State<PetCareScreen> createState() => _PetCareScreenState();
@@ -72,6 +74,19 @@ class _PetCareScreenState extends State<PetCareScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Не удалось починить артефакт.')),
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> _useArtifact(ArtifactItem item) async {
+    try {
+      final next = await widget.onUseArtifact(item);
+      if (mounted) setState(() => _state = next);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось использовать артефакт.')),
       );
       rethrow;
     }
@@ -163,6 +178,7 @@ class _PetCareScreenState extends State<PetCareScreen> {
                         spendable: _state.spendable,
                         onEquip: _equipArtifact,
                         onRepair: _repairArtifact,
+                        onUse: _useArtifact,
                       ),
                       const SizedBox(height: 14),
                       PlantainTableCard(

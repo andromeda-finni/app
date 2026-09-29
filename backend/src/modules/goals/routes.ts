@@ -174,6 +174,7 @@ export async function goalRoutes(app: FastifyInstance): Promise<void> {
                   WHEN i.item_id = 'vial' AND i.durability_current < i.durability_max THEN 100
                   ELSE CEIL((i.durability_max - i.durability_current) * s.repair_cost_per_point)::int
                 END AS repair_cost,
+                (i.item_id = 'vial' AND NOT i.is_broken) AS usable,
                 (p.equipped_inventory_item_id = i.id) AS equipped
            FROM inventory_items i
            JOIN shop_items s ON s.id = i.item_id

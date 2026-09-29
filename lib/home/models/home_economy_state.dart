@@ -48,6 +48,7 @@ class ArtifactItem {
     required this.isBroken,
     required this.repairCost,
     required this.isWearable,
+    required this.usable,
   });
 
   final String id;
@@ -60,6 +61,7 @@ class ArtifactItem {
   final bool isBroken;
   final int repairCost;
   final bool isWearable;
+  final bool usable;
 
   factory ArtifactItem.fromJson(Map<String, dynamic> json) => ArtifactItem(
     id: json['id'] as String? ?? '',
@@ -75,6 +77,7 @@ class ArtifactItem {
         json['is_wearable'] as bool? ??
         (artifactDefinition(json['item_id'] as String? ?? '')?.wearable ??
             false),
+    usable: json['usable'] as bool? ?? false,
   );
 
   ArtifactDefinition? get definition => artifactDefinition(itemId);

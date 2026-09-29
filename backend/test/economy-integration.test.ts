@@ -225,7 +225,12 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
     // Catalog effects and the gentle impulse consequence are applied by the
     // server in the same idempotent purchase transaction.
     await pool.query(
-      `UPDATE pets SET energy_level = 50, joy_level = 50 WHERE child_user_id = $1`,
+      `UPDATE pets
+          SET energy_level = 50,
+              joy_level = 50,
+              last_energy_tick_at = statement_timestamp(),
+              energy_depleted_at = NULL
+        WHERE child_user_id = $1`,
       [userId],
     );
     const careDay = (await post('/periods', {}, 201)).periodId;

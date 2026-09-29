@@ -38,8 +38,10 @@ import { parkProjectRoutes } from "./modules/parkProject/routes.js";
 const REQUIRED_SCHEMA_VERSIONS = [
   "0027_artifact_durability.sql",
   "0029_child_display_settings.sql",
+  "0030_pet_energy_recovery.sql",
   "0031_goldfish_home_quest.sql",
   "0032_park_project.sql",
+  "0033_pet_energy_artifact_compatibility.sql",
 ] as const;
 
 const LOOPBACK_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
@@ -65,7 +67,6 @@ export function corsOriginPolicy(configured: string | undefined) {
     }
   };
 }
-
 export async function buildApp() {
   const app = Fastify({
     logger: true,

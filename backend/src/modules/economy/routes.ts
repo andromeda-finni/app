@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { pool } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
+import { presentPet, recoverPetEnergy } from "../pet/energy.js";
 import { ECONOMY_RULES, dayOfWeek, weekForDay } from "./rules.js";
 
 /**
@@ -24,6 +25,9 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
         throw new HttpError(409, "standard_profile_required");
       }
 
+      const recoveredPet = await recoverPetEnergy(pool, childUserId);
+      if (!recoveredPet) throw new HttpError(404, "pet_not_created");
+
       await pool.query(
         `UPDATE financial_goals g
             SET status = 'ACHIEVED', achieved_at = now()
@@ -35,14 +39,8 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
         [childUserId],
       );
 
-      const [petRes, walletsRes, dayRes, eventRes, insuranceRes, goalRes, frostRes, shopRes, artifactRes, inventoryRes, transactionsRes, historyRes, questsRes, tasksRes, savingsHistoryRes] =
+      const [walletsRes, dayRes, eventRes, insuranceRes, goalRes, frostRes, shopRes, artifactRes, inventoryRes, transactionsRes, historyRes, questsRes, tasksRes, savingsHistoryRes] =
         await Promise.all([
-          pool.query(
-            `SELECT pet_name, fur_option_id, accessory_option_id, energy_level,
-                    joy_level, health_level, evolution_stage
-               FROM pets WHERE child_user_id = $1`,
-            [childUserId],
-          ),
           pool.query<{ kind: string; balance: number }>(
             `SELECT kind, balance FROM wallets WHERE child_user_id = $1`,
             [childUserId],
@@ -137,6 +135,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
                       WHEN i.item_id = 'vial' AND i.durability_current < i.durability_max THEN 100
                       ELSE CEIL((i.durability_max - i.durability_current) * s.repair_cost_per_point)::int
                     END AS repair_cost,
+                    (i.item_id = 'vial' AND NOT i.is_broken) AS usable,
                     (p.equipped_inventory_item_id = i.id) AS equipped
                FROM inventory_items i
                JOIN shop_items s ON s.id = i.item_id
@@ -220,7 +219,7 @@ export async function economyRoutes(app: FastifyInstance): Promise<void> {
       return {
         mode: profile.mode,
         rules: ECONOMY_RULES,
-        pet: petRes.rows[0] ?? null,
+        pet: presentPet(recoveredPet),
         wallets: Object.fromEntries(walletsRes.rows.map((row) => [row.kind, row.balance])),
         activeDay: day ?? null,
         activeEvent: eventRes.rows[0] ?? null,

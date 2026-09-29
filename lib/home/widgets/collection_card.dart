@@ -11,12 +11,14 @@ class CollectionCard extends StatelessWidget {
     this.spendable = 0,
     this.onEquip,
     this.onRepair,
+    this.onUse,
   });
 
   final List<ArtifactItem> items;
   final int spendable;
   final Future<void> Function(ArtifactItem item)? onEquip;
   final Future<void> Function(ArtifactItem item)? onRepair;
+  final Future<void> Function(ArtifactItem item)? onUse;
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +111,7 @@ class CollectionCard extends StatelessWidget {
                 spendable: spendable,
                 onEquip: onEquip,
                 onRepair: onRepair,
+                onUse: onUse,
               ),
             ),
           ),
@@ -321,6 +324,7 @@ class _ArtifactDetails extends StatefulWidget {
     required this.spendable,
     required this.onEquip,
     required this.onRepair,
+    required this.onUse,
   });
 
   final ArtifactDefinition definition;
@@ -328,6 +332,7 @@ class _ArtifactDetails extends StatefulWidget {
   final int spendable;
   final Future<void> Function(ArtifactItem item)? onEquip;
   final Future<void> Function(ArtifactItem item)? onRepair;
+  final Future<void> Function(ArtifactItem item)? onUse;
 
   @override
   State<_ArtifactDetails> createState() => _ArtifactDetailsState();
@@ -418,6 +423,17 @@ class _ArtifactDetailsState extends State<_ArtifactDetails> {
             ),
           ],
           const SizedBox(height: 18),
+          if (item.usable) ...[
+            FilledButton.icon(
+              key: const Key('artifact-use-action'),
+              onPressed: _busy || widget.onUse == null
+                  ? null
+                  : () => _run(() => widget.onUse!(item)),
+              icon: const Icon(Icons.bolt_rounded),
+              label: const Text('Восстановить энергию'),
+            ),
+            const SizedBox(height: 10),
+          ],
           if (item.isWearable)
             FilledButton.icon(
               key: const Key('artifact-equip-action'),

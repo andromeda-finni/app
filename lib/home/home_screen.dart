@@ -8,10 +8,12 @@ import '../day_summary/day_summary_screen.dart';
 import '../events/pet_event_dialog.dart';
 import '../events/pet_event_indicator.dart';
 import '../events/pet_event_models.dart';
+import '../pet/pet_energy_status.dart';
 import '../services/pet_event_service.dart';
 import '../theme/app_theme.dart';
 import 'home_tour.dart';
 import 'models/home_economy_state.dart';
+import 'models/pet.dart';
 import 'models/recent_day.dart';
 import 'pet_care_screen.dart';
 import 'widgets/budget_plan_card.dart';
@@ -73,6 +75,10 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _eventDialogOpen = false;
   List<RecentDay> _recentDays = const [];
   bool _planFocused = false;
+  PetEnergyStatus _energy = const PetEnergyStatus.full();
+  Timer? _energyTicker;
+  DateTime? _nextEnergyRefreshAttempt;
+  bool _isRecoveringEnergy = false;
 
   @override
   void initState() {
@@ -88,6 +94,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _energyTicker?.cancel();
+    super.dispose();
+  }
+
   Future<void> _load({bool showLoader = true}) async {
     if (showLoader && _data == null) {
       setState(() => _loadState = _LoadState.loading);
@@ -95,6 +107,10 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final json = await widget.apiClient.get('/economy/state');
       final next = HomeEconomyState.fromJson(json);
+      final petJson = Map<String, dynamic>.from(
+        json['pet'] as Map? ?? const {},
+      );
+      final energy = PetEnergyStatus.fromJson(petJson);
       final recentDaysValue = json['recentDays'];
       final recentDays = recentDaysValue is List
           ? recentDaysValue
@@ -108,10 +124,12 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _data = next;
+        _energy = energy;
         _recentDays = recentDays;
         _offline = false;
         _loadState = _LoadState.ready;
       });
+      _syncEnergyTicker();
       widget.onPlanningRequiredChanged?.call(
         next.activeDay != null && !next.activeDay!.isConfirmed,
       );
@@ -133,6 +151,63 @@ class _HomeScreenState extends State<HomeScreen> {
           _offline = true;
         }
       });
+    }
+  }
+
+  void _syncEnergyTicker() {
+    _energyTicker?.cancel();
+    if (!_energy.isRecovering) return;
+    _energyTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {});
+      final now = DateTime.now();
+      final mayRefresh =
+          _nextEnergyRefreshAttempt == null ||
+          !now.isBefore(_nextEnergyRefreshAttempt!);
+      if (_energy.nextTickIsDue(now) && mayRefresh) {
+        _nextEnergyRefreshAttempt = now.add(const Duration(seconds: 10));
+        unawaited(_refreshPetEnergy());
+      }
+    });
+  }
+
+  Future<void> _refreshPetEnergy() async {
+    try {
+      final json = await widget.apiClient.get('/pet');
+      if (!mounted) return;
+      final current = _data;
+      setState(() {
+        if (current != null) {
+          _data = current.copyWith(pet: Pet.fromJson(json));
+        }
+        _energy = PetEnergyStatus.fromJson(json);
+        _nextEnergyRefreshAttempt = null;
+      });
+      _syncEnergyTicker();
+    } on ApiException {
+      // Keep the server-derived countdown visible and retry on a later tick.
+    }
+  }
+
+  Future<void> _recoverEnergyNow() async {
+    if (_isRecoveringEnergy) return;
+    setState(() => _isRecoveringEnergy = true);
+    try {
+      final json = await widget.apiClient.post('/pet/recover-energy');
+      if (!mounted) return;
+      final current = _data;
+      setState(() {
+        if (current != null) {
+          _data = current.copyWith(pet: Pet.fromJson(json));
+        }
+        _energy = PetEnergyStatus.fromJson(json);
+      });
+      _syncEnergyTicker();
+    } on ApiException {
+      if (!mounted) return;
+      _showError('Не получилось восстановить энергию.');
+    } finally {
+      if (mounted) setState(() => _isRecoveringEnergy = false);
     }
   }
 
@@ -196,6 +271,12 @@ class _HomeScreenState extends State<HomeScreen> {
         SnackBar(content: Text('«${item.name}» снова в полном порядке!')),
       );
     }
+    return _data!;
+  }
+
+  Future<HomeEconomyState> _useArtifact(ArtifactItem item) async {
+    await widget.apiClient.post('/inventory/${item.id}/use');
+    await _load(showLoader: false);
     return _data!;
   }
 
@@ -349,6 +430,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onOpenEvent: _openEvent,
           onEquipArtifact: _equipArtifact,
           onRepairArtifact: _repairArtifact,
+          onUseArtifact: _useArtifact,
         ),
       ),
     );
@@ -533,6 +615,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _LoadState.error => _ErrorView(onRetry: _load),
       _LoadState.ready => _HomeContent(
         data: _data!,
+        energy: _energy,
+        isRecoveringEnergy: _isRecoveringEnergy,
+        onRecoverEnergy: _recoverEnergyNow,
         offline: _offline,
         busy: _busy,
         onRefresh: () => _load(showLoader: false),
@@ -557,6 +642,9 @@ class _HomeScreenState extends State<HomeScreen> {
 class _HomeContent extends StatelessWidget {
   const _HomeContent({
     required this.data,
+    required this.energy,
+    required this.isRecoveringEnergy,
+    required this.onRecoverEnergy,
     required this.recentDays,
     this.tourTargets,
     required this.offline,
@@ -576,6 +664,9 @@ class _HomeContent extends StatelessWidget {
   });
 
   final HomeEconomyState data;
+  final PetEnergyStatus energy;
+  final bool isRecoveringEnergy;
+  final VoidCallback onRecoverEnergy;
   final List<RecentDay> recentDays;
   final HomeTourTargets? tourTargets;
   final bool offline;
@@ -672,6 +763,14 @@ class _HomeContent extends StatelessWidget {
                       heroTag: 'home-pet',
                     ),
                   ),
+                  if (energy.isRecovering) ...[
+                    const SizedBox(height: 10),
+                    _EnergyRecoveryNotice(
+                      energy: energy,
+                      isBusy: isRecoveringEnergy,
+                      onRecover: onRecoverEnergy,
+                    ),
+                  ],
                   if (activeEvent != null) ...[
                     const SizedBox(height: 10),
                     KeyedSubtree(
@@ -818,6 +917,78 @@ class _HomeContent extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _EnergyRecoveryNotice extends StatelessWidget {
+  const _EnergyRecoveryNotice({
+    required this.energy,
+    required this.isBusy,
+    required this.onRecover,
+  });
+
+  final PetEnergyStatus energy;
+  final bool isBusy;
+  final VoidCallback onRecover;
+
+  @override
+  Widget build(BuildContext context) {
+    final next = formatEnergyCountdown(energy.untilNextTick());
+    final full = formatEnergyCountdown(energy.untilFull());
+    return Semantics(
+      label:
+          'Энергия питомца ${energy.level} из ${energy.maxEnergy}. '
+          'Следующее восстановление через $next. Полностью через $full.',
+      child: Container(
+        key: const Key('pet-energy-recovery'),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: energy.blocksActivities
+                ? AppColors.crimson.withValues(alpha: 0.5)
+                : AppColors.fieldBorder.withValues(alpha: 0.6),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              energy.blocksActivities
+                  ? Icons.bedtime_rounded
+                  : Icons.bolt_rounded,
+              color: energy.blocksActivities
+                  ? AppColors.crimson
+                  : AppColors.leafGreen,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                energy.blocksActivities
+                    ? 'Питомец отдыхает · +${energy.energyPerTick} через $next'
+                    : 'Энергия ${energy.level}/${energy.maxEnergy} · полностью через $full',
+                style: AppTextStyles.swatchLabel.copyWith(color: AppColors.ink),
+              ),
+            ),
+            if (energy.isDemo) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                key: const Key('demo-recover-energy'),
+                tooltip: 'Восстановить энергию',
+                onPressed: isBusy ? null : onRecover,
+                icon: isBusy
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

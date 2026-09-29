@@ -12,6 +12,7 @@ test("GET /economy/state returns the complete two-screen read model", async () =
   ]);
   const app = Fastify();
   const originalQuery = pool.query;
+  const now = new Date("2026-09-29T12:00:00.000Z");
 
   pool.query = (async (text: string) => {
     if (text.includes("FROM auth_credentials")) {
@@ -23,16 +24,28 @@ test("GET /economy/state returns the complete two-screen read model", async () =
     if (text.includes("UPDATE financial_goals")) {
       return { rows: [], rowCount: 0 };
     }
-    if (text.includes("FROM pets WHERE")) {
+    if (text.includes("WITH locked_pet AS")) {
       return {
         rows: [
           {
+            id: "pet-1",
+            child_user_id: "child-1",
             pet_name: "Финни",
+            pet_name_status: "APPROVED",
             fur_option_id: "FUR_GRAY",
+            accessory_option_id: null,
             energy_level: 80,
             joy_level: 70,
             health_level: 100,
             evolution_stage: 2,
+            successful_period_streak: 0,
+            equipped_inventory_item_id: null,
+            energy_depleted_at: null,
+            last_energy_tick_at: now,
+            created_at: now,
+            updated_at: now,
+            mode: "STANDARD",
+            server_now: now,
           },
         ],
         rowCount: 1,
@@ -124,12 +137,31 @@ test("GET /economy/state returns the complete two-screen read model", async () =
         frostBonusPercent: 10,
       },
       pet: {
+        id: "pet-1",
         pet_name: "Финни",
+        pet_name_status: "APPROVED",
         fur_option_id: "FUR_GRAY",
+        accessory_option_id: null,
         energy_level: 80,
         joy_level: 70,
         health_level: 100,
         evolution_stage: 2,
+        successful_period_streak: 0,
+        equipped_inventory_item_id: null,
+        energy_depleted_at: null,
+        last_energy_tick_at: "2026-09-29T12:00:00.000Z",
+        created_at: "2026-09-29T12:00:00.000Z",
+        updated_at: "2026-09-29T12:00:00.000Z",
+        mode: "STANDARD",
+        server_time: "2026-09-29T12:00:00.000Z",
+        energy_recovery: {
+          max_energy: 100,
+          activity_cost: 20,
+          energy_per_tick: 20,
+          tick_seconds: 180,
+          next_tick_at: "2026-09-29T12:03:00.000Z",
+          full_at: "2026-09-29T12:03:00.000Z",
+        },
       },
       wallets: { SPENDABLE: 30, SAVINGS: 12 },
       activeDay: {
