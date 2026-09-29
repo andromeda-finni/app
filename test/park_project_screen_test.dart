@@ -119,7 +119,7 @@ void main() {
             widget is Image &&
             widget.image is AssetImage &&
             (widget.image as AssetImage).assetName ==
-                'assets/minigames/park/badger.png',
+                'assets/minigames/park/badger.webp',
       ),
       findsOneWidget,
     );

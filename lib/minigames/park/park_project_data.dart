@@ -46,12 +46,12 @@ class ParkProjectState {
 
 abstract final class ParkAssets {
   static const root = 'assets/minigames/park';
-  static const background = '$root/fair_background.png';
-  static const badger = '$root/badger.png';
-  static const donationBox = '$root/donation_box.png';
-  static const parkBuilding = '$root/park_building.png';
-  static const parkAlmostReady = '$root/park_almost_ready.png';
-  static const parkOpen = '$root/park_open.png';
+  static const background = '$root/fair_background.webp';
+  static const badger = '$root/badger.webp';
+  static const donationBox = '$root/donation_box.webp';
+  static const parkBuilding = '$root/park_building.webp';
+  static const parkAlmostReady = '$root/park_almost_ready.webp';
+  static const parkOpen = '$root/park_open.webp';
 
   static String backgroundFor(String scene) => switch (scene) {
     'BUILDING' => parkBuilding,

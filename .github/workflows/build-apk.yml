@@ -47,12 +47,21 @@ jobs:
 
       - name: Validate production API URL
         run: |
-          if [[ "$API_BASE_URL" != https://* ]]; then
+          # A repository variable edited in the browser can carry a trailing
+          # newline; passed on as-is it turns the whole --dart-define into an
+          # unparsable argument ("Target file ... not found").
+          url="$(printf '%s' "$API_BASE_URL" | tr -d '[:space:]')"
+          if [[ "$url" != https://* ]]; then
             echo "Repository variable API_BASE_URL must be a non-empty HTTPS URL" >&2
             exit 1
           fi
+          echo "API_BASE_URL=$url" >> "$GITHUB_ENV"
 
       - name: Build release APK
+        # No signing keystore is configured for this project yet, so the APK
+        # carries the debug key: installable for testing, not publishable.
+        env:
+          ALLOW_DEBUG_SIGNING: "1"
         run: flutter build apk --release --dart-define=API_BASE_URL="$API_BASE_URL"
 
       - name: Upload APK artifact

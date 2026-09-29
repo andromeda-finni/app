@@ -4,16 +4,16 @@ const kBakeryQuestId = 'Q_BAKERY_PROFIT';
 
 abstract final class BakeryAssets {
   static const root = 'assets/minigames/bakery';
-  static const background = '$root/bakery_background.png';
-  static const bakerHappy = '$root/baker_happy.png';
-  static const bakerThinking = '$root/baker_thinking.png';
-  static const bakerWithPies = '$root/baker_with_pies.png';
-  static const flour = '$root/flour_bag.png';
-  static const berries = '$root/berry_basket.png';
-  static const butter = '$root/butter_piece.png';
-  static const honey = '$root/honey_jar.png';
-  static const bowl = '$root/mixing_bowl.png';
-  static const pie = '$root/pie_single.png';
+  static const background = '$root/bakery_background.webp';
+  static const bakerHappy = '$root/baker_happy.webp';
+  static const bakerThinking = '$root/baker_thinking.webp';
+  static const bakerWithPies = '$root/baker_with_pies.webp';
+  static const flour = '$root/flour_bag.webp';
+  static const berries = '$root/berry_basket.webp';
+  static const butter = '$root/butter_piece.webp';
+  static const honey = '$root/honey_jar.webp';
+  static const bowl = '$root/mixing_bowl.webp';
+  static const pie = '$root/pie_single.webp';
   static const coin = 'assets/icons/coin.webp';
 }
 
