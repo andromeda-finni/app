@@ -138,6 +138,7 @@ class GoldfishLevelConfig {
     required this.requirements,
     required this.introLines,
     required this.successLines,
+    this.thriftySuccessLines = const [],
     required this.missingLines,
     required this.budgetLines,
     this.reserveLines = const [],
@@ -155,6 +156,7 @@ class GoldfishLevelConfig {
   final List<GoldfishRequirement> requirements;
   final List<GoldfishStoryLine> introLines;
   final List<GoldfishStoryLine> successLines;
+  final List<GoldfishStoryLine> thriftySuccessLines;
   final List<GoldfishStoryLine> missingLines;
   final List<GoldfishStoryLine> budgetLines;
   final List<GoldfishStoryLine> reserveLines;
@@ -164,6 +166,16 @@ class GoldfishLevelConfig {
 
   GoldfishOffer offerById(String id) =>
       offers.firstWhere((offer) => offer.id == id);
+
+  List<GoldfishStoryLine> successLinesFor(Set<String> selectedItemIds) {
+    final selectedDecorativeItem = selectedItemIds.any(
+      (itemId) => offerById(itemId).decorative,
+    );
+    if (!selectedDecorativeItem && thriftySuccessLines.isNotEmpty) {
+      return thriftySuccessLines;
+    }
+    return successLines;
+  }
 }
 
 class GoldfishSelectionResult {

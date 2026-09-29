@@ -425,6 +425,20 @@ GoldfishLevelConfig goldfishLevelFor(
           text: 'Отличное решение. Главное, что денег хватило на всё необходимое.',
         ),
       ],
+      thriftySuccessLines: const [
+        GoldfishStoryLine(
+          speaker: GoldfishSpeaker.grandpa,
+          text: 'Всё нужное куплено!',
+        ),
+        GoldfishStoryLine(
+          speaker: GoldfishSpeaker.grandma,
+          text: 'И ещё удалось сохранить часть монет.',
+        ),
+        GoldfishStoryLine(
+          speaker: GoldfishSpeaker.goldfish,
+          text: 'Это тоже отличное решение: сначала необходимое, а оставшиеся монеты можно сберечь.',
+        ),
+      ],
       missingLines: const [
         GoldfishStoryLine(
           speaker: GoldfishSpeaker.grandma,

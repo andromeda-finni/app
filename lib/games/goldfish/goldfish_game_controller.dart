@@ -80,7 +80,7 @@ class GoldfishGameController extends ChangeNotifier {
       isReserveTooSmall: reserveTooSmall,
     );
     _resultLines = _result!.isSuccessful
-        ? _level.successLines
+        ? _level.successLinesFor(_selectedItemIds)
         : missing.isNotEmpty
         ? _level.missingLines
         : overBudget

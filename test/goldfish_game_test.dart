@@ -95,6 +95,56 @@ void main() {
       }
     });
 
+    test('first hard level describes a thrifty practical selection', () {
+      final controller = GoldfishGameController(
+        goldfishLevelFor(GoldfishLevelId.hardOne, petName: 'Лучик'),
+      );
+      while (controller.phase == GoldfishGamePhase.intro) {
+        controller.advanceDialogue();
+      }
+      for (final id in [
+        'roof_basic',
+        'bed_basic',
+        'window_basic',
+        'blanket_down',
+      ]) {
+        controller.toggleOffer(id);
+      }
+
+      expect(controller.checkSelection().isSuccessful, isTrue);
+      final dialogue = controller.activeDialogue
+          .map((line) => line.text)
+          .join(' ');
+      expect(dialogue, contains('сохранить часть монет'));
+      expect(dialogue, isNot(contains('понаряднее')));
+    });
+
+    test(
+      'first hard level mentions an ornate item only when one was bought',
+      () {
+        final controller = GoldfishGameController(
+          goldfishLevelFor(GoldfishLevelId.hardOne, petName: 'Лучик'),
+        );
+        while (controller.phase == GoldfishGamePhase.intro) {
+          controller.advanceDialogue();
+        }
+        for (final id in [
+          'roof_basic',
+          'bed_basic',
+          'window_basic',
+          'blanket_ornate',
+        ]) {
+          controller.toggleOffer(id);
+        }
+
+        expect(controller.checkSelection().isSuccessful, isTrue);
+        final dialogue = controller.activeDialogue
+            .map((line) => line.text)
+            .join(' ');
+        expect(dialogue, contains('понаряднее'));
+      },
+    );
+
     test('final hard level enforces a three-coin reserve', () {
       final controller = GoldfishGameController(
         goldfishLevelFor(GoldfishLevelId.hardTwo, petName: 'Лучик'),
