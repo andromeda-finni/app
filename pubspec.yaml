@@ -125,6 +125,9 @@ flutter:
     - assets/games/turnip/success_harvest.webp
     - assets/audio/sfx/
     - assets/audio/ambience/
+    - assets/games/squirrel/
+    - assets/games/ivan/
+    - assets/games/goldfish/
 
   # Bundled locally so typography is stable offline. PT Serif carries all
   # functional copy; Barocco Initial is reserved for decorative drop caps.

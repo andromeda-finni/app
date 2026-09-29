@@ -38,6 +38,7 @@ import { parkProjectRoutes } from "./modules/parkProject/routes.js";
 const REQUIRED_SCHEMA_VERSIONS = [
   "0027_artifact_durability.sql",
   "0029_child_display_settings.sql",
+  "0031_goldfish_home_quest.sql",
   "0032_park_project.sql",
 ] as const;
 

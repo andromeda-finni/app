@@ -1,11 +1,22 @@
 import 'package:flutter/widgets.dart';
 
+import '../games/ivan/ivan_game_models.dart';
+import '../games/goldfish/goldfish_game_models.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../minigames/mole/mole_game_data.dart';
 import '../minigames/bakery/bakery_game_data.dart';
 import '../minigames/tugriki/tugriki_game_data.dart';
 
-enum QuestMapDestination { upcoming, turnip, mole, bakery, tugriki, badger }
+enum QuestMapDestination {
+  upcoming,
+  turnip,
+  mole,
+  ivan,
+  goldfish,
+  bakery,
+  tugriki,
+  badger,
+}
 
 extension QuestMapDestinationQuest on QuestMapDestination {
   /// Server quest behind a playable node; story-only nodes have none.
@@ -13,9 +24,25 @@ extension QuestMapDestinationQuest on QuestMapDestination {
     QuestMapDestination.turnip => turnipQuestId,
     QuestMapDestination.mole => kMoleQuestId,
     QuestMapDestination.bakery => kBakeryQuestId,
+    // Multi-level tracks: see questIds / isCompletedBy.
+    QuestMapDestination.ivan => null,
+    QuestMapDestination.goldfish => null,
     QuestMapDestination.tugriki => kTugrikiQuestId,
     QuestMapDestination.badger => null,
     QuestMapDestination.upcoming => null,
+  };
+
+  Set<String> get questIds => switch (this) {
+    QuestMapDestination.ivan => ivanQuestIds,
+    QuestMapDestination.goldfish => goldfishQuestIds,
+    _ when questId != null => {questId!},
+    _ => const {},
+  };
+
+  bool isCompletedBy(Set<String> completedQuestIds) => switch (this) {
+    QuestMapDestination.ivan => isIvanTrackComplete(completedQuestIds),
+    QuestMapDestination.goldfish => isGoldfishTrackComplete(completedQuestIds),
+    _ => questId != null && completedQuestIds.contains(questId),
   };
 }
 
@@ -52,7 +79,9 @@ class QuestMapNode {
   final bool? catFacesRight;
 
   bool get isPlayable => destination != QuestMapDestination.upcoming;
-  bool get isRewardedQuest => destination.questId != null;
+  // Multi-level tracks (Иван, Золотая рыбка) have no single quest id but are
+  // rewarded games all the same.
+  bool get isRewardedQuest => destination.questIds.isNotEmpty;
   Offset get catStop => questMapPath[pathIndex];
   String get labelOnMap => mapLabel ?? character;
 }
@@ -113,6 +142,7 @@ const questMapNodes = <QuestMapNode>[
     topics: ['Бюджет', 'Покупки', 'Остаток'],
     heroBounds: Rect.fromLTWH(40, 945, 400, 300),
     pathIndex: 4,
+    destination: QuestMapDestination.ivan,
   ),
   QuestMapNode(
     order: 4,
@@ -123,6 +153,7 @@ const questMapNodes = <QuestMapNode>[
     topics: ['Экономия', 'Запас', 'Сравнение цен'],
     heroBounds: Rect.fromLTWH(390, 760, 390, 300),
     pathIndex: 5,
+    destination: QuestMapDestination.goldfish,
   ),
   QuestMapNode(
     order: 5,
@@ -177,8 +208,11 @@ const questMapNodes = <QuestMapNode>[
 /// complete, so they never block the path.
 int unlockedIndexFor(Set<String> completedQuestIds) {
   for (var i = 0; i < questMapNodes.length; i++) {
-    final questId = questMapNodes[i].destination.questId;
-    if (questId != null && !completedQuestIds.contains(questId)) return i;
+    final destination = questMapNodes[i].destination;
+    if (destination != QuestMapDestination.upcoming &&
+        !destination.isCompletedBy(completedQuestIds)) {
+      return i;
+    }
   }
   return questMapNodes.length - 1;
 }
