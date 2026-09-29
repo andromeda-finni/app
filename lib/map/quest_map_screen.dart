@@ -8,6 +8,8 @@ import '../core/child_difficulty.dart';
 import '../core/pet_assets.dart';
 import '../games/ivan/ivan_game_models.dart';
 import '../games/ivan/ivan_game_screen.dart';
+import '../games/goldfish/goldfish_game_models.dart';
+import '../games/goldfish/goldfish_game_screen.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../games/turnip/turnip_game_screen.dart';
 import '../minigames/mole/mole_game_screen.dart';
@@ -323,6 +325,21 @@ class _QuestMapScreenState extends State<QuestMapScreen>
               preferredDifficulty: widget.difficulty == ChildDifficulty.advanced
                   ? IvanDifficulty.hard
                   : IvanDifficulty.easy,
+            ),
+            apiClient: widget.apiClient,
+            petName: _petName,
+            onExit: () => Navigator.of(gameContext).pop(),
+          ),
+        ),
+      ),
+      QuestMapDestination.goldfish => navigator.push<void>(
+        MaterialPageRoute(
+          builder: (gameContext) => GoldfishGameScreen(
+            initialLevel: nextGoldfishLevel(
+              completedQuestIds: _completedQuestIds,
+              preferredDifficulty: widget.difficulty == ChildDifficulty.advanced
+                  ? GoldfishDifficulty.hard
+                  : GoldfishDifficulty.normal,
             ),
             apiClient: widget.apiClient,
             petName: _petName,

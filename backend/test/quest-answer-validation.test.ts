@@ -36,3 +36,35 @@ test("required budget selection rejects duplicates and unknown products", () => 
   assert.equal(answerMatches(ivanRule, "pies,pies,shirt"), false);
   assert.equal(answerMatches(ivanRule, "pies,shirt,crown"), false);
 });
+
+test("required budget selection can preserve a minimum reserve", () => {
+  const reserveRule = {
+    answerValidation: {
+      kind: "REQUIRED_BUDGET_SELECTION",
+      budget: 20,
+      minimumRemaining: 3,
+      itemPrices: { roof: 4, bed: 4, window: 3, shawl: 3, lamp: 3 },
+      requiredGroups: [
+        { itemIds: ["roof"] },
+        { itemIds: ["bed"] },
+        { itemIds: ["window"] },
+        { itemIds: ["shawl"] },
+      ],
+    },
+  };
+  assert.equal(answerMatches(reserveRule, "roof,bed,window,shawl,lamp"), true);
+  assert.equal(answerMatches(reserveRule, "roof,bed,window,shawl,lamp,lamp"), false);
+  assert.equal(
+    answerMatches(
+      {
+        ...reserveRule,
+        answerValidation: {
+          ...reserveRule.answerValidation,
+          itemPrices: { ...reserveRule.answerValidation.itemPrices, vase: 6 },
+        },
+      },
+      "roof,bed,window,shawl,vase",
+    ),
+    false,
+  );
+});

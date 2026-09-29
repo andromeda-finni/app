@@ -4,6 +4,7 @@ export interface UiSpec {
     kind?: string;
     expectedSequence?: string[];
     budget?: number;
+    minimumRemaining?: number;
     itemPrices?: Record<string, number>;
     requiredGroups?: Array<{ label?: string; itemIds?: string[] }>;
   };
@@ -50,11 +51,15 @@ export function answerMatches(
 
   if (validation?.kind === "REQUIRED_BUDGET_SELECTION") {
     const budget = validation.budget;
+    const minimumRemaining = validation.minimumRemaining ?? 0;
     const itemPrices = validation.itemPrices;
     const requiredGroups = validation.requiredGroups;
     if (
       !Number.isInteger(budget) ||
       (budget ?? 0) < 0 ||
+      !Number.isInteger(minimumRemaining) ||
+      minimumRemaining < 0 ||
+      minimumRemaining > (budget ?? -1) ||
       !itemPrices ||
       !requiredGroups?.length ||
       !selectedOptionCode
@@ -76,7 +81,7 @@ export function answerMatches(
       if (!Number.isInteger(price) || (price ?? -1) < 0) return false;
       total += price!;
     }
-    if (total > budget!) return false;
+    if (total > budget! - minimumRemaining) return false;
 
     return requiredGroups.every(
       (group) =>

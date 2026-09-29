@@ -1,11 +1,12 @@
 import 'package:flutter/widgets.dart';
 
 import '../games/ivan/ivan_game_models.dart';
+import '../games/goldfish/goldfish_game_models.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../minigames/mole/mole_game_data.dart';
 import '../minigames/tugriki/tugriki_game_data.dart';
 
-enum QuestMapDestination { upcoming, turnip, mole, ivan, tugriki }
+enum QuestMapDestination { upcoming, turnip, mole, ivan, goldfish, tugriki }
 
 extension QuestMapDestinationQuest on QuestMapDestination {
   /// Server quest behind a playable node; story-only nodes have none.
@@ -13,18 +14,21 @@ extension QuestMapDestinationQuest on QuestMapDestination {
     QuestMapDestination.turnip => turnipQuestId,
     QuestMapDestination.mole => kMoleQuestId,
     QuestMapDestination.ivan => null,
+    QuestMapDestination.goldfish => null,
     QuestMapDestination.tugriki => kTugrikiQuestId,
     QuestMapDestination.upcoming => null,
   };
 
   Set<String> get questIds => switch (this) {
     QuestMapDestination.ivan => ivanQuestIds,
+    QuestMapDestination.goldfish => goldfishQuestIds,
     _ when questId != null => {questId!},
     _ => const {},
   };
 
   bool isCompletedBy(Set<String> completedQuestIds) => switch (this) {
     QuestMapDestination.ivan => isIvanTrackComplete(completedQuestIds),
+    QuestMapDestination.goldfish => isGoldfishTrackComplete(completedQuestIds),
     _ => questId != null && completedQuestIds.contains(questId),
   };
 }
@@ -133,6 +137,7 @@ const questMapNodes = <QuestMapNode>[
     topics: ['Экономия', 'Запас', 'Сравнение цен'],
     heroBounds: Rect.fromLTWH(390, 760, 390, 300),
     pathIndex: 5,
+    destination: QuestMapDestination.goldfish,
   ),
   QuestMapNode(
     order: 5,
