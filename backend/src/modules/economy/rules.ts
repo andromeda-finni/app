@@ -19,6 +19,16 @@ export const ECONOMY_RULES = {
   frostBonusPercent: 10,
 } as const;
 
+export const MOLE_QUEST_REWARD = 20;
+
+/** A five-check mole session has its own award; other quest tiers stay intact.
+ * Legacy snapshots remain valid, including rewards already promised before
+ * the catalog migration. */
+export function isQuestRewardAllowed(questId: string, amount: number): boolean {
+  return (ECONOMY_RULES.questRewards as readonly number[]).includes(amount) ||
+    (questId === "Q_MOLE_FINE_PRINT" && amount === MOLE_QUEST_REWARD);
+}
+
 export interface DayOutcomeInput {
   requiredNeed: number;
   plannedNeed: number;

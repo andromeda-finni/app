@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 const kMoleQuestId = 'Q_MOLE_FINE_PRINT';
+const kMoleQuestReward = 20;
 
 abstract final class MoleAssets {
   static const root = 'assets/minigames/mole';
@@ -181,7 +182,7 @@ const moleEpisodes = <MoleEpisode>[
       MoleReceiptLine(label: 'Фонарь', amount: 6),
       MoleReceiptLine(label: 'Верёвка', amount: 4),
       MoleReceiptLine(label: 'Леденец', amount: 3),
-      MoleReceiptLine(label: 'Итого', amount: 20),
+      MoleReceiptLine(label: 'ИТОГО', amount: 20),
     ],
     hotspots: [
       MoleHotspot(
@@ -230,14 +231,14 @@ const moleEpisodes = <MoleEpisode>[
       MoleReceiptLine(label: 'Фонарь', amount: 6),
       MoleReceiptLine(label: 'Свечка', amount: 2),
       MoleReceiptLine(label: 'Мешок зерна', amount: 9),
-      MoleReceiptLine(label: 'Подарочная упаковка', amount: 2),
-      MoleReceiptLine(label: 'Итого', amount: 20),
+      MoleReceiptLine(label: 'Упаковка', amount: 2),
+      MoleReceiptLine(label: 'ИТОГО', amount: 20),
     ],
     hotspots: [
       MoleHotspot(
         position: Offset(0.52, 0.62),
         label: 'Лишняя услуга',
-        detail: 'Подарочная упаковка — 2 монеты. Крот её не просил.',
+        detail: 'Платная упаковка — 2 монеты. Крот её не заказывал.',
       ),
       MoleHotspot(
         position: Offset(0.62, 0.80),
@@ -250,7 +251,7 @@ const moleEpisodes = <MoleEpisode>[
         prompt: 'Что в чеке лишнее?',
         answers: [
           MoleAnswer('candle', 'Свечка'),
-          MoleAnswer('wrap', 'Подарочная упаковка'),
+          MoleAnswer('wrap', 'Упаковка'),
           MoleAnswer('grain', 'Мешок зерна'),
         ],
         correctCode: 'wrap',
@@ -290,14 +291,14 @@ const moleEpisodes = <MoleEpisode>[
       MoleReceiptLine(label: 'Тёплый плед', amount: 4),
       MoleReceiptLine(label: 'Верёвка', amount: 4),
       MoleReceiptLine(label: 'Золотой ключ', amount: 5),
-      MoleReceiptLine(label: 'Подарочная упаковка', amount: 3),
-      MoleReceiptLine(label: 'Итого', amount: 18),
+      MoleReceiptLine(label: 'Упаковка', amount: 3),
+      MoleReceiptLine(label: 'ИТОГО', amount: 18),
     ],
     hotspots: [
       MoleHotspot(
         position: Offset(0.50, 0.62),
         label: 'Первая ошибка',
-        detail: 'Подарочную упаковку Крот не заказывал.',
+        detail: 'Платную упаковку Крот не заказывал.',
       ),
       MoleHotspot(
         position: Offset(0.63, 0.80),

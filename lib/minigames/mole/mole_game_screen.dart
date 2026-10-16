@@ -7,6 +7,9 @@ import '../../theme/app_theme.dart';
 import '../quest_reward_messages.dart';
 import 'mole_game_data.dart';
 import 'mole_inspection_board.dart';
+import 'mole_truth_case_view.dart';
+import 'mole_truth_catalog.dart';
+import 'mole_truth_models.dart';
 
 class MoleGameScreen extends StatefulWidget {
   const MoleGameScreen({super.key, this.apiClient});
@@ -21,6 +24,10 @@ class MoleGameScreen extends StatefulWidget {
 }
 
 class _MoleGameScreenState extends State<MoleGameScreen> {
+  int _runSeed = 0;
+  late List<MoleTruthCase> _truthRun = buildMoleTruthRun(_runSeed);
+  int _promisedReward = kMoleQuestReward;
+  var _caseRevision = 0;
   var _episodeIndex = 0;
   var _questionIndex = 0;
   var _wrongAttempts = 0;
@@ -37,13 +44,13 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
   bool _serverQuestCompleted = false;
 
   MoleEpisode get _episode => moleEpisodes[_episodeIndex];
+  MoleTruthCase get _truthCase => _truthRun[_episodeIndex];
+  bool get _isTruthCase => !moleClassicSteps(_runSeed).contains(_episodeIndex);
 
   @override
   void initState() {
     super.initState();
-    if (widget.apiClient == null) {
-      _syncNote = 'Тренировочный режим: результат не меняет кошелёк.';
-    } else {
+    if (widget.apiClient != null) {
       _startServerQuest();
     }
   }
@@ -56,11 +63,12 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
       );
       if (!mounted) return;
       final reward = (result['rewardAmount'] as num?)?.toInt();
+      if (reward != null && reward > 0) _promisedReward = reward;
       if (result['completed'] == true) {
         setState(() {
           _serverQuestCompleted = true;
           _assignmentId = null;
-          _syncNote = 'Награда за это задание уже получена. Сейчас можно потренироваться ещё раз.';
+          _syncNote = 'Награда уже получена.';
         });
         return;
       }
@@ -70,17 +78,18 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
       );
       setState(() {
         _assignmentId = result['assignmentId'] as String?;
+        if (_assignmentId != null) {
+          _runSeed = moleTruthSeed(_assignmentId!);
+          _truthRun = buildMoleTruthRun(_runSeed);
+          _caseRevision++;
+        }
         _episodeIndex = nextStep - 1;
         _questionIndex = 0;
         _wrongAttempts = 0;
         _foundHotspots = <int>{};
         _episodeSolved = false;
         _feedback = null;
-        _syncNote = result['resumed'] == true
-            ? 'Продолжаем с проверки $nextStep из ${moleEpisodes.length}.'
-            : reward == null
-            ? 'Задание начато.'
-            : 'Задание начато. За все пять проверок — $reward монет.';
+        _syncNote = null;
       });
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -135,7 +144,7 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
   }
 
   Future<void> _continueAfterEpisode() async {
-    if (_isSyncing || _isStarting) return;
+    if (!_episodeSolved || _isSyncing || _isStarting) return;
     if (widget.apiClient != null &&
         _assignmentId == null &&
         !_serverQuestCompleted) {
@@ -152,12 +161,22 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
           '/assignments/$_assignmentId/answer',
           body: {
             'stepNo': _episodeIndex + 1,
-            'selectedOptionCode': _episode.questions.last.correctCode,
+            'selectedOptionCode': _isTruthCase
+                ? _truthCase.serverAnswerCode
+                : _episode.questions.last.correctCode,
           },
         );
         if (!mounted) return;
         if (result['outcome'] != 'SUCCESS') {
           setState(() => _syncNote = questRecoveryMessage(result));
+          return;
+        }
+        if (_episodeIndex == moleEpisodes.length - 1 &&
+            result['questCompleted'] != true) {
+          setState(
+            () =>
+                _syncNote = 'Не удалось подтвердить награду. Попробуй ещё раз.',
+          );
           return;
         }
         if (result['questCompleted'] == true) {
@@ -166,7 +185,7 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
           _serverQuestCompleted = true;
           _assignmentId = null;
         }
-        setState(() => _syncNote = 'Результат сохранён.');
+        setState(() => _syncNote = null);
       } on ApiException catch (error) {
         if (!mounted) return;
         setState(() => _syncNote = questProblemMessage(error));
@@ -204,8 +223,16 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
               children: [
                 _buildTopBar(),
                 Expanded(
-                  child: _showFinal
+                  child: _isStarting
+                      ? const Center(child: CircularProgressIndicator())
+                      : widget.apiClient != null &&
+                            _assignmentId == null &&
+                            !_serverQuestCompleted
+                      ? _buildStartError()
+                      : _showFinal
                       ? _buildFinal(context)
+                      : _isTruthCase
+                      ? _buildTruthEpisode()
                       : _buildEpisode(context),
                 ),
               ],
@@ -215,6 +242,68 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
       ),
     );
   }
+
+  Widget _buildTruthEpisode() => ListView(
+    key: ValueKey('truth-${_truthCase.id}-$_caseRevision'),
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+    children: [
+      _ProgressHeader(
+        current: _episodeIndex + 1,
+        total: moleEpisodes.length,
+        title: _truthCase.title,
+        reward: _promisedReward,
+      ),
+      const SizedBox(height: 12),
+      _StoryScene(text: _truthCase.intro),
+      if (_truthCase.purchaseAssets.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        _PurchaseStrip(assets: _truthCase.purchaseAssets),
+      ],
+      const SizedBox(height: 16),
+      MoleTruthCaseView(
+        key: ValueKey('${_truthCase.id}-$_caseRevision'),
+        document: _truthCase,
+        onSolved: () => setState(() => _episodeSolved = true),
+      ),
+      if (_episodeSolved) ...[
+        const SizedBox(height: 12),
+        StoryButton(
+          key: const Key('mole-truth-continue'),
+          label: _episodeIndex == moleEpisodes.length - 1
+              ? 'Завершить проверку'
+              : 'Следующая проверка',
+          onPressed: _isStarting || _isSyncing ? null : _continueAfterEpisode,
+          isLoading: _isSyncing,
+        ),
+      ],
+      if (_syncNote != null) ...[
+        const SizedBox(height: 12),
+        _SyncNote(text: _syncNote!, loading: _isStarting),
+      ],
+    ],
+  );
+
+  Widget _buildStartError() => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _syncNote ?? 'Не получилось открыть задание.',
+            style: AppTextStyles.story,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          StoryButton(
+            key: const Key('mole-truth-start-retry'),
+            label: 'Попробовать ещё раз',
+            onPressed: _startServerQuest,
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _buildTopBar() {
     return Container(
@@ -283,24 +372,26 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
           current: _episodeIndex + 1,
           total: moleEpisodes.length,
           title: _episode.title,
+          reward: _promisedReward,
         ),
         const SizedBox(height: 12),
-        _StoryScene(text: _episode.intro),
+        _StoryScene(
+          text: switch (_episodeIndex) {
+            0 => 'Мешок зерна — 8 монет. Проверь, сколько стоит доставка.',
+            1 => 'Мне нужен один фонарь. Проверь условия акции.',
+            2 => 'Я взял зерно, фонарь и верёвку. Всё ли верно в чеке?',
+            3 => 'Упаковку я не просил. Проверь строки и итог.',
+            _ => 'Я взял плед, верёвку и ключ. Найди две ошибки.',
+          },
+        ),
         const SizedBox(height: 16),
         if (_episode.supportAssets.isNotEmpty) ...[
           _PurchaseStrip(assets: _episode.supportAssets),
           const SizedBox(height: 12),
         ],
         Text(
-          allFound ? 'Все детали найдены' : 'Проведи лупой по объявлению',
+          allFound ? 'Проверь свой ответ' : 'Проведи лупой по документу',
           style: AppTextStyles.cardTitle.copyWith(fontSize: 20),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          allFound
-              ? 'Теперь ответь на вопрос. Ошибка ничего не отнимает — можно попробовать ещё раз.'
-              : 'Ищи бледные строки и подозрительные суммы. Можно нажать в нужное место или двигать лупу пальцем.',
-          style: AppTextStyles.story.copyWith(fontSize: 15),
         ),
         const SizedBox(height: 12),
         Center(
@@ -348,6 +439,7 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
           _SolvedCard(text: _episode.successText),
           const SizedBox(height: 12),
           StoryButton(
+            key: const Key('mole-classic-continue'),
             label: _episodeIndex == moleEpisodes.length - 1
                 ? 'Завершить проверку'
                 : 'Следующая проверка',
@@ -370,7 +462,7 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
       children: [
         const Text(
-          'Все секреты найдены!',
+          'Все пять проверок готовы!',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: AppFonts.body,
@@ -380,7 +472,7 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Ты проверил объявления, пересчитал чеки и помог Земелику не переплатить.',
+          'Земелик не переплатит. Отличная работа!',
           textAlign: TextAlign.center,
           style: AppTextStyles.story,
         ),
@@ -410,7 +502,11 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
           child: Column(
             children: [
               Text(
-                reward == null ? 'Тренировка завершена' : '+$reward монет',
+                reward == null
+                    ? _serverQuestCompleted
+                          ? 'Награда уже получена'
+                          : 'За пять проверок — $_promisedReward монет'
+                    : '+$reward монет',
                 style: AppTextStyles.cardTitle.copyWith(
                   color: reward == null ? AppColors.ink : AppColors.crimson,
                   fontSize: 25,
@@ -422,15 +518,6 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
                   'Теперь в кошельке $_balanceAfter монет',
                   style: AppTextStyles.story.copyWith(fontSize: 15),
                 ),
-              ] else if (reward == null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  _assignmentId == null
-                      ? 'Награда не начисляется без активного задания на сервере.'
-                      : 'Результат игры сохранён.',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.swatchLabel,
-                ),
               ],
             ],
           ),
@@ -439,7 +526,26 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
         StoryButton(
           label: 'Вернуться домой',
           showFlourish: true,
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          key: const Key('mole-truth-new-run'),
+          onPressed: () => setState(() {
+            _runSeed++;
+            _truthRun = buildMoleTruthRun(_runSeed);
+            _episodeIndex = 0;
+            _questionIndex = 0;
+            _foundHotspots = <int>{};
+            _episodeSolved = false;
+            _showFinal = false;
+            _rewardAmount = null;
+            _balanceAfter = null;
+            _caseRevision++;
+            _syncNote = _serverQuestCompleted ? 'Награда уже получена.' : null;
+          }),
+          icon: const Icon(Icons.find_in_page_outlined),
+          label: const Text('Ещё пять проверок'),
         ),
       ],
     );
@@ -451,11 +557,13 @@ class _ProgressHeader extends StatelessWidget {
     required this.current,
     required this.total,
     required this.title,
+    this.reward,
   });
 
   final int current;
   final int total;
   final String title;
+  final int? reward;
 
   @override
   Widget build(BuildContext context) {
@@ -476,18 +584,48 @@ class _ProgressHeader extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         SizedBox(
-          width: 44,
-          height: 44,
-          child: Stack(
-            alignment: Alignment.center,
+          width: MediaQuery.textScalerOf(context).scale(60),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(
-                value: current / total,
-                strokeWidth: 5,
-                color: AppColors.leafGreen,
-                backgroundColor: AppColors.parchmentDark,
+              SizedBox(
+                height: 44,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: current / total,
+                      strokeWidth: 5,
+                      color: AppColors.leafGreen,
+                      backgroundColor: AppColors.parchmentDark,
+                    ),
+                    Text('$current', style: AppTextStyles.counterValue),
+                  ],
+                ),
               ),
-              Text('$current', style: AppTextStyles.counterValue),
+              if (reward != null) ...[
+                const SizedBox(height: 6),
+                Semantics(
+                  label: 'Награда за пять проверок: $reward монет',
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/icons/coin.webp',
+                        width: 16,
+                        height: 16,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        '$reward',
+                        style: AppTextStyles.swatchLabel.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -503,7 +641,8 @@ class _StoryScene extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
+    final largeText = MediaQuery.textScalerOf(context).scale(13) > 18;
+    final scene = AspectRatio(
       aspectRatio: 1.65,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -541,15 +680,17 @@ class _StoryScene extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(24, 22, 20, 20),
                     child: Center(
-                      child: Text(
-                        text,
-                        maxLines: 7,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.story.copyWith(
-                          fontSize: 13,
-                          height: 1.25,
-                        ),
-                      ),
+                      child: largeText
+                          ? const Icon(Icons.receipt_long, color: AppColors.ink)
+                          : Text(
+                              text,
+                              maxLines: 7,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.story.copyWith(
+                                fontSize: 13,
+                                height: 1.25,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -558,6 +699,16 @@ class _StoryScene extends StatelessWidget {
           ],
         ),
       ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        scene,
+        if (largeText) ...[
+          const SizedBox(height: 10),
+          Text(text, style: AppTextStyles.story),
+        ],
+      ],
     );
   }
 }

@@ -5,7 +5,7 @@ import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, paramsSchema, shortIdSchema, uuidSchema } from "../../lib/schema.js";
 import { useArtifact } from "../../lib/artifacts.js";
-import { ECONOMY_RULES } from "../economy/rules.js";
+import { ECONOMY_RULES, isQuestRewardAllowed } from "../economy/rules.js";
 import {
   ACTIVITY_ENERGY_COST,
   presentPet,
@@ -370,7 +370,7 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
           return { outcome, feedback: step.success_feedback, questCompleted: false };
         }
 
-        if (!(ECONOMY_RULES.questRewards as readonly number[]).includes(assignment.reward_amount)) {
+        if (!isQuestRewardAllowed(assignment.quest_id, assignment.reward_amount)) {
           throw new HttpError(409, "quest_reward_is_not_an_economy_value");
         }
 

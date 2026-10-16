@@ -157,6 +157,7 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
     const firstStart = await start("Q_MOLE_FINE_PRINT", progression.headers);
     assert.equal(firstStart.statusCode, 201, firstStart.body);
     assert.equal(firstStart.json().nextStepNo, 1);
+    assert.equal(firstStart.json().rewardAmount, 20);
     assert.equal(firstStart.json().pet.energy_level, 60);
     const moleAssignmentId = firstStart.json().assignmentId as string;
 
@@ -188,7 +189,7 @@ test("quest prerequisites, resume position and daily reward limit are enforced b
       assert.equal(result.statusCode, 200, result.body);
       if (stepNo === 5) {
         assert.equal(result.json().questCompleted, true);
-        assert.equal(result.json().rewardAmount, 15);
+        assert.equal(result.json().rewardAmount, 20);
       }
     }
 
