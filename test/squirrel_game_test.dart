@@ -10,6 +10,17 @@ import 'package:andromeda_app/games/squirrel/squirrel_level_controller.dart';
 import 'package:andromeda_app/theme/app_theme.dart';
 
 void main() {
+  test('each difficulty starts with its introduction level in story order', () {
+    expect(SquirrelDifficulty.normal.levels, const [
+      SquirrelLevel.sorting,
+      SquirrelLevel.findOdd,
+    ]);
+    expect(SquirrelDifficulty.hard.levels, const [
+      SquirrelLevel.conveyor,
+      SquirrelLevel.inspect,
+    ]);
+  });
+
   test('intro substitutes the child-created pet name', () {
     final lines = squirrelIntroLinesFor(SquirrelLevel.sorting, 'Плюша');
     expect(lines.join(' '), contains('Привет, Плюша! Я Белочка.'));
