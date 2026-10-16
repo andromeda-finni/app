@@ -12,6 +12,12 @@ import 'package:http/testing.dart';
 import 'support/fake_auth_storage.dart';
 
 const _periodId = '11111111-1111-1111-1111-111111111111';
+const _activePetEvent = {
+  'id': 'event-1',
+  'event_definition_id': 'POOR_PAW',
+  'amount_due': 10,
+  'triggered_at': '2026-09-27T10:00:00.000Z',
+};
 
 http.Response _json(Object? body, [int status = 200]) => http.Response(
   jsonEncode(body),
@@ -85,6 +91,9 @@ Widget _screen({
   required Future<http.Response> Function(http.Request request) handler,
   double textScale = 1,
   VoidCallback? onOpenInsurance,
+  bool isActive = true,
+  int refreshSignal = 0,
+  bool focusPlan = false,
 }) {
   final client = MockClient(handler);
   return MaterialApp(
@@ -98,6 +107,9 @@ Widget _screen({
             baseUrl: 'http://test',
           ),
           onOpenInsurance: onOpenInsurance,
+          isActive: isActive,
+          refreshSignal: refreshSignal,
+          focusPlan: focusPlan,
         ),
       ),
     ),
@@ -194,32 +206,101 @@ void main() {
     expect(find.text('Моя мечта'), findsOneWidget);
   });
 
-  testWidgets('active event remains reachable from the new home', (
+  testWidgets(
+    'active event opens on home entry and can be reopened from its banner',
+    (tester) async {
+      Future<http.Response> handler(http.Request request) async =>
+          _json(_economy(activeDay: _draftDay(), activeEvent: _activePetEvent));
+      await _pump(tester, _screen(handler: handler));
+
+      expect(find.byKey(const Key('pet-event-banner')), findsOneWidget);
+      expect(find.text('Ой! Грошик уколол лапку!'), findsOneWidget);
+      expect(find.byKey(const Key('pet-event-resolve')), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Закрыть'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('pet-event-resolve')), findsNothing);
+
+      await tester.pumpWidget(_screen(handler: handler, refreshSignal: 1));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('pet-event-resolve')), findsNothing);
+      await tester.tap(find.byKey(const Key('pet-event-banner')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ой! Грошик уколол лапку!'), findsOneWidget);
+      expect(find.byKey(const Key('pet-event-resolve')), findsOneWidget);
+    },
+  );
+
+  testWidgets('an event waits until the home tab becomes active', (
+    tester,
+  ) async {
+    Future<http.Response> handler(http.Request request) async =>
+        _json(_economy(activeDay: _draftDay(), activeEvent: _activePetEvent));
+    await _pump(tester, _screen(handler: handler, isActive: false));
+    expect(find.byKey(const Key('pet-event-resolve')), findsNothing);
+
+    await tester.pumpWidget(_screen(handler: handler));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pet-event-resolve')), findsOneWidget);
+  });
+
+  testWidgets('an event is presented before a requested budget plan', (
     tester,
   ) async {
     await _pump(
       tester,
       _screen(
+        focusPlan: true,
         handler: (_) async => _json(
-          _economy(
-            activeDay: _draftDay(),
-            activeEvent: {
-              'id': 'event-1',
-              'event_definition_id': 'POOR_PAW',
-              'amount_due': 10,
-              'triggered_at': '2026-09-27T10:00:00.000Z',
-            },
-          ),
+          _economy(activeDay: _draftDay(), activeEvent: _activePetEvent),
         ),
       ),
     );
+    expect(find.byKey(const Key('pet-event-resolve')), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
 
-    expect(find.byKey(const Key('pet-event-banner')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('pet-event-banner')));
+    await tester.tap(find.byTooltip('Закрыть'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pet-event-resolve')), findsNothing);
+    expect(find.byType(BottomSheet), findsOneWidget);
+  });
+
+  testWidgets('resolving an automatic event refreshes the home', (
+    tester,
+  ) async {
+    var resolved = false;
+    var resolutions = 0;
+    await _pump(
+      tester,
+      _screen(
+        handler: (request) async {
+          if (request.url.path == '/pet-events/event-1/resolve' &&
+              request.method == 'POST') {
+            resolved = true;
+            resolutions++;
+            return _json({'spendableBalance': 32, 'healthLevel': 100});
+          }
+          return _json({
+            ..._economy(
+              pet: _pet(health: resolved ? 100 : 55),
+              activeDay: _draftDay(),
+              activeEvent: resolved ? null : _activePetEvent,
+            ),
+            'wallets': {'SPENDABLE': resolved ? 32 : 42, 'SAVINGS': 18},
+          });
+        },
+      ),
+    );
+    await tester.tap(find.byKey(const Key('pet-event-resolve')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ой! Грошик уколол лапку!'), findsOneWidget);
-    expect(find.byKey(const Key('pet-event-resolve')), findsOneWidget);
+    expect(resolutions, 1);
+    expect(find.byKey(const Key('pet-event-resolve')), findsNothing);
+    expect(find.byKey(const Key('pet-event-banner')), findsNothing);
+    expect(find.text('32'), findsOneWidget);
   });
 
   testWidgets('plantain table keeps insurance navigation', (tester) async {
@@ -376,6 +457,38 @@ void main() {
     await tester.tap(find.byKey(const Key('open-budget-plan')));
     await tester.pumpAndSettle();
     expect(started, isTrue);
+    expect(find.byKey(const Key('pet-event-resolve')), findsNothing);
+  });
+
+  testWidgets('starting a day presents the server event without another roll', (
+    tester,
+  ) async {
+    var started = false;
+    final posts = <String>[];
+    await _pump(
+      tester,
+      _screen(
+        handler: (request) async {
+          if (request.method == 'POST') posts.add(request.url.path);
+          if (request.url.path == '/periods' && request.method == 'POST') {
+            started = true;
+            return _json({'periodId': _periodId, 'eventTriggered': true}, 201);
+          }
+          return _json(
+            _economy(
+              activeDay: started ? _draftDay() : null,
+              activeEvent: started ? _activePetEvent : null,
+            ),
+          );
+        },
+      ),
+    );
+    await tester.tap(find.byKey(const Key('open-budget-plan')));
+    await tester.pumpAndSettle();
+
+    expect(posts, ['/periods']);
+    expect(find.text('Ой! Грошик уколол лапку!'), findsOneWidget);
+    expect(find.byKey(const Key('pet-event-resolve')), findsOneWidget);
   });
 
   testWidgets('360dp with enlarged text has no overflow', (tester) async {
