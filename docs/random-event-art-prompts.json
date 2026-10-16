@@ -1,0 +1,34 @@
+{
+  "mode": "built-in image_gen",
+  "base": "Use case: illustration-story.\nAsset type: one finished in-app random-event illustration for the Russian children's fairy-tale game Groshik.\nInput image 1: environment and painting style reference only. Input image 2: environment and painting style reference only. Recompose the new scene; match the hand-painted Russian storybook gouache/watercolor look, honey-colored wood, cream plaster, muted moss greens, cranberry-red folk embroidery, soft brush texture, gentle light and clearly readable shapes.\nCRITICAL: No kitten, no cat, no feline, no cat portrait, no cat silhouette, no paw character, no pet or pet accessories anywhere in the illustration. Players choose their own cat appearance, so these illustrations must be independent of their pet. Do not show a collar or a cat emblem.\nOutput: ONE wide landscape illustration, 3:2 aspect ratio, opaque background, no words, numbers, labels, UI, frames, border or watermark. Simple close framing that reads clearly at 300px wide. Keep the important objects within the central 85% safe area. No collages. Gentle child-friendly mood, no distress. Avoid 3D rendering, glossy plastic, photorealism and thick black outlines.",
+  "scenes": [
+    {
+      "id": "poor_paw",
+      "scene": "Event POOR_PAW, a thorn prick requiring a healing plantain leaf and bandage. Object-only still life on a smooth tree stump in a soft woodland clearing: a fresh green plantain sprig with broad ribbed leaves, a small rolled cream linen bandage with one loose end, a tiny thorn twig on the moss beside the stump and a small butterfly above. Healing supplies are the main focal point, no injured body or paw, no medical cross, no wounds or blood."
+    },
+    {
+      "id": "sick",
+      "scene": "Event SICK, a chill after cold rain requiring linden honey and a warm scarf. Object-only still life on a rustic cottage table: a small earthenware cup with gently steaming herbal tea, a modest amber honey pot with wooden honey dipper, a flowering linden sprig, and a neatly folded soft cranberry-red knitted scarf. An arched window with raindrops and cool rainy forest beyond sits in the softly painted timber cottage background. Warm and caring atmosphere; no person, no animal, no medicine bottles or thermometer."
+    },
+    {
+      "id": "hungry",
+      "scene": "Event HUNGRY, sudden hunger after active forest games requiring hot soup. Object-only close still life on a rustic wooden cottage table: one inviting earthenware bowl of simple hot vegetable soup, a wooden spoon resting beside it on cream linen with a modest cranberry folk embroidered edge, a small empty woven nut basket farther back. Bowl and gentle steam are the main focus, honey-colored cottage background. A single modest meal, not a feast. No people or animals."
+    },
+    {
+      "id": "cold_night",
+      "scene": "Event COLD_NIGHT, the cottage stove went cold and dry firewood is needed before a frosty night. Object-only close cottage interior: a charming white plaster Russian stove with modest cranberry folk floral decoration, its small firebox DARK and UNLIT with cold grey ash, absolutely NO flames or orange fire glow. An EMPTY woven firewood basket with one short leftover twig beside the stove, with the handle clearly visible. Frost and cool blue twilight seen through a small arched window. Honey timber room and a woven rug. The cold stove and empty basket are unmistakable main subjects. No people or animals."
+    },
+    {
+      "id": "roof_leak",
+      "scene": "Event ROOF_LEAK, wind damaged the cottage roof and now it drips; resin and birch bark are needed for repair. Object-only close cottage interior, simple and readable composition: a SMALL gap in the timber ceiling roof with two displaced branch-and-birch-bark shingles, a few clear raindrops falling from this gap into a little wooden bucket on the timber floor, a tiny puddle beside the bucket. An arched window with grey rainy sky and muted green trees. Bucket and drops are main focus, include the roof gap clearly in frame. Gentle household problem, no collapsed roof, no disaster, no already completed repair. No people or animals."
+    },
+    {
+      "id": "beaver_dam",
+      "scene": "Event BEAVER_DAM, the forest community contributes coins to beavers who reinforced the dam and repaired the footbridge to the woodland fair. Show ONE friendly chestnut-brown BEAVER, broad flat scaly tail clearly visible, small rounded ears and two front teeth, wearing a simple cream linen vest with modest cranberry folk trim. It holds a short timber plank beside a sturdy freshly repaired wooden footbridge over a small forest stream. A low branch dam in the middle background. Foreground a small wooden contribution bowl with three plain gold coins, no emblems or numbers. A few muted fair pennants in a distant green clearing. Main subjects beaver, bridge and bowl. No other animals, especially no cat. No people, no signs, no text."
+    }
+  ],
+  "refs": [
+    "assets/backgrounds/home_room.webp",
+    "assets/minigames/bakery/bakery_background.webp"
+  ]
+}
