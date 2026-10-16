@@ -6,6 +6,7 @@ class PetEventDefinition {
     required this.id,
     required this.title,
     required this.description,
+    required this.illustrationAsset,
     required this.amount,
     required this.lesson,
     required this.feedback,
@@ -14,6 +15,7 @@ class PetEventDefinition {
   final String id;
   final String title;
   final String description;
+  final String illustrationAsset;
   final int amount;
   final String lesson;
   final String feedback;
@@ -39,6 +41,7 @@ const petEventCatalog = <String, PetEventDefinition>{
   'POOR_PAW': PetEventDefinition(
     id: 'POOR_PAW',
     title: 'Уколол лапку',
+    illustrationAsset: 'assets/events/poor_paw.webp',
     description: 'Финни бегал по лесу за бабочкой и наступил на колючку. Нужен целебный подорожник и бинтик.',
     amount: 10,
     lesson: 'Непредвиденная медицина',
@@ -47,6 +50,7 @@ const petEventCatalog = <String, PetEventDefinition>{
   'SICK': PetEventDefinition(
     id: 'SICK',
     title: 'Питомец простудился',
+    illustrationAsset: 'assets/events/sick.webp',
     description: 'На полянке прошел холодный дождь, Финни чихает и дрожит. Нужен липовый мед и теплый шарфик.',
     amount: 15,
     lesson: 'Сезонные болезни',
@@ -55,6 +59,7 @@ const petEventCatalog = <String, PetEventDefinition>{
   'HUNGRY': PetEventDefinition(
     id: 'HUNGRY',
     title: 'Внезапный аппетит',
+    illustrationAsset: 'assets/events/hungry.webp',
     description: 'Запасы орехов кончились, а после активных игр в лесу Финни очень проголодался. Нужна горячая похлебка.',
     amount: 10,
     lesson: 'Базовые потребности',
@@ -63,6 +68,7 @@ const petEventCatalog = <String, PetEventDefinition>{
   'COLD_NIGHT': PetEventDefinition(
     id: 'COLD_NIGHT',
     title: 'Печка остыла',
+    illustrationAsset: 'assets/events/cold_night.webp',
     description: 'Ночью обещают лесные заморозки. Нужна охапка сухих дров у Дровосека, чтобы в домике было тепло.',
     amount: 8,
     lesson: 'Коммунальные платежи и тепло',
@@ -71,6 +77,7 @@ const petEventCatalog = <String, PetEventDefinition>{
   'ROOF_LEAK': PetEventDefinition(
     id: 'ROOF_LEAK',
     title: 'Прохудилась крыша',
+    illustrationAsset: 'assets/events/roof_leak.webp',
     description: 'Ночью сильный ветер сдул пару веток с крыши, и теперь капает на пол. Нужна смола и береста для ремонта.',
     amount: 14,
     lesson: 'Непредвиденный ремонт жилья',
@@ -79,6 +86,7 @@ const petEventCatalog = <String, PetEventDefinition>{
   'BEAVER_DAM': PetEventDefinition(
     id: 'BEAVER_DAM',
     title: 'Лесной сбор Бобру',
+    illustrationAsset: 'assets/events/beaver_dam.webp',
     description: 'Бобры укрепили плотину и починили мостик к Лесной Ярмарке. Все жители леса сдают монетки на общее дело.',
     amount: 7,
     lesson: 'Налоги и общественная инфраструктура',
