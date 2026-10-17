@@ -19,6 +19,7 @@ import 'pet_care_screen.dart';
 import 'widgets/budget_plan_card.dart';
 import 'widgets/coin_distribution_sheet.dart';
 import 'widgets/dream_card.dart';
+import 'widgets/home_side_panel.dart';
 import 'widgets/pet_name_header.dart';
 import 'widgets/pet_scene.dart';
 import 'widgets/parent_tasks_card.dart';
@@ -712,8 +713,6 @@ class _HomeContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final sceneHeight = (width * 0.95).clamp(310.0, 470.0);
     final day = data.activeDay;
     PetEventOccurrence? activeEvent;
     if (data.activeEvent != null) {
@@ -723,227 +722,224 @@ class _HomeContent extends StatelessWidget {
         activeEvent = null;
       }
     }
+    final planNeeded = day != null && !day.isConfirmed;
     final planLabel = day == null
         ? 'Начать новый игровой день'
         : day.isConfirmed
         ? 'План на сегодня'
         : 'Составить план';
+    final panel = HomeSidePanel(
+      actions: [
+        HomePanelAction(
+          key: const Key('open-pet-care'),
+          // The tour's "stats" step: the pet's gauges live behind this
+          // button on the pet care screen.
+          tourKey: tourTargets?.stats,
+          icon: Icons.pets_rounded,
+          color: AppColors.leafGreen,
+          label: 'Забота о питомце',
+          onTap: onOpenCare,
+        ),
+        HomePanelAction(
+          key: const Key('distribute-earned-coins'),
+          // Coins, not a piggy: the piggy already means the Копилка tab.
+          icon: Icons.toll_rounded,
+          color: AppColors.coinGold,
+          label: 'Распределить заработанные монеты',
+          onTap: busy ? null : onOpenDistribution,
+        ),
+        HomePanelAction(
+          key: const Key('open-budget-plan'),
+          tourKey: tourTargets?.plan,
+          icon: day == null ? Icons.wb_sunny_rounded : Icons.checklist_rounded,
+          color: AppColors.crimson,
+          label: planLabel,
+          attention: day == null || planNeeded,
+          busy: busy,
+          onTap: busy ? null : onOpenPlan,
+        ),
+        HomePanelAction(
+          key: const Key('show-progress'),
+          icon: Icons.lightbulb_rounded,
+          color: AppColors.frostBlue,
+          label: 'Прогресс и подсказка',
+          onTap: onProgress,
+        ),
+      ],
+    );
 
-    return RefreshIndicator(
-      color: AppColors.crimson,
-      onRefresh: onRefresh,
-      child: ListView(
-        controller: tourTargets?.scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-        children: [
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: Column(
-                children: [
-                  Row(
+    return LayoutBuilder(
+      builder: (context, viewport) {
+        // The room fills the first screen under the name; the dream and the
+        // rest of the day start right below it.
+        final sceneHeight = (viewport.maxHeight - 150).clamp(380.0, 680.0);
+        return RefreshIndicator(
+          color: AppColors.crimson,
+          onRefresh: onRefresh,
+          child: ListView(
+            controller: tourTargets?.scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, 28),
+            children: [
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Column(
                     children: [
-                      SizedBox(
-                        key: tourTargets?.settings,
-                        width: 48,
-                        height: 48,
-                        child: IconButton(
-                          key: const Key('home-settings'),
-                          tooltip: 'Настройки',
-                          onPressed: onSettings,
-                          icon: const Icon(Icons.settings_rounded),
-                          color: AppColors.crimson,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                SizedBox(
+                                  key: tourTargets?.settings,
+                                  width: 48,
+                                  height: 48,
+                                  child: IconButton(
+                                    key: const Key('home-settings'),
+                                    tooltip: 'Настройки',
+                                    onPressed: onSettings,
+                                    icon: const Icon(Icons.settings_rounded),
+                                    color: AppColors.crimson,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.xs),
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
+                                    child: KeyedSubtree(
+                                      key: tourTargets?.wallet,
+                                      child: _CoinPill(
+                                        spendable: data.spendable,
+                                        savings: data.savings,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (offline) const _OfflineBanner(),
+                            Text(
+                              'Доброе утро,',
+                              style: AppTextStyles.supporting,
+                            ),
+                            KeyedSubtree(
+                              key: tourTargets?.identity,
+                              child: PetNameHeader(
+                                pet: data.pet,
+                                onRename: onRename,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.xs),
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: KeyedSubtree(
-                            key: tourTargets?.wallet,
-                            child: _CoinPill(
-                              spendable: data.spendable,
-                              savings: data.savings,
+                      const SizedBox(height: 10),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Stack(
+                          children: [
+                            KeyedSubtree(
+                              key: tourTargets?.pet,
+                              child: PetScene(
+                                key: const Key('home-pet-scene'),
+                                pet: data.pet,
+                                backgroundAsset:
+                                    'assets/backgrounds/home_room.webp',
+                                height: sceneHeight,
+                                petHeightFactor: 0.7,
+                                // Keeps the cat clear of the panel.
+                                petShiftX: 24,
+                                heroTag: 'home-pet',
+                              ),
                             ),
-                          ),
+                            Positioned(left: 10, top: 12, child: panel),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          children: [
+                            if (planNeeded) ...[
+                              const SizedBox(height: 10),
+                              Text(
+                                'Сначала распредели монеты — нажми на красную '
+                                'кнопку со списком. После этого откроются '
+                                'карта и магазин.',
+                                textAlign: TextAlign.center,
+                                style: AppTextStyles.swatchLabel.copyWith(
+                                  color: AppColors.crimson,
+                                ),
+                              ),
+                            ],
+                            if (energy.isRecovering) ...[
+                              const SizedBox(height: 10),
+                              _EnergyRecoveryNotice(
+                                energy: energy,
+                                isBusy: isRecoveringEnergy,
+                                onRecover: onRecoverEnergy,
+                              ),
+                            ],
+                            if (activeEvent != null) ...[
+                              const SizedBox(height: 10),
+                              KeyedSubtree(
+                                key: tourTargets?.event,
+                                child: PetEventBanner(
+                                  event: activeEvent,
+                                  petName: data.pet.name,
+                                  onPressed: onOpenEvent,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 16),
+                            DreamCard(goal: data.activeGoal, onTap: onOpenGoal),
+                            const SizedBox(height: 14),
+                            _QuickAction(
+                              key: const Key('finish-day'),
+                              icon: Icons.nights_stay_rounded,
+                              label: 'Завершить день',
+                              onTap:
+                                  day?.isConfirmed == true &&
+                                      day?.remainingReserve == 0 &&
+                                      !busy
+                                  ? onCloseDay
+                                  : null,
+                            ),
+                            if (day?.isConfirmed == true &&
+                                day!.remainingReserve > 0) ...[
+                              const SizedBox(height: 12),
+                              _QuickAction(
+                                key: const Key('open-shop-for-needs'),
+                                icon: Icons.shopping_basket_outlined,
+                                label:
+                                    'Открыть магазин · осталось ${day.remainingReserve} монет на обязательные покупки',
+                                onTap: busy ? null : onOpenShop,
+                              ),
+                            ],
+                            if (data.parentTasks.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              ParentTasksCard(
+                                tasks: data.parentTasks,
+                                busy: busy,
+                                onSubmit: onSubmitParentTask,
+                              ),
+                            ],
+                            if (recentDays.isNotEmpty) ...[
+                              const SizedBox(height: 16),
+                              RecentDaysCard(days: recentDays),
+                            ],
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  if (offline) const _OfflineBanner(),
-                  Text('Доброе утро,', style: AppTextStyles.supporting),
-                  KeyedSubtree(
-                    key: tourTargets?.identity,
-                    child: PetNameHeader(pet: data.pet, onRename: onRename),
-                  ),
-                  const SizedBox(height: 10),
-                  KeyedSubtree(
-                    key: tourTargets?.pet,
-                    child: PetScene(
-                      key: const Key('home-pet-scene'),
-                      pet: data.pet,
-                      backgroundAsset: 'assets/backgrounds/home_room.webp',
-                      height: sceneHeight,
-                      petHeightFactor: 0.68,
-                      heroTag: 'home-pet',
-                    ),
-                  ),
-                  if (energy.isRecovering) ...[
-                    const SizedBox(height: 10),
-                    _EnergyRecoveryNotice(
-                      energy: energy,
-                      isBusy: isRecoveringEnergy,
-                      onRecover: onRecoverEnergy,
-                    ),
-                  ],
-                  if (activeEvent != null) ...[
-                    const SizedBox(height: 10),
-                    KeyedSubtree(
-                      key: tourTargets?.event,
-                      child: PetEventBanner(
-                        event: activeEvent,
-                        petName: data.pet.name,
-                        onPressed: onOpenEvent,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    // The tour's "stats" step: the pet's gauges live behind
-                    // this button on the pet care screen.
-                    key: tourTargets?.stats,
-                    width: double.infinity,
-                    height: 52,
-                    child: OutlinedButton.icon(
-                      key: const Key('open-pet-care'),
-                      onPressed: onOpenCare,
-                      icon: const Icon(Icons.pets_rounded),
-                      label: const Text('Забота о питомце'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.crimson,
-                        side: const BorderSide(color: AppColors.crimson),
-                        shape: const StadiumBorder(),
-                        textStyle: AppTextStyles.cardRowLabel,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  DreamCard(goal: data.activeGoal, onTap: onOpenGoal),
-                  const SizedBox(height: 16),
-                  KeyedSubtree(
-                    key: tourTargets?.plan,
-                    child: _PlanButton(
-                      label: planLabel,
-                      busy: busy,
-                      pulse: day != null && !day.isConfirmed,
-                      onPressed: busy ? null : onOpenPlan,
-                    ),
-                  ),
-                  if (day != null && !day.isConfirmed) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Сначала распредели монеты — после этого откроются карта и магазин.',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.swatchLabel.copyWith(
-                        color: AppColors.crimson,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 66,
-                    child: OutlinedButton(
-                      key: const Key('distribute-earned-coins'),
-                      onPressed: busy ? null : onOpenDistribution,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.crimson,
-                        backgroundColor: AppColors.infoBg,
-                        side: const BorderSide(color: AppColors.coinGold),
-                        shape: const StadiumBorder(),
-                        textStyle: AppTextStyles.button.copyWith(
-                          color: AppColors.crimson,
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.savings_rounded),
-                          SizedBox(width: 10),
-                          Flexible(
-                            child: Text(
-                              'Распределить заработанные монеты',
-                              maxLines: 2,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final stack = constraints.maxWidth < 430;
-                      final finish = _QuickAction(
-                        key: const Key('finish-day'),
-                        icon: Icons.nights_stay_rounded,
-                        label: 'Завершить день',
-                        onTap:
-                            day?.isConfirmed == true &&
-                                day?.remainingReserve == 0 &&
-                                !busy
-                            ? onCloseDay
-                            : null,
-                      );
-                      const gap = SizedBox(width: 12, height: 12);
-                      final progress = _QuickAction(
-                        key: const Key('show-progress'),
-                        icon: Icons.lightbulb_rounded,
-                        label: 'Прогресс и подсказка',
-                        onTap: onProgress,
-                      );
-                      return stack
-                          ? Column(children: [finish, gap, progress])
-                          : Row(
-                              children: [
-                                Expanded(child: finish),
-                                gap,
-                                Expanded(child: progress),
-                              ],
-                            );
-                    },
-                  ),
-                  if (day?.isConfirmed == true &&
-                      day!.remainingReserve > 0) ...[
-                    const SizedBox(height: 12),
-                    _QuickAction(
-                      key: const Key('open-shop-for-needs'),
-                      icon: Icons.shopping_basket_outlined,
-                      label:
-                          'Открыть магазин · осталось ${day.remainingReserve} монет на обязательные покупки',
-                      onTap: busy ? null : onOpenShop,
-                    ),
-                  ],
-                  if (data.parentTasks.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    ParentTasksCard(
-                      tasks: data.parentTasks,
-                      busy: busy,
-                      onSubmit: onSubmitParentTask,
-                    ),
-                  ],
-                  if (recentDays.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    RecentDaysCard(days: recentDays),
-                  ],
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1104,95 +1100,6 @@ class _QuickAction extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadii.md),
           ),
           textStyle: AppTextStyles.cardRowLabel,
-        ),
-      ),
-    );
-  }
-}
-
-class _PlanButton extends StatefulWidget {
-  const _PlanButton({
-    required this.label,
-    required this.busy,
-    required this.pulse,
-    required this.onPressed,
-  });
-
-  final String label;
-  final bool busy;
-  final bool pulse;
-  final VoidCallback? onPressed;
-
-  @override
-  State<_PlanButton> createState() => _PlanButtonState();
-}
-
-class _PlanButtonState extends State<_PlanButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 520),
-    lowerBound: 0,
-    upperBound: 1,
-  );
-  bool _started = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _startIfNeeded();
-  }
-
-  @override
-  void didUpdateWidget(covariant _PlanButton oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!oldWidget.pulse && widget.pulse) _started = false;
-    _startIfNeeded();
-  }
-
-  void _startIfNeeded() {
-    if (_started || !widget.pulse || MediaQuery.disableAnimationsOf(context)) {
-      return;
-    }
-    _started = true;
-    _controller.repeat(reverse: true, count: 3);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) =>
-          Transform.scale(scale: 1 + (_controller.value * 0.018), child: child),
-      child: SizedBox(
-        width: double.infinity,
-        height: 58,
-        child: FilledButton.icon(
-          key: const Key('open-budget-plan'),
-          onPressed: widget.onPressed,
-          icon: widget.busy
-              ? const SizedBox.square(
-                  dimension: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    color: Colors.white,
-                  ),
-                )
-              : const Icon(Icons.assignment_rounded),
-          label: Text(widget.label),
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.crimson,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: AppColors.crimsonFaded,
-            shape: const StadiumBorder(),
-            textStyle: AppTextStyles.button,
-          ),
         ),
       ),
     );

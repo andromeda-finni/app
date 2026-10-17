@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
+import '../models/artifact_catalog.dart';
 import '../models/home_economy_state.dart';
 
 class DreamCard extends StatelessWidget {
@@ -12,6 +13,9 @@ class DreamCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final currentGoal = goal;
+    final artAsset = currentGoal == null
+        ? null
+        : artifactDefinition(currentGoal.itemId)?.assetPath;
     return Material(
       color: AppColors.cardBg,
       shape: RoundedRectangleBorder(
@@ -35,11 +39,21 @@ class DreamCard extends StatelessWidget {
                     color: AppColors.infoBg,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.auto_awesome_rounded,
-                    size: 42,
-                    color: AppColors.coinGold,
-                  ),
+                  child: artAsset == null
+                      ? const Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 42,
+                          color: AppColors.coinGold,
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Image.asset(
+                            artAsset,
+                            key: const Key('dream-card-art'),
+                            fit: BoxFit.contain,
+                            excludeFromSemantics: true,
+                          ),
+                        ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(

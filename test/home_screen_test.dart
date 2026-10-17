@@ -169,9 +169,18 @@ void main() {
     expect(find.text('Грошик'), findsOneWidget);
     expect(find.text('Моя мечта'), findsOneWidget);
     expect(find.text('Воздушный змей'), findsOneWidget);
-    expect(find.text('Начать новый игровой день'), findsOneWidget);
+    // The side panel's buttons are pictures; their names stay available
+    // as tooltips and to screen readers.
+    for (final label in [
+      'Забота о питомце',
+      'Распределить заработанные монеты',
+      'Начать новый игровой день',
+      'Прогресс и подсказка',
+    ]) {
+      expect(find.byTooltip(label), findsOneWidget);
+      expect(find.bySemanticsLabel(label), findsOneWidget);
+    }
     expect(find.text('Завершить день'), findsOneWidget);
-    expect(find.text('Прогресс и подсказка'), findsOneWidget);
     expect(find.text('Сытость'), findsNothing);
     expect(find.byKey(const Key('home-pet-scene')), findsOneWidget);
   });

@@ -15,6 +15,7 @@ class PetScene extends StatefulWidget {
     this.height = 340,
     this.backgroundAlignment = Alignment.center,
     this.petHeightFactor = 0.7,
+    this.petShiftX = 0,
     this.heroTag,
   });
 
@@ -23,6 +24,10 @@ class PetScene extends StatefulWidget {
   final double height;
   final Alignment backgroundAlignment;
   final double petHeightFactor;
+
+  /// Horizontal offset of the pet from the centre, for scenes whose left or
+  /// right edge carries overlaid controls.
+  final double petShiftX;
   final String? heroTag;
 
   @override
@@ -121,10 +126,13 @@ class _PetSceneState extends State<PetScene>
                     child: AnimatedBuilder(
                       animation: _scale,
                       child: petImage,
-                      builder: (context, child) => Transform.scale(
-                        scale: _scale.value,
-                        alignment: Alignment.bottomCenter,
-                        child: child,
+                      builder: (context, child) => Transform.translate(
+                        offset: Offset(widget.petShiftX, 0),
+                        child: Transform.scale(
+                          scale: _scale.value,
+                          alignment: Alignment.bottomCenter,
+                          child: child,
+                        ),
                       ),
                     ),
                   ),
