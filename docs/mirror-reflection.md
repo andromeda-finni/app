@@ -1,7 +1,7 @@
 # Фигурное зеркало с отражением
 
 Локальная ветка: `codex/fairytale-mirror-reflection`, основана на
-`origin/main` (`5a124fb`, получен 17 октября 2026).
+`origin/main` (`5a124fb`), синхронизирована с `0457a86` 17 октября 2026.
 
 ## Поведение
 
@@ -50,15 +50,11 @@ node tool/serve_mirror_preview.cjs
 
 ## Проверки
 
-- 30 тестов `day_summary_test.dart` и `home_screen_test.dart`: успешно.
+- Полный набор Flutter: 351 тест успешно, 1 тест пропущен штатно — для
+  `offline_server_parity_test.dart` нужен локальный backend и `OFFLINE_PARITY_URL`.
 - Проверены передача питомца из завершения дня, окрас и настроение отражения,
   семантическое описание, ширина 320 и шрифт 200%, кнопка продолжения.
 - Проверка геометрии всех шести плашек на ширинах 320, 390 и 430 px с масштабом
   текста 100% и 200%: плашки вместе с запасом 12 px целиком внутри контура
   стекла и не касаются рамы.
 - `flutter analyze`: без замечаний. Web-сборка: успешно.
-- Предыдущий полный прогон до корректировки отступов: 275 успешно, 2 сбоя загрузки изображения
-  `assets/games/goldfish/goldfish.webp`. Оба сбоя воспроизведены в отдельной
-  чистой рабочей копии `origin/main` на том же коммите:
-  `goldfish_game_test.dart` — `dialogue is paged and shows only the current speaker`;
-  `quest_map_test.dart` — `an advanced child gets the hard Goldfish level`.
