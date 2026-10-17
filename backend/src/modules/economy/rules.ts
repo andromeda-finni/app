@@ -6,6 +6,7 @@ export const ECONOMY_RULES = {
   dailyQuestLimit: 3,
   bootsQuestLimit: 4,
   parentRewardLimit: 10,
+  /** Quick-pick buttons on the Копилка screen; any amount is accepted. */
   savingsTransferAmounts: [5, 10] as const,
   eventProbability: 0.7,
   firstEventDay: 2,

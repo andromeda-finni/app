@@ -438,6 +438,18 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         await _load(showLoader: false);
         _showArtifactEffects(response['artifactEffects']);
+        if (mounted && response['offline'] == true) {
+          // Closed without a connection: the full summary is calculated by
+          // the server after the sync; the day already shows in the history.
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${response['feedback'] ?? 'День завершён.'} '
+                'Подробные итоги появятся, когда вернётся интернет.',
+              ),
+            ),
+          );
+        }
         if (!mounted || summary == null) return;
         await Navigator.of(context).push<void>(
           MaterialPageRoute(

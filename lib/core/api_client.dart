@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'auth_storage.dart';
+import 'offline/offline_sync.dart';
 
 /// Override at build/run time: `flutter run --dart-define=API_BASE_URL=http://192.168.1.23:3000`
 /// (needed for a physical device, which can't reach the dev machine via
@@ -31,6 +32,15 @@ class ApiException implements Exception {
   final Object? details;
 
   bool get isNetworkError => statusCode == 0;
+
+  /// The server could not serve the request at all: no connection, or it
+  /// answered with a 5xx (e.g. its database is down). Either way the child
+  /// app keeps playing offline.
+  bool get isServerUnavailable => isNetworkError || statusCode >= 500;
+
+  /// The action was saved on the device and will reach the server once the
+  /// connection returns.
+  bool get isSavedOffline => code == 'saved_offline';
 
   @override
   String toString() => 'ApiException($statusCode, $code)';
@@ -71,6 +81,7 @@ class ApiClient {
     http.Client? httpClient,
     AuthStorage? authStorage,
     String? baseUrl,
+    this.offline,
   }) : _http = httpClient ?? http.Client(),
        _authStorage = authStorage ?? AuthStorage(),
        baseUrl =
@@ -79,11 +90,17 @@ class ApiClient {
                ? _baseUrlOverride
                : _defaultBaseUrl()) {
     _assertTransportIsSafe(this.baseUrl);
+    offline?.probe = _probe;
   }
 
   final http.Client _http;
   final AuthStorage _authStorage;
   final String baseUrl;
+
+  /// Present only on the child app's client: keeps the game usable without a
+  /// connection (see [OfflineSync]). Without it every request goes straight
+  /// to the network, as before.
+  final OfflineSync? offline;
 
   Future<Map<String, dynamic>> post(
     String path, {
@@ -129,6 +146,77 @@ class ApiClient {
   }
 
   Future<Object?> _send(
+    String method,
+    String path, {
+    Map<String, dynamic>? body,
+    required bool auth,
+  }) async {
+    final sync = offline;
+    // Unauthenticated calls (registration) have no child data to keep.
+    if (sync == null || !auth) {
+      return _sendNetwork(method, path, body: body, auth: auth);
+    }
+    final token = await _authStorage.readToken();
+    if (token == null) {
+      return _sendNetwork(method, path, body: body, auth: auth);
+    }
+    await sync.useToken(token);
+
+    ApiException? networkError;
+    if (sync.shouldSkipNetwork) {
+      networkError = ApiException(0, 'network_error');
+    } else if (sync.hasPending &&
+        !await sync.flush(_sendQueued, serverHealthy: _serverHealthy)) {
+      // The server must see queued actions before anything new, so while
+      // they cannot be delivered this request is answered offline too.
+      networkError = ApiException(0, 'network_error');
+    } else {
+      try {
+        final result = await _sendNetwork(method, path, body: body, auth: auth);
+        sync.markOnline();
+        if (method == 'GET') await sync.remember(path, result);
+        return result;
+      } on ApiException catch (error) {
+        if (!error.isServerUnavailable) rethrow;
+        sync.markOffline();
+        networkError = error;
+      }
+    }
+    return sync.fallback(method, path, body, networkError);
+  }
+
+  Future<Object?> _sendQueued(
+    String method,
+    String path,
+    Map<String, dynamic>? body,
+  ) => _sendNetwork(method, path, body: body, auth: true);
+
+  /// Whether the server can actually work: `/health` answers 200 only when
+  /// its database is reachable.
+  Future<bool> _serverHealthy() async {
+    try {
+      await _sendNetwork('GET', '/health', auth: false);
+      return true;
+    } on ApiException {
+      return false;
+    }
+  }
+
+  /// Called periodically while offline or while actions wait in the queue.
+  Future<void> _probe() async {
+    final sync = offline;
+    if (sync == null) return;
+    if (!await _serverHealthy()) {
+      sync.markOffline();
+      return;
+    }
+    sync.markOnline();
+    if (sync.hasPending) {
+      await sync.flush(_sendQueued, serverHealthy: _serverHealthy);
+    }
+  }
+
+  Future<Object?> _sendNetwork(
     String method,
     String path, {
     Map<String, dynamic>? body,

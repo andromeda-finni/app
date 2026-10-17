@@ -6,7 +6,6 @@ import { withIdempotency } from "../../lib/idempotency.js";
 import { bodySchema, idempotencyKeySchema } from "../../lib/schema.js";
 import { HttpError } from "../../lib/errors.js";
 import { lockGoalOwner, requireGoal } from "../economy/goals.js";
-import { ECONOMY_RULES } from "../economy/rules.js";
 
 export async function walletRoutes(app: FastifyInstance): Promise<void> {
   app.get(
@@ -63,9 +62,10 @@ export async function walletRoutes(app: FastifyInstance): Promise<void> {
         preHandler: [requireAuth, requireRole("CHILD")],
         schema: bodySchema(
           {
-            // Transfers use the fixed steps published in ECONOMY_RULES; the
-            // client offers only these, so any other amount is a forged call.
-            amount: { type: "integer", enum: [...ECONOMY_RULES.savingsTransferAmounts] },
+            // Any whole number of coins: the child picks the amount in the
+            // coin distribution sheet. Balance, food reserve and goal rules
+            // below decide whether it can actually move.
+            amount: { type: "integer", minimum: 1, maximum: 100000 },
             idempotencyKey: idempotencyKeySchema,
           },
           ["amount", "idempotencyKey"],

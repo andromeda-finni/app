@@ -8,6 +8,7 @@ import 'core/auth_storage.dart';
 import 'core/child_difficulty.dart';
 import 'core/game_audio_service.dart';
 import 'core/large_text.dart';
+import 'core/offline/offline_sync.dart';
 import 'home/main_shell.dart';
 import 'home/pet_home_screen.dart';
 import 'onboarding/onboarding_data.dart';
@@ -163,7 +164,10 @@ class _StartupGate extends StatefulWidget {
 
 class _StartupGateState extends State<_StartupGate> {
   late final AuthStorage _authStorage = widget.authStorage ?? AuthStorage();
-  late final ApiClient _api = widget.apiClient ?? ApiClient();
+  // The child app is offline-first: it keeps the last state on the device
+  // and queues core-loop actions until the server is reachable again.
+  late final ApiClient _api =
+      widget.apiClient ?? ApiClient(offline: OfflineSync());
   _StartupState _state = _StartupState.checking;
   OnboardingResumeState _onboarding = OnboardingResumeState.fresh();
 

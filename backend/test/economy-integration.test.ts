@@ -52,6 +52,14 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
     assert.equal(registration.statusCode, 201);
     const { token, userId } = registration.json();
     const headers = { authorization: `Bearer ${token}` };
+    // Every economy read starts from the pet; onboarding creates it first.
+    const pet = await app.inject({
+      method: "POST",
+      url: "/pet",
+      headers,
+      payload: { petName: "Мурзик", furOptionId: "FUR_GRAY" },
+    });
+    assert.ok(pet.statusCode < 300, pet.body);
     const advancedQuests = await app.inject({
       method: "GET",
       url: "/quests",
@@ -134,8 +142,9 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
     assert.equal((await state()).wallets.SAVINGS, 20);
     await post('/savings/withdraw', { amount: -5, idempotencyKey: 'negative' }, 400);
     // Only the published transfer steps are accepted.
-    await post('/savings/deposit', { amount: 3, idempotencyKey: 'odd-step' }, 400);
-    await post('/savings/withdraw', { amount: 100, idempotencyKey: 'not-a-step' }, 400);
+    await post('/savings/deposit', { amount: 0, idempotencyKey: 'zero-amount' }, 400);
+    await post('/savings/deposit', { amount: 2.5, idempotencyKey: 'fractional' }, 400);
+    await post('/savings/withdraw', { amount: 100, idempotencyKey: 'more-than-all' }, 409);
     await post('/savings/withdraw', { amount: 10, idempotencyKey: 'more-than-saved-1' });
     await post('/savings/withdraw', { amount: 10, idempotencyKey: 'more-than-saved-2' });
     await post('/savings/withdraw', { amount: 5, idempotencyKey: 'more-than-saved' }, 409);
@@ -178,8 +187,7 @@ test("goal lifecycle, protected savings, replay, frost and ledger reconciliation
     assert.deepEqual((await state()).wallets, earlyBefore);
     const chest = await post('/frost-chests', { principalAmount: 20, idempotencyKey: 'mature' }, 201);
     await post(`/frost-chests/${chest.id}/collect`, {}, 400);
-    // Create a pet for actual day closure, then complete five real days.
-    await pool.query(`INSERT INTO pets (child_user_id, pet_name, fur_option_id) VALUES ($1, 'Тест', 'FUR_GRAY')`, [userId]);
+    // Complete five real days with the pet created at the start.
     let dayId = day.periodId;
     for (let i = 0; i < 5; i++) {
       if (i > 0) {
