@@ -1,0 +1,368 @@
+{
+  "checkedAt": "2026-10-17T14:49:50.1284268Z",
+  "expectedCount": 18,
+  "actualPngCount": 18,
+  "allPassed": true,
+  "assets": [
+    {
+      "file": "pantry_background.png",
+      "passed": true,
+      "sha256": "074462299fadb5a0d5e0cf4ecf1757a2c9246c78c8c1e2138835a67666e7c71c",
+      "info": {
+        "width": 941,
+        "height": 1672,
+        "transparentPixels": 0,
+        "partialAlphaPixels": 0,
+        "opaquePixels": 1573352,
+        "hasTransparency": false,
+        "visibleBounds": {
+          "left": 0,
+          "top": 0,
+          "right": 940,
+          "bottom": 1671
+        },
+        "touchesEdge": true
+      }
+    },
+    {
+      "file": "chute_upper_left.png",
+      "passed": true,
+      "sha256": "038fbd45598451ffdbd863e397f3b55c7f4e9a94e9df12addb5fa24f6b06ecb2",
+      "info": {
+        "width": 1536,
+        "height": 1024,
+        "transparentPixels": 1123994,
+        "partialAlphaPixels": 448870,
+        "opaquePixels": 0,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 107,
+          "top": 22,
+          "right": 1396,
+          "bottom": 998
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "chute_lower_left.png",
+      "passed": true,
+      "sha256": "240eb15330820a27b290b627c81cccd4e099d9856371c31c41a2626f1c1af6c5",
+      "info": {
+        "width": 1536,
+        "height": 1024,
+        "transparentPixels": 1137648,
+        "partialAlphaPixels": 435216,
+        "opaquePixels": 0,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 77,
+          "top": 43,
+          "right": 1418,
+          "bottom": 990
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "chute_upper_right.png",
+      "passed": true,
+      "sha256": "33c5f93c9b737bdb4b0da39357b28778f672193e3f57311f1a42aecc68d5b1d8",
+      "info": {
+        "width": 1536,
+        "height": 1024,
+        "transparentPixels": 1104729,
+        "partialAlphaPixels": 468135,
+        "opaquePixels": 0,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 228,
+          "top": 22,
+          "right": 1439,
+          "bottom": 982
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "chute_lower_right.png",
+      "passed": true,
+      "sha256": "3cf07b19b187dec91241086c475119a5565f986d1d94ad7a568be49bf781611a",
+      "info": {
+        "width": 1536,
+        "height": 1024,
+        "transparentPixels": 1099787,
+        "partialAlphaPixels": 473077,
+        "opaquePixels": 0,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 197,
+          "top": 40,
+          "right": 1429,
+          "bottom": 981
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "cat_catch_upper_left.png",
+      "passed": true,
+      "sha256": "669913b4743b81ff6df46bd9a971f600847c3bc29b1053037207530d35d3edd9",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 880260,
+        "partialAlphaPixels": 691700,
+        "opaquePixels": 556,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 126,
+          "top": 81,
+          "right": 1178,
+          "bottom": 1192
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "cat_catch_lower_left.png",
+      "passed": true,
+      "sha256": "5e8efaabef736cc330d9edc7c1debacfc3ae83349789e8e70363667c902af49e",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 903866,
+        "partialAlphaPixels": 668116,
+        "opaquePixels": 534,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 100,
+          "top": 92,
+          "right": 1188,
+          "bottom": 1184
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "cat_catch_upper_right.png",
+      "passed": true,
+      "sha256": "497589eb1c17195b8db3dd0638958ced6a93bbdc6d8cb9a1aaacc58dc2fb9ca3",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 846445,
+        "partialAlphaPixels": 725609,
+        "opaquePixels": 462,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 104,
+          "top": 80,
+          "right": 1191,
+          "bottom": 1192
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "cat_catch_lower_right.png",
+      "passed": true,
+      "sha256": "18056e8e1cc82f146023dbd4e17c37c0ff60effee12704ac1dee204265237df6",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 883724,
+        "partialAlphaPixels": 688259,
+        "opaquePixels": 533,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 100,
+          "top": 74,
+          "right": 1212,
+          "bottom": 1199
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "cat_idle.png",
+      "passed": true,
+      "sha256": "bade9f18c7481fafff1e4821be175df3148a8cf9e7009da256f9ebf8b60a91bb",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 857411,
+        "partialAlphaPixels": 714869,
+        "opaquePixels": 236,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 228,
+          "top": 64,
+          "right": 1154,
+          "bottom": 1195
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "cat_happy.png",
+      "passed": true,
+      "sha256": "3cd908d2bc4963e95f0b31909d626ee727e4d60d7637a54ed4ee874f7a099f9c",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 920837,
+        "partialAlphaPixels": 651548,
+        "opaquePixels": 131,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 262,
+          "top": 13,
+          "right": 1138,
+          "bottom": 1233
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "cat_miss.png",
+      "passed": true,
+      "sha256": "62d9dbcd4cf954866292aef206585327cd7b577f37475b43331a517c4bfbc31a",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 960878,
+        "partialAlphaPixels": 611472,
+        "opaquePixels": 166,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 263,
+          "top": 55,
+          "right": 1121,
+          "bottom": 1206
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "cat_tired.png",
+      "passed": true,
+      "sha256": "dd90ef7dc12e63f7f0557dd3a97b5101253dc94b7350b2b4e941ba15750bc5f3",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 821593,
+        "partialAlphaPixels": 750708,
+        "opaquePixels": 215,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 111,
+          "top": 57,
+          "right": 1223,
+          "bottom": 1186
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "food_fish.png",
+      "passed": true,
+      "sha256": "7be0db500f578bb102ab2bdf2862f0785453f885c4a1829ee969852c0625789e",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 1100154,
+        "partialAlphaPixels": 471994,
+        "opaquePixels": 368,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 100,
+          "top": 350,
+          "right": 1188,
+          "bottom": 928
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "food_crumbs.png",
+      "passed": true,
+      "sha256": "059d3c235f9597f337a26f946fa00805fe6bbd01787fa418588ec606d73cf007",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 1436750,
+        "partialAlphaPixels": 135428,
+        "opaquePixels": 338,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 262,
+          "top": 564,
+          "right": 1044,
+          "bottom": 958
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "catch_sparkle.png",
+      "passed": true,
+      "sha256": "1a54bdb196dad59e4873fd8038693566ec9d0b4ebe572955445ad51e6f6ce1b4",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 1491867,
+        "partialAlphaPixels": 80488,
+        "opaquePixels": 161,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 183,
+          "top": 396,
+          "right": 1085,
+          "bottom": 823
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "game_entry.png",
+      "passed": true,
+      "sha256": "23118e7b6f4597f6060126593840b483d0427d74648fa034445de3c50d420ab4",
+      "info": {
+        "width": 1536,
+        "height": 1024,
+        "transparentPixels": 0,
+        "partialAlphaPixels": 0,
+        "opaquePixels": 1572864,
+        "hasTransparency": false,
+        "visibleBounds": {
+          "left": 0,
+          "top": 0,
+          "right": 1535,
+          "bottom": 1023
+        },
+        "touchesEdge": true
+      }
+    },
+    {
+      "file": "food_spoiled.png",
+      "passed": true,
+      "sha256": "8573c8f0efa412605dbb9e177564540ed65f94c1f659e51a4e8057f81189a75f",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 828495,
+        "partialAlphaPixels": 743707,
+        "opaquePixels": 314,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 114,
+          "top": 176,
+          "right": 1160,
+          "bottom": 1112
+        },
+        "touchesEdge": false
+      }
+    }
+  ]
+}

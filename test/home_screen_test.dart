@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/fake_auth_storage.dart';
+import 'support/pump_catch_food.dart';
 
 const _periodId = '11111111-1111-1111-1111-111111111111';
 const _activePetEvent = {
@@ -160,7 +161,9 @@ void main() {
     });
   });
 
-  testWidgets('home contains only the day flow and dream', (tester) async {
+  testWidgets('home contains the day flow, dream and repeatable mini-game', (
+    tester,
+  ) async {
     await _pump(
       tester,
       _screen(handler: (_) async => _json(_economy(activeDay: null))),
@@ -183,7 +186,52 @@ void main() {
     expect(find.text('Завершить день'), findsOneWidget);
     expect(find.text('Сытость'), findsNothing);
     expect(find.byKey(const Key('home-pet-scene')), findsOneWidget);
+    expect(find.byKey(const Key('open-catch-food')), findsOneWidget);
   });
+
+  testWidgets(
+    'catch food opens without a game day and refreshes home on return',
+    (tester) async {
+      var homeLoads = 0;
+      var starts = 0;
+      await _pump(
+        tester,
+        _screen(
+          handler: (request) async {
+            if (request.url.path == '/minigames/catch-food') {
+              return _json({
+                'config': {
+                  'energyCost': 20,
+                  'durationMs': 60000,
+                  'maxMisses': 3,
+                  'travelMs': 2400,
+                  'firstSpawnMs': 600,
+                  'initialSpawnMs': 1300,
+                  'minimumSpawnMs': 700,
+                  'catchWindowMs': 180,
+                  'spoiledFoodPercent': 20,
+                },
+                'pet': _pet(),
+                'bestScore': 0,
+              });
+            }
+            if (request.url.path.endsWith('/start')) starts++;
+            homeLoads++;
+            return _json(_economy(activeDay: null));
+          },
+        ),
+      );
+      await tester.ensureVisible(find.byKey(const Key('open-catch-food')));
+      await tester.tap(find.byKey(const Key('open-catch-food')));
+      await pumpCatchFoodReady(tester);
+      expect(find.byKey(const Key('catch-food-start')), findsOneWidget);
+      expect(starts, 0);
+      await tester.tap(find.byTooltip('Назад'));
+      await tester.pumpAndSettle();
+      expect(homeLoads, 2);
+      expect(find.byKey(const Key('home-pet-scene')), findsOneWidget);
+    },
+  );
 
   testWidgets('stroking the pet raises joy from the server answer', (
     tester,

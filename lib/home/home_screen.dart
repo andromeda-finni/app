@@ -8,6 +8,8 @@ import '../day_summary/day_summary_screen.dart';
 import '../events/pet_event_dialog.dart';
 import '../events/pet_event_indicator.dart';
 import '../events/pet_event_models.dart';
+import '../minigames/catch_food/catch_food_entry_card.dart';
+import '../minigames/catch_food/catch_food_screen.dart';
 import '../pet/pet_energy_status.dart';
 import '../services/pet_event_service.dart';
 import '../theme/app_theme.dart';
@@ -673,6 +675,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onSettings: _showSettings,
         onOpenMenu: widget.onOpenMenu,
         onOpenCare: _openCare,
+        onOpenCatchFood: _openCatchFood,
         onOpenGoal: widget.onChooseGoal ?? _showProgress,
         onOpenShop: widget.onOpenShop ?? _showProgress,
         onOpenPlan: _openPlan,
@@ -686,6 +689,15 @@ class _HomeScreenState extends State<HomeScreen> {
         tourTargets: widget.tourTargets,
       ),
     };
+  }
+
+  Future<void> _openCatchFood() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => CatchFoodScreen(apiClient: widget.apiClient),
+      ),
+    );
+    if (mounted) await _load(showLoader: false);
   }
 }
 
@@ -704,6 +716,7 @@ class _HomeContent extends StatelessWidget {
     required this.onSettings,
     this.onOpenMenu,
     required this.onOpenCare,
+    required this.onOpenCatchFood,
     required this.onOpenGoal,
     required this.onOpenShop,
     required this.onOpenPlan,
@@ -728,6 +741,7 @@ class _HomeContent extends StatelessWidget {
   final VoidCallback onSettings;
   final ValueChanged<BuildContext>? onOpenMenu;
   final VoidCallback onOpenCare;
+  final VoidCallback onOpenCatchFood;
   final VoidCallback onOpenGoal;
   final VoidCallback onOpenShop;
   final VoidCallback onOpenPlan;
@@ -930,6 +944,10 @@ class _HomeContent extends StatelessWidget {
                             ],
                             const SizedBox(height: 16),
                             DreamCard(goal: data.activeGoal, onTap: onOpenGoal),
+                            const SizedBox(height: 14),
+                            CatchFoodEntryCard(
+                              onTap: busy || offline ? null : onOpenCatchFood,
+                            ),
                             const SizedBox(height: 14),
                             _QuickAction(
                               key: const Key('finish-day'),
