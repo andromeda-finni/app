@@ -1,3 +1,5 @@
+import 'wallet_balances.dart';
+
 int _asInt(Object? value) =>
     value is num ? value.toInt() : int.tryParse('${value ?? ''}') ?? 0;
 
@@ -229,7 +231,7 @@ final class EconomyState {
 
   factory EconomyState.fromJson(Map<String, dynamic> json) {
     final pet = _asMap(json['pet']) ?? const {};
-    final wallets = _asMap(json['wallets']) ?? const {};
+    final wallets = WalletBalances.fromJson(json['wallets']);
     final dayJson = _asMap(json['activeDay']);
     return EconomyState(
       rules: EconomyRules.fromJson(
@@ -240,9 +242,9 @@ final class EconomyState {
       petName: pet['pet_name'] as String? ?? 'Питомец',
       energy: _asInt(pet['energy_level']),
       joy: _asInt(pet['joy_level']),
-      wallet: _asInt(wallets['SPENDABLE']),
-      savings: _asInt(wallets['SAVINGS']),
-      frozen: _asInt(wallets['FROZEN']),
+      wallet: wallets.spendable,
+      savings: wallets.savings,
+      frozen: wallets.frozen,
       day: dayJson == null ? null : EconomyDay.fromJson(dayJson),
       event: _asMap(json['activeEvent']),
       isInsuredForNextDay: _asMap(json['activeInsurance']) != null,

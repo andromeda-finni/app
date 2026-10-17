@@ -1,3 +1,5 @@
+import '../economy/wallet_balances.dart';
+
 /// A linked child's progress as `GET /parent/children/:id/overview` returns
 /// it. Parsing lives here so the dashboard only deals with ready values.
 class ChildOverview {
@@ -16,8 +18,9 @@ class ChildOverview {
   int get satiety => _int(_pet['energy_level'], 100);
   int get joy => _int(_pet['joy_level'], 50);
 
-  int get wallet => _int(_map(_json['wallets'])?['SPENDABLE']);
-  int get savings => _int(_map(_json['wallets'])?['SAVINGS']);
+  WalletBalances get _wallets => WalletBalances.fromJson(_json['wallets']);
+  int get wallet => _wallets.spendable;
+  int get savings => _wallets.savings;
 
   String? get goalName => _map(_json['goal'])?['name'] as String?;
   int get goalTarget => _int(_map(_json['goal'])?['target_amount']);

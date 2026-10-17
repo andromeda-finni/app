@@ -164,6 +164,47 @@ void main() {
     expect(find.byKey(const Key('home-pet-scene')), findsOneWidget);
   });
 
+  testWidgets('home shows spendable coins after money moves to savings', (
+    tester,
+  ) async {
+    final state = _economy(
+      activeDay: _draftDay(need: 10, want: 10, savings: 10),
+    );
+    state['wallets'] = {'MAIN': 30, 'SPENDABLE': 30, 'SAVINGS': 0};
+    await _pump(
+      tester,
+      _screen(
+        handler: (request) async {
+          if (request.url.path.endsWith('/budget-plan/confirm')) {
+            state['wallets'] = {'MAIN': 30, 'SPENDABLE': 20, 'SAVINGS': 10};
+            (state['activeDay'] as Map<String, dynamic>)['budget_plan_status'] =
+                'CONFIRMED';
+          }
+          return _json(state);
+        },
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('open-budget-plan')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Утвердить план'));
+    await tester.pumpAndSettle();
+
+    expect((state['wallets'] as Map<String, dynamic>)['SPENDABLE'], 20);
+    expect(
+      (state['activeDay'] as Map<String, dynamic>)['budget_plan_status'],
+      'CONFIRMED',
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == 'Доступно 20 монет. В копилке 10 монет.',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('pet care is a separate screen and returns home', (tester) async {
     await _pump(
       tester,

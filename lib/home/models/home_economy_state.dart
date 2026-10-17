@@ -1,3 +1,4 @@
+import '../../economy/wallet_balances.dart';
 import 'active_period.dart';
 import 'artifact_catalog.dart';
 import 'parent_task.dart';
@@ -131,9 +132,7 @@ class HomeEconomyState {
     if (petJson is! Map) {
       throw const FormatException('economy state has no pet');
     }
-    final wallets = Map<String, dynamic>.from(
-      json['wallets'] as Map? ?? const {},
-    );
+    final wallets = WalletBalances.fromJson(json['wallets']);
     final day = json['activeDay'];
     final goal = json['activeGoal'];
     final event = json['activeEvent'];
@@ -142,8 +141,8 @@ class HomeEconomyState {
     final parentTasks = json['parentTasks'];
     return HomeEconomyState(
       pet: Pet.fromJson(Map<String, dynamic>.from(petJson)),
-      spendable: _walletAmount(wallets['MAIN'] ?? wallets['SPENDABLE']),
-      savings: _walletAmount(wallets['SAVINGS']),
+      spendable: wallets.spendable,
+      savings: wallets.savings,
       activeDay: day is Map
           ? ActivePeriod.fromJson(Map<String, dynamic>.from(day))
           : null,
@@ -173,15 +172,6 @@ class HomeEconomyState {
           : const [],
     );
   }
-}
-
-int _walletAmount(Object? value) {
-  if (value is num) return value.toInt();
-  if (value is String) return int.tryParse(value) ?? 0;
-  if (value is Map) {
-    return _int(value['spendable'] ?? value['balance'] ?? value['amount']);
-  }
-  return 0;
 }
 
 int _int(Object? value) =>
