@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../economy/coin_amount_input.dart';
 import '../../theme/app_theme.dart';
 import '../models/home_economy_state.dart';
 
@@ -87,6 +88,17 @@ class _CoinDistributionSheetState extends State<CoinDistributionSheet> {
         _error = 'Не получилось получить артефакт. Попробуй ещё раз.';
       });
     }
+  }
+
+  Future<void> _typeAmount() async {
+    final typed = await showCoinAmountDialog(
+      context,
+      title: _depositMode ? 'Сколько отложить?' : 'Сколько вернуть?',
+      initial: _amount,
+      min: 1,
+      max: _limit,
+    );
+    if (typed != null && mounted) setState(() => _amount = typed);
   }
 
   @override
@@ -185,13 +197,14 @@ class _CoinDistributionSheetState extends State<CoinDistributionSheet> {
                           ),
                           SizedBox(
                             width: 96,
-                            child: Text(
-                              '$_amount',
+                            child: TappableCoinAmount(
                               key: const Key('distribution-amount'),
-                              textAlign: TextAlign.center,
+                              value: _amount,
+                              semanticLabel: 'Сумма. Нажми, чтобы ввести',
                               style: AppTextStyles.counterValue.copyWith(
                                 fontSize: 32,
                               ),
+                              onTap: !_busy && _limit > 0 ? _typeAmount : null,
                             ),
                           ),
                           _AmountButton(
@@ -284,6 +297,7 @@ class _CoinDistributionSheetState extends State<CoinDistributionSheet> {
 }
 
 class _AmountButton extends StatelessWidget {
+  // Held, the button keeps stepping until released or the limit is hit.
   const _AmountButton({
     required this.semanticLabel,
     required this.icon,
@@ -299,12 +313,15 @@ class _AmountButton extends StatelessWidget {
     return Semantics(
       button: true,
       label: semanticLabel,
-      child: SizedBox.square(
-        dimension: 48,
-        child: IconButton.filledTonal(
-          onPressed: onPressed,
-          icon: Icon(icon),
-          color: AppColors.crimson,
+      child: HoldToRepeat(
+        onStep: onPressed,
+        child: SizedBox.square(
+          dimension: 48,
+          child: IconButton.filledTonal(
+            onPressed: onPressed,
+            icon: Icon(icon),
+            color: AppColors.crimson,
+          ),
         ),
       ),
     );

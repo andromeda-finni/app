@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../economy/coin_amount_input.dart';
 import '../../theme/app_theme.dart';
 import '../models/active_period.dart';
 
@@ -297,11 +298,6 @@ class _Editor extends StatelessWidget {
   final void Function(int need, int want, int savings) onChanged;
   final VoidCallback onConfirm;
 
-  /// Coins move between rows and are never created, so "+" stops once the
-  /// grant is fully allocated — the same rule the tutorial taught in
-  /// onboarding step 3.
-  bool get _canAdd => unallocated > 0;
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -326,21 +322,21 @@ class _Editor extends StatelessWidget {
           label: 'Обязательное',
           hint: 'еда и лечение — минимум ${period.requiredNeedAmount}',
           value: need,
-          canAdd: _canAdd,
+          unallocated: unallocated,
           onChanged: (value) => onChanged(value, want, savings),
         ),
         _AmountRow(
           label: 'Необязательное',
           hint: 'игрушки и сладости',
           value: want,
-          canAdd: _canAdd,
+          unallocated: unallocated,
           onChanged: (value) => onChanged(need, value, savings),
         ),
         _AmountRow(
           label: 'В копилку',
           hint: 'отложить на потом',
           value: savings,
-          canAdd: _canAdd,
+          unallocated: unallocated,
           onChanged: (value) => onChanged(need, want, value),
         ),
         if (validationMessage != null) ...[
@@ -373,15 +369,30 @@ class _AmountRow extends StatelessWidget {
     required this.label,
     required this.hint,
     required this.value,
-    required this.canAdd,
+    required this.unallocated,
     required this.onChanged,
   });
 
   final String label;
   final String hint;
   final int value;
-  final bool canAdd;
+
+  /// Coins move between rows and are never created, so "+" stops once the
+  /// grant is fully allocated — the same rule the tutorial taught in
+  /// onboarding step 3 — and a typed amount can take at most what is free.
+  final int unallocated;
   final ValueChanged<int> onChanged;
+
+  Future<void> _typeAmount(BuildContext context) async {
+    final typed = await showCoinAmountDialog(
+      context,
+      title: label,
+      initial: value,
+      min: 0,
+      max: value + unallocated,
+    );
+    if (typed != null) onChanged(typed);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -405,18 +416,19 @@ class _AmountRow extends StatelessWidget {
             onPressed: value > 0 ? () => onChanged(value - 1) : null,
           ),
           SizedBox(
-            width: 38,
-            child: Text(
-              '$value',
-              textAlign: TextAlign.center,
+            width: 48,
+            child: TappableCoinAmount(
+              value: value,
+              semanticLabel: '$label: монет. Нажми, чтобы ввести',
               style: AppTextStyles.counterValue,
+              onTap: () => _typeAmount(context),
             ),
           ),
           _StepButton(
             icon: Icons.add,
             color: AppColors.leafGreen,
             semanticLabel: 'Добавить монету: $label',
-            onPressed: canAdd ? () => onChanged(value + 1) : null,
+            onPressed: unallocated > 0 ? () => onChanged(value + 1) : null,
           ),
         ],
       ),
@@ -440,7 +452,8 @@ class _StepButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
-    return Semantics(
+    // Held, the button keeps stepping until released or the limit is hit.
+    final button = Semantics(
       button: true,
       enabled: enabled,
       label: semanticLabel,
@@ -471,6 +484,7 @@ class _StepButton extends StatelessWidget {
         ),
       ),
     );
+    return HoldToRepeat(onStep: onPressed, child: button);
   }
 }
 
