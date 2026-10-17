@@ -225,10 +225,24 @@ class _StartupGateState extends State<_StartupGate> {
   Widget build(BuildContext context) {
     switch (_state) {
       case _StartupState.checking:
-        return const Scaffold(
+        // Continues the native splash: same background, same logo.
+        return Scaffold(
           backgroundColor: AppColors.parchment,
           body: Center(
-            child: CircularProgressIndicator(color: AppColors.crimson),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/images/app_logo.webp',
+                  key: const Key('startup-logo'),
+                  width: 160,
+                  height: 160,
+                  semanticLabel: 'Грошик',
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                const CircularProgressIndicator(color: AppColors.crimson),
+              ],
+            ),
           ),
         );
       case _StartupState.needsOnboarding:

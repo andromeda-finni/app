@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AppColors.parchment: the app's own background, so the splash hands
+         over to the first Flutter frame without a flash. -->
+    <color name="ic_launcher_background">#F7EBD8</color>
+    <color name="splash_background">#F7EBD8</color>
+</resources>
