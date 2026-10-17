@@ -5,6 +5,10 @@ import '../core/api_client.dart';
 /// Most refusals are the economy's own rules, not a network fault, so saying
 /// "check your connection" for them would send the child after the wrong fix.
 String questProblemMessage(ApiException error) {
+  if (error.isSavedOffline) {
+    return 'Нет интернета, но результат сохранён. Он отправится сам, когда '
+        'связь вернётся, тогда же придёт и награда.';
+  }
   if (error.isNetworkError) {
     return 'Нет связи с сервером. Играть можно, но награда сейчас не начислится.';
   }

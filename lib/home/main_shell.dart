@@ -5,6 +5,12 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../core/child_difficulty.dart';
 import '../core/game_audio_service.dart';
+import '../core/large_text.dart';
+import '../core/offline/offline_banner.dart';
+import '../dictionary/dictionary_progress.dart';
+import '../dictionary/dictionary_storage.dart';
+import '../dictionary/scroll_sheet.dart';
+import '../dictionary/word_token.dart';
 import '../economy/savings_screen.dart';
 import '../insurance/insurance_screen.dart';
 import '../map/quest_map_screen.dart';
@@ -27,6 +33,7 @@ class MainShell extends StatefulWidget {
     this.initialDifficulty = ChildDifficulty.beginner,
     this.showHomeTour = false,
     this.onSwitchAudience,
+    this.dictionaryProgress,
   });
 
   final ApiClient apiClient;
@@ -35,6 +42,7 @@ class MainShell extends StatefulWidget {
 
   /// Returns to the child/parent role choice; wired from the settings screen.
   final VoidCallback? onSwitchAudience;
+  final DictionaryProgress? dictionaryProgress;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -53,6 +61,11 @@ class _MainShellState extends State<MainShell> {
   StoreMode _storeMode = StoreMode.normal;
   bool _planningRequired = false;
   late ChildSettingsSnapshot _settings;
+  late final DictionaryProgress _dictionary =
+      widget.dictionaryProgress ??
+      DictionaryProgress(
+        storage: DeviceDictionaryStorage(apiClient: widget.apiClient),
+      );
   bool _homeReady = false;
   bool _tourCompleted = false;
   bool _tourBusy = false;
@@ -64,6 +77,8 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _settings = ChildSettingsSnapshot(difficulty: widget.initialDifficulty);
+    LargeTextScope.enabled.value = _settings.largeText;
+    widget.apiClient.offline?.addListener(_offlineChanged);
     GameAudioService.instance.configure(
       soundEnabled: _settings.sound,
       musicEnabled: _settings.music,
@@ -73,8 +88,36 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    // The parent side and onboarding do not use the child's setting.
+    LargeTextScope.enabled.value = false;
+    widget.apiClient.offline?.removeListener(_offlineChanged);
     _tourTargets.dispose();
+    if (widget.dictionaryProgress == null) _dictionary.dispose();
     super.dispose();
+  }
+
+  int _seenSyncRevision = 0;
+  int _homeSyncSignal = 0;
+
+  /// After actions done offline reach the server, the screens reload the
+  /// server's state, and anything it refused is explained to the child.
+  void _offlineChanged() {
+    final sync = widget.apiClient.offline;
+    if (sync == null || !mounted) return;
+    if (sync.syncRevision != _seenSyncRevision) {
+      _seenSyncRevision = sync.syncRevision;
+      // The home reloads in place; other tabs are rebuilt only when hidden,
+      // so a child in the middle of a shop shelf is not thrown back.
+      setState(() {
+        _homeSyncSignal++;
+        if (_index != 2) _storeRevision++;
+        if (_index != 3) _savingsRevision++;
+      });
+    }
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    for (final notice in sync.takeNotices()) {
+      messenger?.showSnackBar(SnackBar(content: Text(notice)));
+    }
   }
 
   bool get _tourActive => widget.showHomeTour && _homeReady && !_tourCompleted;
@@ -198,6 +241,7 @@ class _MainShellState extends State<MainShell> {
         soundEnabled: settings.sound,
         musicEnabled: settings.music,
       );
+      LargeTextScope.enabled.value = settings.largeText;
       setState(() => _settings = settings);
     } on ApiException {
       // Keep safe local defaults; the settings screen exposes an explicit
@@ -223,6 +267,7 @@ class _MainShellState extends State<MainShell> {
                 ),
               );
             }
+            LargeTextScope.enabled.value = next.largeText;
             setState(() {
               if (next.difficulty != _settings.difficulty) _mapRevision++;
               _settings = next;
@@ -235,6 +280,41 @@ class _MainShellState extends State<MainShell> {
         ),
       ),
     );
+  }
+
+  Future<void> _openMenu(BuildContext gameContext) async {
+    final selection = await showModalBottomSheet<String>(
+      context: gameContext,
+      backgroundColor: AppColors.cardBg,
+      builder: (menuContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const WaxSeal(size: 40),
+                title: const Text('Словарик'),
+                onTap: () => Navigator.pop(menuContext, 'dictionary'),
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.settings_rounded,
+                  color: AppColors.crimson,
+                ),
+                title: const Text('Настройки'),
+                onTap: () => Navigator.pop(menuContext, 'settings'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || !gameContext.mounted) return;
+    if (selection == 'settings') _openSettings();
+    if (selection == 'dictionary') {
+      await showDictionaryScroll(gameContext, progress: _dictionary);
+    }
   }
 
   Future<void> _openInsurance() async {
@@ -330,69 +410,80 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
     final tourPending = widget.showHomeTour && !_tourCompleted;
     final content = Scaffold(
       backgroundColor: AppColors.parchment,
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(
-          index: _index,
+        child: Column(
           children: [
-            HomeScreen(
-              key: ValueKey('home-$_homeRevision'),
-              apiClient: widget.apiClient,
-              onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
-              onOpenShop: () => _selectTab(2),
-              onOpenQuests: () => _selectTab(1),
-              onOpenSettings: _openSettings,
-              onOpenInsurance: _openInsurance,
-              onPlanningRequiredChanged: (required) {
-                if (_planningRequired == required || !mounted) return;
-                setState(() => _planningRequired = required);
-              },
-              isActive: _index == 0 && !tourPending,
-              focusPlan: _focusHomePlan,
-              tourTargets: widget.showHomeTour ? _tourTargets : null,
-              onTourReady: _homeDidBecomeReady,
+            if (widget.apiClient.offline != null)
+              OfflineBanner(sync: widget.apiClient.offline!),
+            Expanded(
+              child: IndexedStack(
+                index: _index,
+                children: [
+                  HomeScreen(
+                    key: ValueKey('home-$_homeRevision'),
+                    apiClient: widget.apiClient,
+                    refreshSignal: _homeSyncSignal,
+                    onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
+                    onOpenShop: () => _selectTab(2),
+                    onOpenQuests: () => _selectTab(1),
+                    onOpenSettings: _openSettings,
+                    onOpenMenu: _openMenu,
+                    onOpenInsurance: _openInsurance,
+                    onPlanningRequiredChanged: (required) {
+                      if (_planningRequired == required || !mounted) return;
+                      setState(() => _planningRequired = required);
+                    },
+                    isActive: _index == 0 && !tourPending,
+                    focusPlan: _focusHomePlan,
+                    tourTargets: widget.showHomeTour ? _tourTargets : null,
+                    onTourReady: _homeDidBecomeReady,
+                  ),
+                  if (tourPending) ...[
+                    const SizedBox.shrink(),
+                    const SizedBox.shrink(),
+                    const SizedBox.shrink(),
+                  ] else ...[
+                    // IndexedStack keeps hidden tabs alive; the map's looping scene
+                    // animations must not keep ticking (and draining the battery)
+                    // while another tab is on screen.
+                    TickerMode(
+                      enabled: _index == 1,
+                      child: QuestMapScreen(
+                        key: ValueKey('map-$_mapRevision'),
+                        apiClient: widget.apiClient,
+                        dictionaryProgress: _dictionary,
+                        // A tab root has nothing to go back to; the header hides the
+                        // arrow instead of offering a button that does nothing.
+                        showBack: false,
+                        difficulty: _settings.difficulty,
+                      ),
+                    ),
+                    ShopScreen(
+                      key: ValueKey('store-$_storeRevision'),
+                      apiClient: widget.apiClient,
+                      mode: _storeMode,
+                      onBack: () => setState(() => _index = _storeReturnIndex),
+                      onGoalSelected: _goalSelected,
+                      onOpenPlan: _openPlan,
+                      onOpenQuests: () => _selectTab(1),
+                    ),
+                    SavingsScreen(
+                      key: ValueKey('savings-$_savingsRevision'),
+                      apiClient: widget.apiClient,
+                      onBack: () => setState(() => _index = 0),
+                      onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
+                      onBrowseGoals: () =>
+                          _openGoalStore(StoreMode.browseGoals),
+                      onOpenSettings: _openSettings,
+                    ),
+                  ],
+                ],
+              ),
             ),
-            if (tourPending) ...[
-              const SizedBox.shrink(),
-              const SizedBox.shrink(),
-              const SizedBox.shrink(),
-            ] else ...[
-              // IndexedStack keeps hidden tabs alive; the map's looping scene
-              // animations must not keep ticking (and draining the battery)
-              // while another tab is on screen.
-              TickerMode(
-                enabled: _index == 1,
-                child: QuestMapScreen(
-                  key: ValueKey('map-$_mapRevision'),
-                  apiClient: widget.apiClient,
-                  // A tab root has nothing to go back to; the header hides the
-                  // arrow instead of offering a button that does nothing.
-                  showBack: false,
-                  difficulty: _settings.difficulty,
-                ),
-              ),
-              ShopScreen(
-                key: ValueKey('store-$_storeRevision'),
-                apiClient: widget.apiClient,
-                mode: _storeMode,
-                onBack: () => setState(() => _index = _storeReturnIndex),
-                onGoalSelected: _goalSelected,
-                onOpenPlan: _openPlan,
-                onOpenQuests: () => _selectTab(1),
-              ),
-              SavingsScreen(
-                key: ValueKey('savings-$_savingsRevision'),
-                apiClient: widget.apiClient,
-                onBack: () => setState(() => _index = 0),
-                onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
-                onBrowseGoals: () => _openGoalStore(StoreMode.browseGoals),
-                onOpenSettings: _openSettings,
-              ),
-            ],
           ],
         ),
       ),
@@ -401,31 +492,24 @@ class _MainShellState extends State<MainShell> {
         child: AppNavBar(currentIndex: _index, onSelected: _selectTab),
       ),
     );
-    return MediaQuery(
-      data: media.copyWith(
-        textScaler: _settings.largeText
-            ? media.textScaler.clamp(minScaleFactor: 1.15, maxScaleFactor: 2.0)
-            : media.textScaler,
-      ),
-      child: Stack(
-        key: _tourOverlayKey,
-        children: [
+    return Stack(
+      key: _tourOverlayKey,
+      children: [
+        Positioned.fill(
+          child: ExcludeSemantics(excluding: _tourActive, child: content),
+        ),
+        if (_tourActive)
           Positioned.fill(
-            child: ExcludeSemantics(excluding: _tourActive, child: content),
-          ),
-          if (_tourActive)
-            Positioned.fill(
-              child: HomeTourOverlay(
-                step: _tourStep,
-                spotlights: _spotlights,
-                busy: _tourBusy,
-                error: _tourError,
-                onNext: _nextTourStep,
-                onBack: () => _prepareTourStep(_tourStep - 1),
-              ),
+            child: HomeTourOverlay(
+              step: _tourStep,
+              spotlights: _spotlights,
+              busy: _tourBusy,
+              error: _tourError,
+              onNext: _nextTourStep,
+              onBack: () => _prepareTourStep(_tourStep - 1),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }

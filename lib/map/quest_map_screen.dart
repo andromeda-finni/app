@@ -6,10 +6,13 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../core/child_difficulty.dart';
 import '../core/pet_assets.dart';
+import '../dictionary/dictionary_progress.dart';
 import '../games/goldfish/goldfish_game_models.dart';
 import '../games/goldfish/goldfish_game_screen.dart';
 import '../games/ivan/ivan_game_models.dart';
 import '../games/ivan/ivan_game_screen.dart';
+import '../games/squirrel/squirrel_game_models.dart';
+import '../games/squirrel/squirrel_game_screen.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../games/turnip/turnip_game_screen.dart';
 import '../minigames/bakery/bakery_game_screen.dart';
@@ -28,12 +31,14 @@ class QuestMapScreen extends StatefulWidget {
     this.initialUnlockedIndex = 0,
     this.difficulty = ChildDifficulty.beginner,
     this.enableAmbientSceneMotion = true,
+    this.dictionaryProgress,
   });
 
   /// Source of progress and the server every launched game reports to.
   /// Without it (previews, widget tests) the map stays at
   /// [initialUnlockedIndex] and games run as practice.
   final ApiClient? apiClient;
+  final DictionaryProgress? dictionaryProgress;
 
   /// False when the map is a tab root and there is nowhere to go back to.
   final bool showBack;
@@ -51,9 +56,9 @@ class QuestMapScreen extends StatefulWidget {
 
 class _QuestMapScreenState extends State<QuestMapScreen>
     with TickerProviderStateMixin {
-  static const _mapAsset = 'assets/map/quest_map_scenarios_v05_clean.webp';
-  static const _sourceWidth = 821.0;
-  static const _sourceHeight = 1916.0;
+  static const _mapAsset = 'assets/map/quest_map_squirrel.webp';
+  static const _sourceWidth = 548.0;
+  static const _sourceHeight = 1280.0;
 
   final _scrollController = ScrollController();
   late final AnimationController _catController = AnimationController(
@@ -228,6 +233,10 @@ class _QuestMapScreenState extends State<QuestMapScreen>
           ? GoldfishDifficulty.hard
           : GoldfishDifficulty.normal,
     ).questId,
+    QuestMapDestination.squirrel =>
+      widget.difficulty == ChildDifficulty.advanced
+          ? squirrelAdvancedQuestId
+          : squirrelSimpleQuestId,
     _ => node.destination.questId,
   };
 
@@ -602,10 +611,27 @@ class _QuestMapScreenState extends State<QuestMapScreen>
           ),
         ),
       ),
+      QuestMapDestination.squirrel => navigator.push<void>(
+        MaterialPageRoute(
+          builder: (gameContext) => SquirrelGameScreen(
+            difficulty: widget.difficulty == ChildDifficulty.advanced
+                ? SquirrelDifficulty.hard
+                : SquirrelDifficulty.normal,
+            apiClient: widget.apiClient,
+            questId: widget.difficulty == ChildDifficulty.advanced
+                ? squirrelAdvancedQuestId
+                : squirrelSimpleQuestId,
+            petName: _petName,
+            onExit: () => Navigator.of(gameContext).pop(),
+          ),
+        ),
+      ),
       QuestMapDestination.tugriki => navigator.push<void>(
         MaterialPageRoute(
           builder: (gameContext) => TugrikiGameScreen(
             apiClient: widget.apiClient,
+            dictionaryProgress: widget.dictionaryProgress,
+            dictionaryMedia: MediaQuery.of(context),
             petName: _petName,
             furOptionId: _furOptionId,
             onExit: () => Navigator.of(gameContext).pop(),

@@ -7,6 +7,8 @@ import 'core/api_client.dart';
 import 'core/auth_storage.dart';
 import 'core/child_difficulty.dart';
 import 'core/game_audio_service.dart';
+import 'core/large_text.dart';
+import 'core/offline/offline_sync.dart';
 import 'home/main_shell.dart';
 import 'home/pet_home_screen.dart';
 import 'onboarding/onboarding_data.dart';
@@ -37,15 +39,12 @@ class GroshikApp extends StatefulWidget {
   State<GroshikApp> createState() => _GroshikAppState();
 }
 
-class _GroshikAppState extends State<GroshikApp>
-    with WidgetsBindingObserver {
+class _GroshikAppState extends State<GroshikApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    unawaited(
-      GameAudioService.instance.startMusic(GameMusic.mainTheme),
-    );
+    unawaited(GameAudioService.instance.startMusic(GameMusic.mainTheme));
   }
 
   @override
@@ -76,6 +75,7 @@ class _GroshikAppState extends State<GroshikApp>
       title: 'Грошик',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      builder: LargeTextScope.builder,
       // FOX_EVENT_DEMO is a build-time switch for the Fox story prototype,
       // which still runs on its own in-memory wallet; normal builds never
       // reach it.
@@ -164,7 +164,10 @@ class _StartupGate extends StatefulWidget {
 
 class _StartupGateState extends State<_StartupGate> {
   late final AuthStorage _authStorage = widget.authStorage ?? AuthStorage();
-  late final ApiClient _api = widget.apiClient ?? ApiClient();
+  // The child app is offline-first: it keeps the last state on the device
+  // and queues core-loop actions until the server is reachable again.
+  late final ApiClient _api =
+      widget.apiClient ?? ApiClient(offline: OfflineSync());
   _StartupState _state = _StartupState.checking;
   OnboardingResumeState _onboarding = OnboardingResumeState.fresh();
 

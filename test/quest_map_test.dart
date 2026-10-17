@@ -9,6 +9,8 @@ import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/core/child_difficulty.dart';
 import 'package:andromeda_app/games/goldfish/goldfish_game_models.dart';
 import 'package:andromeda_app/games/goldfish/goldfish_game_screen.dart';
+import 'package:andromeda_app/games/squirrel/squirrel_game_models.dart';
+import 'package:andromeda_app/games/squirrel/squirrel_game_screen.dart';
 import 'package:andromeda_app/core/pet_assets.dart';
 import 'package:andromeda_app/games/turnip/turnip_game_screen.dart';
 import 'package:andromeda_app/map/quest_map_data.dart';
@@ -53,6 +55,8 @@ Widget _map({
       'Q_GOLDFISH_HOME_SIMPLE_2': 10,
       'Q_GOLDFISH_HOME_ADVANCED_1': 12,
       'Q_GOLDFISH_HOME_ADVANCED_2': 15,
+      'Q_SQUIRREL_QUALITY_SIMPLE': 10,
+      'Q_SQUIRREL_QUALITY_ADVANCED': 12,
       'Q_BAKERY_PROFIT': 12,
       'Q_TUGRIKI_CURRENCY': 15,
     };
@@ -170,8 +174,8 @@ void main() {
       }
     });
 
-    test('Goldfish leads past the Fox story to the bakery, then Tugriki', () {
-      const beforeBakery = {
+    test('Goldfish leads to Squirrel, then the bakery and Tugriki', () {
+      const beforeSquirrel = {
         'Q_TURNIP_HARVEST',
         'Q_MOLE_FINE_PRINT',
         'Q_IVAN_ROAD_EASY_1',
@@ -179,9 +183,20 @@ void main() {
         'Q_GOLDFISH_HOME_SIMPLE_1',
         'Q_GOLDFISH_HOME_SIMPLE_2',
       };
-      expect(currentPlayableNodeIndex(beforeBakery), indexOf('bakery'));
+      expect(currentPlayableNodeIndex(beforeSquirrel), indexOf('squirrel'));
       expect(
-        currentPlayableNodeIndex({...beforeBakery, 'Q_BAKERY_PROFIT'}),
+        currentPlayableNodeIndex({
+          ...beforeSquirrel,
+          'Q_SQUIRREL_QUALITY_SIMPLE',
+        }),
+        indexOf('bakery'),
+      );
+      expect(
+        currentPlayableNodeIndex({
+          ...beforeSquirrel,
+          'Q_SQUIRREL_QUALITY_SIMPLE',
+          'Q_BAKERY_PROFIT',
+        }),
         indexOf('tugriki'),
       );
     });
@@ -195,6 +210,7 @@ void main() {
           'Q_IVAN_ROAD_EASY_2',
           'Q_GOLDFISH_HOME_SIMPLE_1',
           'Q_GOLDFISH_HOME_SIMPLE_2',
+          'Q_SQUIRREL_QUALITY_SIMPLE',
           'Q_BAKERY_PROFIT',
           'Q_TUGRIKI_CURRENCY',
         }),
@@ -221,8 +237,8 @@ void main() {
       for (final node in questMapNodes.where((n) => n.isRewardedQuest)) {
         expect(node.destination.questIds, isNotEmpty, reason: node.id);
       }
-      // Репка, Крот, Иван, Золотая рыбка, Пекарня, Тугрики.
-      expect(playableQuestCount, 6);
+      // Репка, Крот, Иван, Золотая рыбка, Белочка, Пекарня, Тугрики.
+      expect(playableQuestCount, 7);
       expect(
         questMapNodes.singleWhere((node) => node.id == 'badger').isPlayable,
         isTrue,
@@ -230,27 +246,27 @@ void main() {
     });
 
     test('checkpoint anchors match the painted map artwork', () {
-      const sourceWidth = 821.0;
-      const sourceHeight = 1916.0;
+      const sourceWidth = 548.0;
+      const sourceHeight = 1280.0;
       const expectedPixels = <Offset>[
-        Offset(374.65, 1853.50),
-        Offset(392.04, 1381.20),
-        Offset(411.58, 1178.44),
-        Offset(471.02, 902.34),
-        Offset(350.96, 684.20),
-        Offset(457.66, 487.95),
-        Offset(472.57, 299.69),
-        Offset(742, 248),
+        Offset(274, 1184),
+        Offset(274, 924),
+        Offset(274, 760),
+        Offset(274, 600),
+        Offset(274, 447),
+        Offset(274, 298),
+        Offset(274, 157),
+        Offset(184, 70),
       ];
       const expectedCatStops = <Offset>[
-        Offset(374.65, 1853.50),
-        Offset(392.04, 1381.20),
-        Offset(411.58, 1178.44),
-        Offset(471.02, 902.34),
-        Offset(350.96, 684.20),
-        Offset(457.66, 487.95),
-        Offset(472.57, 299.69),
-        Offset(742, 248),
+        Offset(274, 1184),
+        Offset(274, 924),
+        Offset(274, 760),
+        Offset(274, 600),
+        Offset(274, 447),
+        Offset(274, 298),
+        Offset(274, 157),
+        Offset(274, 84),
       ];
 
       for (var index = 0; index < questMapNodes.length; index++) {
@@ -339,9 +355,68 @@ void main() {
     await tester.tap(find.byTooltip('Закрыть'));
     await tester.pump(const Duration(milliseconds: 500));
 
-    await _openNode(tester, 'fox');
-    expect(find.textContaining('Глава в разработке'), findsOneWidget);
+    await _openNode(tester, 'squirrel');
+    expect(find.textContaining('Откроется после квеста'), findsOneWidget);
   });
+
+  for (final entry in const [
+    (
+      difficulty: ChildDifficulty.beginner,
+      squirrelDifficulty: SquirrelDifficulty.normal,
+      reward: 10,
+      completed: <String>{
+        'Q_TURNIP_HARVEST',
+        'Q_MOLE_FINE_PRINT',
+        'Q_IVAN_ROAD_EASY_1',
+        'Q_IVAN_ROAD_EASY_2',
+        'Q_GOLDFISH_HOME_SIMPLE_1',
+        'Q_GOLDFISH_HOME_SIMPLE_2',
+      },
+    ),
+    (
+      difficulty: ChildDifficulty.advanced,
+      squirrelDifficulty: SquirrelDifficulty.hard,
+      reward: 12,
+      completed: <String>{
+        'Q_TURNIP_HARVEST',
+        'Q_MOLE_FINE_PRINT',
+        'Q_IVAN_ROAD_HARD_1',
+        'Q_IVAN_ROAD_HARD_2',
+        'Q_GOLDFISH_HOME_ADVANCED_1',
+        'Q_GOLDFISH_HOME_ADVANCED_2',
+      },
+    ),
+  ]) {
+    testWidgets(
+      'Squirrel opens the ${entry.squirrelDifficulty.name} route from its first level',
+      (tester) async {
+        await tester.pumpWidget(
+          _map(
+            completed: entry.completed.toList(),
+            difficulty: entry.difficulty,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await _openNode(tester, 'squirrel');
+        expect(
+          find.text('${entry.reward} монет за прохождение'),
+          findsOneWidget,
+        );
+        await tester.tap(find.text('Начать'));
+        await tester.pumpAndSettle();
+
+        final game = tester.widget<SquirrelGameScreen>(
+          find.byType(SquirrelGameScreen),
+        );
+        expect(game.difficulty, entry.squirrelDifficulty);
+        expect(
+          find.textContaining('Привет, Мурзик! Я Белочка.'),
+          findsOneWidget,
+        );
+      },
+    );
+  }
 
   testWidgets('an advanced child gets the hard Goldfish level', (tester) async {
     await tester.pumpWidget(
@@ -381,6 +456,7 @@ void main() {
           'Q_IVAN_ROAD_EASY_2',
           'Q_GOLDFISH_HOME_SIMPLE_1',
           'Q_GOLDFISH_HOME_SIMPLE_2',
+          'Q_SQUIRREL_QUALITY_SIMPLE',
           'Q_BAKERY_PROFIT',
           'Q_TUGRIKI_CURRENCY',
         ],

@@ -48,7 +48,7 @@ Map<String, dynamic> _state({required bool withGoal}) => {
           'id': 'goal-1',
           'target_item_id': 'boots',
           'name': 'Сапоги-скороходы',
-          'target_amount': 150,
+          'target_amount': 135,
           'status': 'ACTIVE',
         }
       : null,
@@ -61,38 +61,38 @@ Map<String, dynamic> _state({required bool withGoal}) => {
     {
       'id': 'saucer',
       'name': 'Серебряное блюдечко',
-      'price': 80,
+      'price': 70,
       'rarity': 'RARE',
     },
     {
       'id': 'vial',
       'name': 'Склянка с живой водой',
-      'price': 90,
+      'price': 80,
       'rarity': 'RARE',
     },
     {
       'id': 'tablecloth',
       'name': 'Скатерть-самобранка',
-      'price': 105,
+      'price': 95,
       'rarity': 'EPIC',
     },
     {
       'id': 'horseshoe',
       'name': 'Золотая подкова',
-      'price': 120,
+      'price': 100,
       'rarity': 'EPIC',
     },
-    {'id': 'shield', 'name': 'Богатырский щит', 'price': 130, 'rarity': 'EPIC'},
+    {'id': 'shield', 'name': 'Богатырский щит', 'price': 110, 'rarity': 'EPIC'},
     {
       'id': 'purse',
       'name': 'Кошель-самотряс',
-      'price': 140,
+      'price': 120,
       'rarity': 'LEGENDARY',
     },
     {
       'id': 'boots',
       'name': 'Сапоги-скороходы',
-      'price': 150,
+      'price': 135,
       'rarity': 'LEGENDARY',
     },
   ],
@@ -386,7 +386,7 @@ void main() {
       expect(request.url.path, '/goals');
       goalCalls++;
       data = _state(withGoal: true);
-      return _jsonResponse({'id': 'goal-1', 'targetAmount': 150}, 201);
+      return _jsonResponse({'id': 'goal-1', 'targetAmount': 135}, 201);
     });
     await _pumpShell(tester, client);
 
@@ -466,7 +466,7 @@ void main() {
         .toList();
     expect(orderedIds.first, 'boots');
     expect(find.text('Сначала заверши текущую цель'), findsWidgets);
-    expect(find.text('Накоплено 0 · осталось 150 монет'), findsOneWidget);
+    expect(find.text('Накоплено 0 · осталось 135 монет'), findsOneWidget);
   });
 
   testWidgets('an owned artifact is removed from the goal catalog', (
@@ -477,7 +477,7 @@ void main() {
       {
         'id': 'shield',
         'name': 'Богатырский щит',
-        'price': 130,
+        'price': 110,
         'rarity': 'EPIC',
       },
     ];

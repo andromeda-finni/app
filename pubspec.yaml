@@ -66,6 +66,7 @@ flutter:
   # so declaring whole folders pulled ~56MB of mostly unused images into the
   # APK. Add a line here when a screen starts using another image.
   assets:
+    - assets/dictionary/dictionary-scroll.png
     - assets/images/app_logo.webp
     - assets/backgrounds/town.webp
     - assets/backgrounds/shop.webp
@@ -78,7 +79,7 @@ flutter:
     - assets/shop/title_sign.webp
     - assets/shop/items/apple.webp
     - assets/shop/items/carrot.webp
-    - assets/map/quest_map_scenarios_v05_clean.webp
+    - assets/map/quest_map_squirrel.webp
     - assets/map/checkpoint_road_v2.webp
     - assets/map/cat_idle/striped.webp
     - assets/map/cat_idle/red.webp
