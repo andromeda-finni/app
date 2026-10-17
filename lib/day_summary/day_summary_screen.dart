@@ -1,19 +1,21 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
+import '../home/models/pet.dart';
 import '../theme/app_theme.dart';
 import 'day_summary.dart';
+import 'day_summary_mirror.dart';
 
 class DaySummaryScreen extends StatelessWidget {
   const DaySummaryScreen({
     super.key,
     required this.summary,
     required this.onContinue,
+    this.pet,
   });
 
   final DaySummary summary;
   final VoidCallback onContinue;
+  final Pet? pet;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +30,47 @@ class DaySummaryScreen extends StatelessWidget {
               children: [
                 _FairytaleTitle(dayNumber: summary.sequenceNo),
                 const SizedBox(height: 20),
-                _Mirror(summary: summary),
+                DaySummaryMirror(
+                  pet: pet,
+                  child: Column(
+                    children: [
+                      _EarnedMedallion(amount: summary.earnedAmount),
+                      const SizedBox(height: 20),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final plan = _AmountsColumn(
+                            title: 'Планировали',
+                            amounts: summary.plan,
+                          );
+                          final actual = _AmountsColumn(
+                            title: 'Получилось',
+                            amounts: summary.actual,
+                          );
+                          final textScale =
+                              MediaQuery.textScalerOf(context).scale(18) / 18;
+                          if (constraints.maxWidth / textScale < 210) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                plan,
+                                const SizedBox(height: 24),
+                                actual,
+                              ],
+                            );
+                          }
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: plan),
+                              const SizedBox(width: 12),
+                              Expanded(child: actual),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 18),
                 _FeedbackCard(summary: summary),
                 const SizedBox(height: 22),
@@ -93,127 +135,6 @@ class _FairytaleTitle extends StatelessWidget {
   );
 }
 
-class _Mirror extends StatelessWidget {
-  const _Mirror({required this.summary});
-
-  final DaySummary summary;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      container: true,
-      label:
-          'Итоги дня. Заработано ${summary.earnedAmount} монет. План и фактические траты.',
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(42),
-          gradient: const LinearGradient(
-            colors: [Color(0xFFD4A64A), Color(0xFFF3DC92), Color(0xFFB77A24)],
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x33000000),
-              blurRadius: 16,
-              offset: Offset(0, 8),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(37),
-          child: Stack(
-            children: [
-              const Positioned.fill(child: _CloudedGlass()),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 22, 14, 24),
-                child: Column(
-                  children: [
-                    _EarnedMedallion(amount: summary.earnedAmount),
-                    const SizedBox(height: 20),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _AmountsColumn(
-                            title: 'Планировали',
-                            amounts: summary.plan,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: _AmountsColumn(
-                            title: 'Получилось',
-                            amounts: summary.actual,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CloudedGlass extends StatelessWidget {
-  const _CloudedGlass();
-
-  @override
-  Widget build(BuildContext context) => Stack(
-    children: [
-      const Positioned.fill(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFB8D9E5), Color(0xFF7EAEC2), Color(0xFFAED0DA)],
-            ),
-          ),
-        ),
-      ),
-      Positioned(
-        left: -35,
-        top: 35,
-        child: _Haze(size: 170, color: Colors.white.withValues(alpha: 0.24)),
-      ),
-      Positioned(
-        right: -25,
-        bottom: 10,
-        child: _Haze(
-          size: 150,
-          color: const Color(0xFFDDEEF3).withValues(alpha: 0.28),
-        ),
-      ),
-      Positioned.fill(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: ColoredBox(color: Colors.white.withValues(alpha: 0.06)),
-        ),
-      ),
-    ],
-  );
-}
-
-class _Haze extends StatelessWidget {
-  const _Haze({required this.size, required this.color});
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-  );
-}
-
 class _EarnedMedallion extends StatelessWidget {
   const _EarnedMedallion({required this.amount});
 
@@ -256,11 +177,14 @@ class _AmountsColumn extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Text(
-        title,
-        textAlign: TextAlign.center,
-        style: AppTextStyles.sectionTitle.copyWith(
-          color: AppColors.crimsonDark,
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: AppTextStyles.sectionTitle.copyWith(
+            color: AppColors.crimsonDark,
+          ),
         ),
       ),
       const SizedBox(height: 12),
@@ -304,8 +228,9 @@ class _AmountLine extends StatelessWidget {
         ),
         Text(
           hint,
-          maxLines: 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
           style: AppTextStyles.stepCounter.copyWith(color: AppColors.inkMuted),
         ),
         const SizedBox(height: 5),

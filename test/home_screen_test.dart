@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/core/pet_assets.dart';
+import 'package:andromeda_app/day_summary/day_summary_screen.dart';
 import 'package:andromeda_app/home/home_screen.dart';
 import 'package:andromeda_app/home/models/pet.dart';
 import 'package:flutter/material.dart';
@@ -423,6 +424,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Свет мой, зеркальце, скажи…'), findsOneWidget);
+    final mirror = tester.widget<DaySummaryScreen>(
+      find.byType(DaySummaryScreen),
+    );
+    expect(mirror.pet?.name, (state['pet'] as Map)['pet_name']);
+    expect(mirror.pet?.furOptionId, (state['pet'] as Map)['fur_option_id']);
   });
 
   testWidgets('renaming persists through PUT /pet', (tester) async {

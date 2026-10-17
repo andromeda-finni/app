@@ -442,6 +442,7 @@ class _HomeScreenState extends State<HomeScreen> {
             fullscreenDialog: true,
             builder: (routeContext) => DaySummaryScreen(
               summary: summary!,
+              pet: _data?.pet,
               onContinue: () => Navigator.of(routeContext).pop(),
             ),
           ),
