@@ -4,6 +4,7 @@ import { HttpError } from "../../lib/errors.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, shortIdSchema } from "../../lib/schema.js";
 import { presentPet, recoverPetEnergy, restorePetEnergy } from "./energy.js";
+import { applyStroke } from "./stroke.js";
 
 // Minimal placeholder profanity/PII guard for the free-text pet name. Not a
 // production moderation system — swap for a proper service later; this just
@@ -87,6 +88,40 @@ export async function petRoutes(app: FastifyInstance): Promise<void> {
       const pet = await restorePetEnergy(pool, req.authUser!.id);
       if (!pet) throw new HttpError(404, "pet_not_created");
       return presentPet(pet);
+    },
+  );
+
+  app.post(
+    "/pet/stroke",
+    { preHandler: [requireAuth, requireRole("CHILD")] },
+    async (req) => {
+      const childUserId = req.authUser!.id;
+      return withTransaction(async (client) => {
+        // Locks the pet row, so parallel strokes are applied one at a time.
+        const pet = await recoverPetEnergy(client, childUserId);
+        if (!pet) throw new HttpError(404, "pet_not_created");
+
+        const stroke = applyStroke(
+          {
+            joyLevel: pet.joy_level,
+            joyFraction: Number(pet.joy_fraction),
+            streak: pet.stroke_streak,
+            lastStrokedAt: pet.last_stroked_at,
+          },
+          pet.server_now,
+        );
+        await client.query(
+          `UPDATE pets
+              SET joy_level = $2, joy_fraction = $3, stroke_streak = $4,
+                  last_stroked_at = $5, updated_at = $5
+            WHERE child_user_id = $1`,
+          [childUserId, stroke.joyLevel, stroke.joyFraction, stroke.streak, pet.server_now],
+        );
+        return {
+          ...presentPet({ ...pet, joy_level: stroke.joyLevel, updated_at: pet.server_now }),
+          joy_gain: stroke.gain,
+        };
+      });
     },
   );
 

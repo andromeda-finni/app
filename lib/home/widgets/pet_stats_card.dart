@@ -62,7 +62,7 @@ class _StatRow extends StatelessWidget {
     final fraction = (stat.value / 100).clamp(0.0, 1.0);
     return Semantics(
       label:
-          '${stat.label}: ${stat.value} процентов${stat.onTap == null ? '' : '. Открыть Стол подорожника'}',
+          '${stat.label}: ${stat.value} из 100${stat.onTap == null ? '' : '. Открыть Стол подорожника'}',
       button: stat.onTap != null,
       excludeSemantics: true,
       child: InkWell(
@@ -99,7 +99,7 @@ class _StatRow extends StatelessWidget {
                 ),
               );
               final percentage = Text(
-                '${stat.value}%',
+                '${stat.value}',
                 textAlign: TextAlign.right,
                 style: AppTextStyles.counterValue,
               );

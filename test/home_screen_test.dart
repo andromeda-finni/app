@@ -185,6 +185,37 @@ void main() {
     expect(find.byKey(const Key('home-pet-scene')), findsOneWidget);
   });
 
+  testWidgets('stroking the pet raises joy from the server answer', (
+    tester,
+  ) async {
+    var strokes = 0;
+    await _pump(
+      tester,
+      _screen(
+        handler: (request) async {
+          if (request.url.path == '/pet/stroke') {
+            strokes++;
+            return _json({..._pet(satiety: 30, joy: 41), 'joy_gain': 0.5});
+          }
+          return _json(
+            _economy(pet: _pet(satiety: 30, joy: 40), activeDay: _draftDay()),
+          );
+        },
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('open-pet-care')));
+    await tester.pumpAndSettle();
+    expect(find.text('40'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('meadow-pet-scene')));
+    await tester.pumpAndSettle();
+
+    expect(strokes, 1);
+    expect(find.text('41'), findsOneWidget);
+    expect(find.text('40'), findsNothing);
+  });
+
   testWidgets('pet care is a separate screen and returns home', (tester) async {
     await _pump(
       tester,
@@ -200,7 +231,7 @@ void main() {
 
     expect(find.byKey(const Key('meadow-pet-scene')), findsOneWidget);
     expect(find.text('Сытость'), findsOneWidget);
-    expect(find.text('30%'), findsOneWidget);
+    expect(find.text('30'), findsOneWidget);
     expect(find.text('Радость'), findsOneWidget);
     expect(find.text('Коллекция'), findsOneWidget);
     // Owned artifacts are shown with their wear, not as "not yet received".

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -21,6 +23,7 @@ class PetCareScreen extends StatefulWidget {
     required this.onEquipArtifact,
     required this.onRepairArtifact,
     required this.onUseArtifact,
+    this.onStroke,
   });
 
   final HomeEconomyState state;
@@ -31,6 +34,9 @@ class PetCareScreen extends StatefulWidget {
   final Future<HomeEconomyState> Function(ArtifactItem item) onEquipArtifact;
   final Future<HomeEconomyState> Function(ArtifactItem item) onRepairArtifact;
   final Future<HomeEconomyState> Function(ArtifactItem item) onUseArtifact;
+
+  /// Strokes the pet on the server; null when the stroke was not applied.
+  final Future<HomeEconomyState?> Function()? onStroke;
 
   @override
   State<PetCareScreen> createState() => _PetCareScreenState();
@@ -46,6 +52,11 @@ class _PetCareScreenState extends State<PetCareScreen> {
     if (mounted) {
       setState(() => _state = _state.copyWith(pet: _pet.copyWith(name: name)));
     }
+  }
+
+  Future<void> _stroke() async {
+    final next = await widget.onStroke?.call();
+    if (mounted && next != null) setState(() => _state = next);
   }
 
   Future<void> _refresh() async {
@@ -145,6 +156,7 @@ class _PetCareScreenState extends State<PetCareScreen> {
                         height: sceneHeight,
                         petHeightFactor: 0.68,
                         heroTag: 'home-pet',
+                        onStroke: () => unawaited(_stroke()),
                       ),
                       const SizedBox(height: 16),
                       PetStatsCard(

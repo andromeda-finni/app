@@ -17,6 +17,7 @@ class PetScene extends StatefulWidget {
     this.petHeightFactor = 0.7,
     this.petShiftX = 0,
     this.heroTag,
+    this.onStroke,
   });
 
   final Pet pet;
@@ -29,6 +30,9 @@ class PetScene extends StatefulWidget {
   /// right edge carries overlaid controls.
   final double petShiftX;
   final String? heroTag;
+
+  /// Called once per accepted stroke; the server decides the joy it adds.
+  final VoidCallback? onStroke;
 
   @override
   State<PetScene> createState() => _PetSceneState();
@@ -61,6 +65,7 @@ class _PetSceneState extends State<PetScene>
   Future<void> _react() async {
     if (_reacting) return;
     setState(() => _reacting = true);
+    widget.onStroke?.call();
     // Petting purrs; GameAudioService stays silent when sounds are off.
     unawaited(GameAudioService.instance.play(GameSound.catPurr));
     _breathe();

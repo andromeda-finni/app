@@ -15,6 +15,10 @@ export interface PetEnergyRow extends pg.QueryResultRow {
   accessory_option_id: string | null;
   energy_level: number;
   joy_level: number;
+  /** numeric column: node-postgres returns it as a string. */
+  joy_fraction: string;
+  stroke_streak: number;
+  last_stroked_at: Date | null;
   health_level: number;
   evolution_stage: number;
   successful_period_streak: number;

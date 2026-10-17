@@ -1412,7 +1412,7 @@ class _QuestWorldPrompt extends StatelessWidget {
                     ],
                     if (onPlay != null) ...[
                       const SizedBox(height: 12),
-                      ElevatedButton.icon(
+                      ElevatedButton(
                         key: Key('play-${node.id}'),
                         onPressed: onPlay,
                         style: ElevatedButton.styleFrom(
@@ -1422,8 +1422,7 @@ class _QuestWorldPrompt extends StatelessWidget {
                           shape: const StadiumBorder(),
                           elevation: 0,
                         ),
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        label: Text(
+                        child: Text(
                           _actionLabel,
                           style: const TextStyle(
                             fontFamily: AppFonts.body,
@@ -1882,7 +1881,7 @@ class _QuestDetailsSheet extends StatelessWidget {
                   ],
                   const SizedBox(height: 18),
                   if (node.isPlayable && (current || completed))
-                    ElevatedButton.icon(
+                    ElevatedButton(
                       key: Key('play-${node.id}'),
                       onPressed: () => Navigator.of(context).pop(true),
                       style: ElevatedButton.styleFrom(
@@ -1891,8 +1890,7 @@ class _QuestDetailsSheet extends StatelessWidget {
                         minimumSize: const Size.fromHeight(52),
                         shape: const StadiumBorder(),
                       ),
-                      icon: const Icon(Icons.play_arrow_rounded),
-                      label: Text(
+                      child: Text(
                         completed
                             ? 'Играть ещё раз'
                             : isInProgress

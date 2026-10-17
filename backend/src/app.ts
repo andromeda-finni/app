@@ -44,6 +44,7 @@ const REQUIRED_SCHEMA_VERSIONS = [
   "0033_pet_energy_artifact_compatibility.sql",
   "0034_mole_session_reward.sql",
   "0034_onboarding_first_day.sql",
+  "0035_pet_stroke_joy.sql",
 ] as const;
 
 const LOOPBACK_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);

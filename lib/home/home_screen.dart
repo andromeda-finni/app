@@ -238,6 +238,24 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Stroking is a small bonus: when it fails, the purr still plays and the
+  /// pet simply keeps its current joy.
+  Future<HomeEconomyState?> _strokePet() async {
+    try {
+      final json = await widget.apiClient.post('/pet/stroke');
+      final current = _data;
+      if (!mounted || current == null) return null;
+      final next = current.copyWith(pet: Pet.fromJson(json));
+      setState(() {
+        _data = next;
+        _energy = PetEnergyStatus.fromJson(json);
+      });
+      return next;
+    } on ApiException {
+      return null;
+    }
+  }
+
   Future<void> _rename(String name) async {
     final current = _data;
     if (current == null) return;
@@ -449,6 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => PetCareScreen(
           state: data,
           onRename: _rename,
+          onStroke: _strokePet,
           onRefresh: () async {
             await _load(showLoader: false);
             return _data!;
@@ -659,6 +678,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onProgress: _showProgress,
         onOpenEvent: _openEvent,
         onSubmitParentTask: _submitParentTask,
+        onStroke: () => unawaited(_strokePet()),
         recentDays: _recentDays,
         tourTargets: widget.tourTargets,
       ),
@@ -688,6 +708,7 @@ class _HomeContent extends StatelessWidget {
     required this.onProgress,
     required this.onOpenEvent,
     required this.onSubmitParentTask,
+    required this.onStroke,
   });
 
   final HomeEconomyState data;
@@ -710,6 +731,7 @@ class _HomeContent extends StatelessWidget {
   final VoidCallback onProgress;
   final VoidCallback onOpenEvent;
   final ValueChanged<String> onSubmitParentTask;
+  final VoidCallback onStroke;
 
   @override
   Widget build(BuildContext context) {
@@ -851,6 +873,7 @@ class _HomeContent extends StatelessWidget {
                                 // Keeps the cat clear of the panel.
                                 petShiftX: 24,
                                 heroTag: 'home-pet',
+                                onStroke: onStroke,
                               ),
                             ),
                             Positioned(left: 10, top: 12, child: panel),
