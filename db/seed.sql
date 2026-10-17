@@ -78,13 +78,13 @@ INSERT INTO shop_items (id, kind, name, price, rarity, effect_code, repair_cost_
   ('PET_MEAL', 'NEED', 'Обед для питомца', 10, NULL, NULL, 0.20, 25, 0),
   ('TOY_BALL', 'WANT', 'Мячик', 8, NULL, NULL, 0.20, 0, 20),
   ('CANDY', 'WANT', 'Конфета', 6, NULL, NULL, 0.20, 0, 8),
-  ('saucer', 'ARTIFACT', 'Серебряное блюдечко и наливное яблочко', 80, 'RARE', 'COST_FORESIGHT', 0.20, 0, 0),
-  ('vial', 'ARTIFACT', 'Склянка с живой водой', 90, 'RARE', 'SECOND_CHANCE', 100.00, 0, 0),
-  ('tablecloth', 'ARTIFACT', 'Скатерть-самобранка', 105, 'EPIC', 'NOURISHING_HOME', 0.20, 0, 0),
-  ('horseshoe', 'ARTIFACT', 'Золотая подкова', 120, 'EPIC', 'NEED_CASHBACK', 0.20, 0, 0),
-  ('shield', 'ARTIFACT', 'Богатырский щит', 130, 'EPIC', 'VIGILANCE_SHIELD', 0.20, 0, 0),
-  ('purse', 'ARTIFACT', 'Кошель-самотряс', 140, 'LEGENDARY', 'MAGIC_REMAINDER', 0.20, 0, 0),
-  ('boots', 'ARTIFACT', 'Сапоги-скороходы', 150, 'LEGENDARY', 'QUEST_PATH', 0.20, 0, 0)
+  ('saucer', 'ARTIFACT', 'Серебряное блюдечко и наливное яблочко', 70, 'RARE', 'COST_FORESIGHT', 0.20, 0, 0),
+  ('vial', 'ARTIFACT', 'Склянка с живой водой', 80, 'RARE', 'SECOND_CHANCE', 100.00, 0, 0),
+  ('tablecloth', 'ARTIFACT', 'Скатерть-самобранка', 95, 'EPIC', 'NOURISHING_HOME', 0.20, 0, 0),
+  ('horseshoe', 'ARTIFACT', 'Золотая подкова', 100, 'EPIC', 'NEED_CASHBACK', 0.20, 0, 0),
+  ('shield', 'ARTIFACT', 'Богатырский щит', 110, 'EPIC', 'VIGILANCE_SHIELD', 0.20, 0, 0),
+  ('purse', 'ARTIFACT', 'Кошель-самотряс', 120, 'LEGENDARY', 'MAGIC_REMAINDER', 0.20, 0, 0),
+  ('boots', 'ARTIFACT', 'Сапоги-скороходы', 135, 'LEGENDARY', 'QUEST_PATH', 0.20, 0, 0)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   price = EXCLUDED.price,
