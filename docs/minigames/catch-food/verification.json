@@ -1,0 +1,85 @@
+{
+  "module": "catch-food",
+  "branch": "codex/catch-food-game",
+  "baseCommit": "d196074",
+  "publicationTarget": {
+    "remote": "origin",
+    "branch": "codex/catch-food-game",
+    "mainModified": false
+  },
+  "checks": {
+    "flutterAnalyze": {
+      "passed": true
+    },
+    "featureAndHomeTests": {
+      "passed": 44,
+      "failed": 0
+    },
+    "flutterFullSuite": {
+      "run": "Initial implementation, before the faster-food and spoiled-food update; full suite was not repeated for this update",
+      "passed": 312,
+      "failed": 2,
+      "failuresReproducedOnBase": true,
+      "reason": "Existing assets/games/goldfish/goldfish.webp is empty (0 bytes)",
+      "failingTests": [
+        "goldfish_game_test.dart: dialogue is paged and shows only the current speaker",
+        "quest_map_test.dart: an advanced child gets the hard Goldfish level"
+      ]
+    },
+    "backendBuild": {
+      "passed": true
+    },
+    "backendTests": {
+      "passed": 47,
+      "failed": 0,
+      "skipped": 9,
+      "skipReason": "No ECONOMY_TEST_DATABASE_URL configured; disposable PostgreSQL integration tests are opt-in"
+    },
+    "androidDebugBuild": {
+      "passed": true,
+      "file": "build/app/outputs/flutter-apk/app-debug.apk",
+      "bytes": 238594137
+    },
+    "visualReview": {
+      "passed": true,
+      "screenshots": [
+        "intro.png",
+        "gameplay.png",
+        "pause.png",
+        "result.png",
+        "small-screen.png",
+        "spoiled-food.png",
+        "spoiled-catch.png"
+      ],
+      "smallScreen": "320x640 at 1.5x text"
+    },
+    "gitDiffCheck": {
+      "passed": true
+    },
+    "sourceArt": {
+      "passed": true,
+      "assets": 18,
+      "transparentSprites": 16,
+      "runtimeWebpBytes": 1715550,
+      "manifest": "art/minigames/catch_food/manifest.json"
+    }
+  },
+  "migration": {
+    "file": "db/migrations/0036_catch_food_sessions.sql",
+    "appliedToUserDatabase": true,
+    "appliedLocallyOn": "2026-10-17",
+    "requiredBeforeBackendStart": true
+  },
+  "assumptions": {
+    "energyCost": 20,
+    "activeDurationSeconds": 60,
+    "maxMisses": 3,
+    "travelMs": 2400,
+    "spoiledFoodPercent": 20,
+    "firstPiece": "always fresh",
+    "spoiledFood": "skip safely; catching costs one mistake and awards no score",
+    "fatigue": "session state, using existing energy/recovery for admission",
+    "food": "score only",
+    "characterVariant": "brown tabby, red collar"
+  }
+}

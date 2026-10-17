@@ -51,10 +51,9 @@ class GameAudioService {
     List<AudioPlayer>? effectPlayers,
     AudioPlayer? ambience,
     AudioPlayer? music,
-  })
-    : _effectPlayers = effectPlayers ?? List.generate(3, (_) => AudioPlayer()),
-      _ambiencePlayer = ambience ?? AudioPlayer(),
-      _musicPlayer = music ?? AudioPlayer();
+  }) : _effectPlayers = effectPlayers ?? List.generate(3, (_) => AudioPlayer()),
+       _ambiencePlayer = ambience ?? AudioPlayer(),
+       _musicPlayer = music ?? AudioPlayer();
 
   static final GameAudioService instance = GameAudioService._();
 

@@ -1,0 +1,335 @@
+{
+  "version": 1,
+  "title": "Лови корм",
+  "status": "source-art-complete",
+  "character": "brown_tabby_red_collar",
+  "generationTool": "built-in-imagegen",
+  "assetCount": 18,
+  "transparentAssetCount": 16,
+  "applicationCodeChanged": true,
+  "anchorCoordinateSystem": "normalized source PNG coordinates: x left-to-right, y top-to-bottom",
+  "anchorAccuracy": "visual estimates for initial scene placement; calibrate bowl openings and feet in the implemented scene",
+  "validation": "validation.json",
+  "preview": "preview.html",
+  "assets": [
+    {
+      "name": "pantry_background",
+      "label": "Фон кладовой",
+      "group": "scene",
+      "transparent": false,
+      "file": "pantry_background.png",
+      "prompt": "prompts/pantry_background.txt",
+      "referenceImages": [
+        "references/approved-concept.png"
+      ],
+      "dimensions": {
+        "width": 941,
+        "height": 1672
+      }
+    },
+    {
+      "name": "chute_upper_left",
+      "label": "Желобок — слева сверху",
+      "group": "chutes",
+      "transparent": true,
+      "file": "chute_upper_left.png",
+      "prompt": "prompts/chute_upper_left.txt",
+      "referenceImages": [
+        "references/approved-concept.png"
+      ],
+      "dimensions": {
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "name": "chute_lower_left",
+      "label": "Желобок — слева снизу",
+      "group": "chutes",
+      "transparent": true,
+      "file": "chute_lower_left.png",
+      "prompt": "prompts/chute_lower_left.txt",
+      "referenceImages": [
+        "references/approved-concept.png"
+      ],
+      "dimensions": {
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "name": "chute_upper_right",
+      "label": "Желобок — справа сверху",
+      "group": "chutes",
+      "transparent": true,
+      "file": "chute_upper_right.png",
+      "prompt": "prompts/chute_upper_right.txt",
+      "referenceImages": [
+        "references/approved-concept.png"
+      ],
+      "dimensions": {
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "name": "chute_lower_right",
+      "label": "Желобок — справа снизу",
+      "group": "chutes",
+      "transparent": true,
+      "file": "chute_lower_right.png",
+      "prompt": "prompts/chute_lower_right.txt",
+      "referenceImages": [
+        "references/approved-concept.png"
+      ],
+      "dimensions": {
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "name": "cat_catch_upper_left",
+      "label": "Ловля — слева сверху",
+      "group": "cat",
+      "transparent": true,
+      "file": "cat_catch_upper_left.png",
+      "prompt": "prompts/cat_catch_upper_left.txt",
+      "referenceImages": [
+        "cat_catch_lower_left.png",
+        "references/approved-concept.png"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "anchors": {
+        "feet": [
+          0.53,
+          0.94
+        ],
+        "bowl": [
+          0.268,
+          0.126
+        ]
+      }
+    },
+    {
+      "name": "cat_catch_lower_left",
+      "label": "Ловля — слева снизу",
+      "group": "cat",
+      "transparent": true,
+      "file": "cat_catch_lower_left.png",
+      "prompt": "prompts/cat_catch_lower_left.txt",
+      "referenceImages": [
+        "references/approved-concept.png",
+        "references/canonical-cat.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "anchors": {
+        "feet": [
+          0.53,
+          0.94
+        ],
+        "bowl": [
+          0.239,
+          0.403
+        ]
+      }
+    },
+    {
+      "name": "cat_catch_upper_right",
+      "label": "Ловля — справа сверху",
+      "group": "cat",
+      "transparent": true,
+      "file": "cat_catch_upper_right.png",
+      "prompt": "prompts/cat_catch_upper_right.txt",
+      "referenceImages": [
+        "cat_catch_upper_left.png",
+        "cat_catch_lower_left.png"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "anchors": {
+        "feet": [
+          0.52,
+          0.94
+        ],
+        "bowl": [
+          0.772,
+          0.121
+        ]
+      }
+    },
+    {
+      "name": "cat_catch_lower_right",
+      "label": "Ловля — справа снизу",
+      "group": "cat",
+      "transparent": true,
+      "file": "cat_catch_lower_right.png",
+      "prompt": "prompts/cat_catch_lower_right.txt",
+      "referenceImages": [
+        "cat_catch_lower_left.png",
+        "references/approved-concept.png"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "anchors": {
+        "feet": [
+          0.53,
+          0.945
+        ],
+        "bowl": [
+          0.809,
+          0.419
+        ]
+      }
+    },
+    {
+      "name": "cat_idle",
+      "label": "Кот — ожидание",
+      "group": "cat",
+      "transparent": true,
+      "file": "cat_idle.png",
+      "prompt": "prompts/cat_idle.txt",
+      "referenceImages": [
+        "cat_catch_lower_left.png",
+        "references/canonical-cat.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "cat_happy",
+      "label": "Кот — радость",
+      "group": "cat",
+      "transparent": true,
+      "file": "cat_happy.png",
+      "prompt": "prompts/cat_happy.txt",
+      "referenceImages": [
+        "cat_catch_lower_left.png",
+        "references/canonical-cat.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "cat_miss",
+      "label": "Кот — промах",
+      "group": "cat",
+      "transparent": true,
+      "file": "cat_miss.png",
+      "prompt": "prompts/cat_miss.txt",
+      "referenceImages": [
+        "cat_catch_lower_left.png",
+        "references/canonical-cat.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "cat_tired",
+      "label": "Кот — усталость",
+      "group": "cat",
+      "transparent": true,
+      "file": "cat_tired.png",
+      "prompt": "prompts/cat_tired.txt",
+      "referenceImages": [
+        "cat_catch_lower_left.png",
+        "references/canonical-cat.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "food_fish",
+      "label": "Корм-рыбка",
+      "group": "effects",
+      "transparent": true,
+      "file": "food_fish.png",
+      "prompt": "prompts/food_fish.txt",
+      "referenceImages": [
+        "references/approved-concept.png"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "food_crumbs",
+      "label": "Крошки",
+      "group": "effects",
+      "transparent": true,
+      "file": "food_crumbs.png",
+      "prompt": "prompts/food_crumbs.txt",
+      "referenceImages": [
+        "references/approved-concept.png"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "catch_sparkle",
+      "label": "Эффект ловли",
+      "group": "effects",
+      "transparent": true,
+      "file": "catch_sparkle.png",
+      "prompt": "prompts/catch_sparkle.txt",
+      "referenceImages": [
+        "references/approved-concept.png"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "game_entry",
+      "label": "Карточка входа",
+      "group": "scene",
+      "transparent": false,
+      "file": "game_entry.png",
+      "prompt": "prompts/game_entry.txt",
+      "referenceImages": [
+        "references/approved-concept.png",
+        "cat_catch_lower_left.png"
+      ],
+      "dimensions": {
+        "width": 1536,
+        "height": 1024
+      }
+    },
+    {
+      "name": "food_spoiled",
+      "label": "Испорченный корм — пропускай",
+      "group": "effects",
+      "transparent": true,
+      "file": "food_spoiled.png",
+      "prompt": "prompts/food_spoiled.txt",
+      "referenceImages": [
+        "food_fish.png"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    }
+  ]
+}

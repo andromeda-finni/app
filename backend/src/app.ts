@@ -24,6 +24,7 @@ import { insuranceRoutes } from "./modules/insurance/routes.js";
 import { inventoryRoutes } from "./modules/inventory/routes.js";
 import { childSettingsRoutes } from "./modules/childSettings/routes.js";
 import { parkProjectRoutes } from "./modules/parkProject/routes.js";
+import { catchFoodRoutes } from "./modules/catchFood/routes.js";
 
 /**
  * The migrations this build's SQL assumes. `/health` refuses to report ready
@@ -46,6 +47,7 @@ const REQUIRED_SCHEMA_VERSIONS = [
   "0034_onboarding_first_day.sql",
   "0035_pet_stroke_joy.sql",
   "0035_pet_collar_options.sql",
+  "0036_catch_food_sessions.sql",
 ] as const;
 
 const LOOPBACK_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
@@ -164,6 +166,7 @@ export async function buildApp() {
   await app.register(insuranceRoutes);
   await app.register(childSettingsRoutes);
   await app.register(petRoutes);
+  await app.register(catchFoodRoutes);
   await app.register(walletRoutes);
   await app.register(shopRoutes);
   await app.register(periodRoutes);

@@ -127,6 +127,7 @@ flutter:
     - assets/Cat/stages/adult/blue/
     - assets/minigames/tugriki/
     - assets/minigames/mole/
+    - assets/minigames/catch_food/
     - assets/minigames/bakery/
     - assets/minigames/park/
     - assets/Fox/fox_friendly.webp

@@ -86,7 +86,8 @@ void main() {
     );
     expect(
       (reflection.image as AssetImage).assetName,
-      'assets/Cat/Red_collar/happy/red.webp',
+      // Orange kitten, default red collar, joyful mood.
+      'assets/Cat/stages/kitten/red/happy_red.webp',
     );
     expect(
       find.bySemanticsLabel('Отражение питомца Рыжик в зеркале'),
