@@ -46,7 +46,7 @@ Future<void> _pumpAtSize(
 
 void main() {
   testWidgets(
-    'onboarding step 1 requires a name and a fur color before continuing',
+    'onboarding step 1 requires name, fur and collar before continuing',
     (tester) async {
       OnboardingData? submitted;
 
@@ -64,12 +64,17 @@ void main() {
       await _tapVisible(tester, find.text('серый'));
 
       button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
+      expect(button.onPressed, isNull);
+      await _tapVisible(tester, find.text('синий'));
+
+      button = tester.widget<ElevatedButton>(find.byType(ElevatedButton));
       expect(button.onPressed, isNotNull);
 
       await _tapVisible(tester, find.byType(ElevatedButton));
 
       expect(submitted?.petName, 'Грошик');
       expect(submitted?.furColorId, 'FUR_GRAY');
+      expect(submitted?.collarColorId, 'ACC_COLLAR_BLUE');
     },
   );
 

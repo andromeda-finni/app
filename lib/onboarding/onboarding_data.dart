@@ -33,6 +33,7 @@ class OnboardingData {
   OnboardingData({
     this.petName = '',
     this.furColorId,
+    this.collarColorId,
     this.candyAmount = 0,
     this.otherAmount = 0,
     this.piggyAmount = 0,
@@ -41,6 +42,7 @@ class OnboardingData {
 
   String petName;
   String? furColorId;
+  String? collarColorId;
 
   // Step 3: tutorial budget split. Always sums to kTutorialBudgetTotal.
   int candyAmount; // WANT
@@ -61,6 +63,7 @@ class OnboardingData {
   OnboardingData copyWith({
     String? petName,
     String? furColorId,
+    String? collarColorId,
     int? candyAmount,
     int? otherAmount,
     int? piggyAmount,
@@ -69,6 +72,7 @@ class OnboardingData {
     return OnboardingData(
       petName: petName ?? this.petName,
       furColorId: furColorId ?? this.furColorId,
+      collarColorId: collarColorId ?? this.collarColorId,
       candyAmount: candyAmount ?? this.candyAmount,
       otherAmount: otherAmount ?? this.otherAmount,
       piggyAmount: piggyAmount ?? this.piggyAmount,
@@ -115,6 +119,8 @@ class OnboardingResumeState {
       data = data.copyWith(
         petName: rawPet['petName'] as String,
         furColorId: rawPet['furOptionId'] as String,
+        collarColorId:
+            rawPet['accessoryOptionId'] as String? ?? 'ACC_COLLAR_RED',
       );
     }
 

@@ -134,7 +134,7 @@ void main() {
             widget is Image &&
             widget.image is AssetImage &&
             (widget.image as AssetImage).assetName ==
-                'assets/Cat/Red_collar/base/red.webp',
+                'assets/Cat/stages/kitten/red/base_red.webp',
       ),
       findsOneWidget,
     );

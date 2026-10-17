@@ -33,8 +33,12 @@ class OnboardingStep4Screen extends StatelessWidget {
       top: OnboardingScene(
         background: 'assets/backgrounds/town.webp',
         foreground: 'assets/backgrounds/meadow_foreground.webp',
-        cat: catAssetForFur(data?.furColorId, happy: true),
-        catAlignment: const Alignment(0.1, 0.9),
+        cat: catAssetForFur(
+          data?.furColorId,
+          collarColorId: data?.collarColorId,
+          happy: true,
+        ),
+        catAlignment: const Alignment(0.1, 0.25),
         catHeightFraction: 0.46,
       ),
       onBack: onBack,

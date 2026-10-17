@@ -45,6 +45,7 @@ const REQUIRED_SCHEMA_VERSIONS = [
   "0034_mole_session_reward.sql",
   "0034_onboarding_first_day.sql",
   "0035_pet_stroke_joy.sql",
+  "0035_pet_collar_options.sql",
 ] as const;
 
 const LOOPBACK_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);

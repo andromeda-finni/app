@@ -71,7 +71,7 @@ void main() {
     expect(find.textContaining('+30 монет'), findsWidgets);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('Вперёд, к новым открытиям! 🚀'));
+    await tester.tap(find.text('Вперёд, к новым открытиям!'));
     expect(completed, isTrue);
   });
 
@@ -127,16 +127,16 @@ void main() {
     await tester.pumpWidget(transitionApp(onCompleted: () => completed++));
     await tester.pump(const Duration(milliseconds: 3999));
 
-    expect(find.text('Вперёд, к новым открытиям! 🚀'), findsNothing);
+    expect(find.text('Вперёд, к новым открытиям!'), findsNothing);
     expect(completed, 0);
 
     await tester.pump(const Duration(milliseconds: 601));
 
     await tester.pump(const Duration(milliseconds: 16));
     expect(tester.hasRunningAnimations, isFalse);
-    expect(find.text('Вперёд, к новым открытиям! 🚀'), findsOneWidget);
+    expect(find.text('Вперёд, к новым открытиям!'), findsOneWidget);
     expect(completed, 0);
-    await tester.tap(find.text('Вперёд, к новым открытиям! 🚀'));
+    await tester.tap(find.text('Вперёд, к новым открытиям!'));
     expect(completed, 1);
   });
 
@@ -153,7 +153,7 @@ void main() {
         expect(tester.takeException(), isNull);
       }
 
-      expect(find.text('Вперёд, к новым открытиям! 🚀'), findsOneWidget);
+      expect(find.text('Вперёд, к новым открытиям!'), findsOneWidget);
     });
   }
 

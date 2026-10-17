@@ -83,6 +83,8 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   // Neutral until the server answers: the child names the pet themselves.
   String _petName = 'Питомец';
   String? _furOptionId;
+  String? _accessoryOptionId;
+  int _evolutionStage = 1;
   PetEnergyStatus _energy = const PetEnergyStatus.full();
   int _movementVersion = 0;
   double _renderedMapHeight = 0;
@@ -182,6 +184,8 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       setState(() {
         if (name is String && name.trim().isNotEmpty) _petName = name;
         if (fur is String) _furOptionId = fur;
+        _accessoryOptionId = pet?['accessory_option_id'] as String?;
+        _evolutionStage = (pet?['evolution_stage'] as num?)?.toInt() ?? 1;
         _energy = energy;
         _completedQuestIds
           ..clear()
@@ -634,6 +638,8 @@ class _QuestMapScreenState extends State<QuestMapScreen>
             dictionaryMedia: MediaQuery.of(context),
             petName: _petName,
             furOptionId: _furOptionId,
+            accessoryOptionId: _accessoryOptionId,
+            evolutionStage: _evolutionStage,
             onExit: () => Navigator.of(gameContext).pop(),
           ),
         ),
@@ -645,6 +651,8 @@ class _QuestMapScreenState extends State<QuestMapScreen>
             apiClient: widget.apiClient,
             petName: _petName,
             furOptionId: _furOptionId,
+            accessoryOptionId: _accessoryOptionId,
+            evolutionStage: _evolutionStage,
             onExit: () => Navigator.of(gameContext).pop(),
           ),
         ),
