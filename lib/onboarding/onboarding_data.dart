@@ -23,7 +23,8 @@ class FurColorOption {
 
 /// Total coins the tutorial budget on step 3 distributes between the three
 /// categories. Maps to budget_plans.need_amount/want_amount/savings_amount
-/// in the backend (see db/migrations/0007_periods.sql) once wired up —
+/// in the backend (see db/migrations/0007_periods.sql): the split becomes the
+/// confirmed plan of the first game day, which grants exactly these coins —
 /// candy = WANT, other things = NEED, piggy bank = SAVINGS.
 const kTutorialBudgetTotal = 10;
 
@@ -49,6 +50,13 @@ class OnboardingData {
 
   int get allocated => candyAmount + otherAmount + piggyAmount;
   int get unallocated => kTutorialBudgetTotal - allocated;
+
+  /// Body of `tutorialPlan` in `PUT /onboarding/progress`.
+  Map<String, int> tutorialPlanJson() => {
+    'needAmount': otherAmount,
+    'wantAmount': candyAmount,
+    'savingsAmount': piggyAmount,
+  };
 
   OnboardingData copyWith({
     String? petName,
@@ -107,6 +115,22 @@ class OnboardingResumeState {
       data = data.copyWith(
         petName: rawPet['petName'] as String,
         furColorId: rawPet['furOptionId'] as String,
+      );
+    }
+
+    final rawPlan = json['tutorialPlan'];
+    if (rawPlan != null) {
+      if (rawPlan is! Map<String, dynamic> ||
+          rawPlan['needAmount'] is! int ||
+          rawPlan['wantAmount'] is! int ||
+          rawPlan['savingsAmount'] is! int) {
+        throw const FormatException('Invalid onboarding tutorial plan');
+      }
+      data = data.copyWith(
+        otherAmount: rawPlan['needAmount'] as int,
+        candyAmount: rawPlan['wantAmount'] as int,
+        piggyAmount: rawPlan['savingsAmount'] as int,
+        budgetPracticed: true,
       );
     }
 

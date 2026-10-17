@@ -3,7 +3,13 @@ import type { FastifyInstance } from "fastify";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
-import { bodySchema } from "../../lib/schema.js";
+import { bodySchema, nonNegativeIntSchema } from "../../lib/schema.js";
+import {
+  isValidTutorialPlan,
+  openTutorialDay,
+  TUTORIAL_INCOME,
+  type TutorialPlan,
+} from "../periods/tutorialDay.js";
 
 interface OnboardingStatusRow {
   difficulty: "SIMPLE" | "ADVANCED";
@@ -12,11 +18,21 @@ interface OnboardingStatusRow {
   home_tour_completed_at: Date | null;
   pet_name: string | null;
   fur_option_id: string | null;
+  tutorial_need_amount: number | null;
+  tutorial_want_amount: number | null;
+  tutorial_savings_amount: number | null;
 }
 
 interface CompleteStepBody {
   completedStep: 2 | 3 | 4;
+  /** Required with step 3: the tutorial split that becomes the first day's plan. */
+  tutorialPlan?: TutorialPlan;
 }
+
+const tutorialAmountSchema = {
+  ...nonNegativeIntSchema,
+  maximum: TUTORIAL_INCOME,
+} as const;
 
 function statusResponse(row: OnboardingStatusRow) {
   return {
@@ -31,6 +47,14 @@ function statusResponse(row: OnboardingStatusRow) {
             petName: row.pet_name,
             furOptionId: row.fur_option_id,
           },
+    tutorialPlan:
+      row.tutorial_need_amount === null
+        ? null
+        : {
+            needAmount: row.tutorial_need_amount,
+            wantAmount: row.tutorial_want_amount,
+            savingsAmount: row.tutorial_savings_amount,
+          },
   };
 }
 
@@ -41,7 +65,8 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
     async (req) => {
       const res = await pool.query<OnboardingStatusRow>(
         `SELECT cp.difficulty, cp.onboarding_step, cp.onboarding_completed_at,
-                cp.home_tour_completed_at,
+                cp.home_tour_completed_at, cp.tutorial_need_amount,
+                cp.tutorial_want_amount, cp.tutorial_savings_amount,
                 p.pet_name, p.fur_option_id
            FROM child_profiles cp
            LEFT JOIN pets p ON p.child_user_id = cp.user_id
@@ -83,17 +108,42 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
     {
       preHandler: [requireAuth, requireRole("CHILD")],
       schema: bodySchema(
-        { completedStep: { type: "integer", enum: [2, 3, 4] } },
+        {
+          completedStep: { type: "integer", enum: [2, 3, 4] },
+          tutorialPlan: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              needAmount: tutorialAmountSchema,
+              wantAmount: tutorialAmountSchema,
+              savingsAmount: tutorialAmountSchema,
+            },
+            required: ["needAmount", "wantAmount", "savingsAmount"],
+          },
+        },
         ["completedStep"],
       ),
     },
     async (req) => {
+      const { completedStep, tutorialPlan } = req.body;
+      if (completedStep === 3) {
+        if (!tutorialPlan) throw new HttpError(400, "tutorial_plan_required");
+        if (!isValidTutorialPlan(tutorialPlan)) {
+          throw new HttpError(400, "tutorial_plan_must_allocate_all_coins");
+        }
+      }
+
       return withTransaction(async (client) => {
         const stateRes = await client.query<{
           onboarding_step: number;
           onboarding_completed_at: Date | null;
+          mode: "STANDARD" | "DEMO";
+          tutorial_need_amount: number | null;
+          tutorial_want_amount: number | null;
+          tutorial_savings_amount: number | null;
         }>(
-          `SELECT onboarding_step, onboarding_completed_at
+          `SELECT onboarding_step, onboarding_completed_at, mode,
+                  tutorial_need_amount, tutorial_want_amount, tutorial_savings_amount
              FROM child_profiles
             WHERE user_id = $1
             FOR UPDATE`,
@@ -106,11 +156,27 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
           return { currentStep: 4, completed: true };
         }
 
-        const completedStep = req.body.completedStep;
         if (completedStep > state.onboarding_step) {
           throw new HttpError(409, "onboarding_step_out_of_order", {
             currentStep: state.onboarding_step,
           });
+        }
+
+        // Re-submitting step 3 after going back from step 4 replaces the
+        // split: the first day must use the plan the child finally chose.
+        if (completedStep === 3) {
+          await client.query(
+            `UPDATE child_profiles
+                SET tutorial_need_amount = $2, tutorial_want_amount = $3,
+                    tutorial_savings_amount = $4, updated_at = now()
+              WHERE user_id = $1`,
+            [
+              req.authUser!.id,
+              tutorialPlan!.needAmount,
+              tutorialPlan!.wantAmount,
+              tutorialPlan!.savingsAmount,
+            ],
+          );
         }
 
         // A retry or a return to an earlier screen must be harmless and must
@@ -120,6 +186,15 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
         }
 
         if (completedStep === 4) {
+          // Profiles that passed step 3 before the split was stored keep the
+          // old behaviour: their first day starts from the regular income.
+          if (state.mode === "STANDARD" && state.tutorial_need_amount !== null) {
+            await openTutorialDay(client, req.authUser!.id, {
+              needAmount: state.tutorial_need_amount,
+              wantAmount: state.tutorial_want_amount!,
+              savingsAmount: state.tutorial_savings_amount!,
+            });
+          }
           await client.query(
             `UPDATE child_profiles
                 SET onboarding_completed_at = now(), updated_at = now()

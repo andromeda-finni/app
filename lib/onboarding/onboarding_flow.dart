@@ -24,6 +24,8 @@ import 'widgets/story_button.dart';
 ///   create a second one.
 /// - After steps 2-4: `PUT /onboarding/progress`. The server advances only
 ///   one step at a time, so a restart resumes at the first unfinished step.
+///   Step 3 also sends the tutorial split; completing step 4 makes it the
+///   first game day — the ten coins and an already confirmed plan.
 ///
 /// [onFinished] fires once the child taps "Начать игру" on step 4 — by then
 /// the account and pet already exist server-side.
@@ -207,13 +209,19 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     });
   }
 
-  Future<bool> _persistCompletedStep(int completedStep) async {
+  Future<bool> _persistCompletedStep(
+    int completedStep, {
+    Map<String, dynamic>? tutorialPlan,
+  }) async {
     if (_advancing) return false;
     setState(() => _advancing = true);
     try {
       await _api.put(
         '/onboarding/progress',
-        body: {'completedStep': completedStep},
+        body: {
+          'completedStep': completedStep,
+          'tutorialPlan': ?tutorialPlan,
+        },
       );
       return true;
     } catch (_) {
@@ -238,7 +246,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   Future<void> _completeStep3(OnboardingData data) async {
-    if (!await _persistCompletedStep(3) || !mounted) return;
+    final saved = await _persistCompletedStep(
+      3,
+      tutorialPlan: data.tutorialPlanJson(),
+    );
+    if (!saved || !mounted) return;
     setState(() {
       _data = data;
       _currentStep = 4;

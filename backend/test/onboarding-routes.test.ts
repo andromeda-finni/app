@@ -21,6 +21,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
   let homeTourCompletedAt: Date | null = null;
   let authRole = "CHILD";
   let profileExists = true;
+  let tutorialPlan: [number, number, number] | null = null;
 
   pool.query = (async (text: string) => {
     if (text.includes("FROM auth_credentials")) {
@@ -39,6 +40,9 @@ test("onboarding status resumes and progress advances sequentially and idempoten
             home_tour_completed_at: homeTourCompletedAt,
             pet_name: "Мурзик",
             fur_option_id: "FUR_GRAY",
+            tutorial_need_amount: tutorialPlan?.[0] ?? null,
+            tutorial_want_amount: tutorialPlan?.[1] ?? null,
+            tutorial_savings_amount: tutorialPlan?.[2] ?? null,
           },
         ] : [],
         rowCount: profileExists ? 1 : 0,
@@ -63,10 +67,20 @@ test("onboarding status resumes and progress advances sequentially and idempoten
             {
               onboarding_step: currentStep,
               onboarding_completed_at: completedAt,
+              // DEMO keeps this route-level test free of the ledger: opening
+              // the tutorial day is covered by the economy integration test.
+              mode: "DEMO",
+              tutorial_need_amount: tutorialPlan?.[0] ?? null,
+              tutorial_want_amount: tutorialPlan?.[1] ?? null,
+              tutorial_savings_amount: tutorialPlan?.[2] ?? null,
             },
           ],
           rowCount: 1,
         };
+      }
+      if (text.includes("SET tutorial_need_amount = $2")) {
+        tutorialPlan = [params[1], params[2], params[3]] as [number, number, number];
+        return { rows: [], rowCount: 1 };
       }
       if (text.includes("SET onboarding_step = $2")) {
         currentStep = params[1] as number;
@@ -109,6 +123,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       completed: false,
       homeTourCompleted: false,
       pet: { petName: "Мурзик", furOptionId: "FUR_GRAY" },
+      tutorialPlan: null,
     });
 
     authRole = "PARENT";
@@ -180,15 +195,54 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       details: { currentStep: 3 },
     });
 
-    for (const completedStep of [3, 4]) {
-      const response = await app.inject({
+    for (const tutorial of [
+      undefined,
+      { needAmount: 4, wantAmount: 3, savingsAmount: 2 },
+      { needAmount: 4, wantAmount: 3, savingsAmount: 11 },
+    ]) {
+      const invalidPlan = await app.inject({
         method: "PUT",
         url: "/onboarding/progress",
         headers: { authorization: "Bearer token" },
-        payload: { completedStep },
+        payload: { completedStep: 3, tutorialPlan: tutorial },
       });
-      assert.equal(response.statusCode, 200);
+      assert.equal(invalidPlan.statusCode, 400);
     }
+    assert.equal(tutorialPlan, null);
+
+    const completeStep3 = await app.inject({
+      method: "PUT",
+      url: "/onboarding/progress",
+      headers: { authorization: "Bearer token" },
+      payload: {
+        completedStep: 3,
+        tutorialPlan: { needAmount: 4, wantAmount: 3, savingsAmount: 3 },
+      },
+    });
+    assert.equal(completeStep3.statusCode, 200);
+    assert.deepEqual(completeStep3.json(), { currentStep: 4, completed: false });
+
+    // Going back from step 4 and choosing again replaces the stored split
+    // without moving progress backwards.
+    const changedStep3 = await app.inject({
+      method: "PUT",
+      url: "/onboarding/progress",
+      headers: { authorization: "Bearer token" },
+      payload: {
+        completedStep: 3,
+        tutorialPlan: { needAmount: 5, wantAmount: 2, savingsAmount: 3 },
+      },
+    });
+    assert.deepEqual(changedStep3.json(), { currentStep: 4, completed: false });
+    assert.deepEqual(tutorialPlan, [5, 2, 3]);
+
+    const completeStep4 = await app.inject({
+      method: "PUT",
+      url: "/onboarding/progress",
+      headers: { authorization: "Bearer token" },
+      payload: { completedStep: 4 },
+    });
+    assert.equal(completeStep4.statusCode, 200);
 
     const completedStatus = await app.inject({
       method: "GET",
@@ -201,6 +255,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       completed: true,
       homeTourCompleted: true,
       pet: { petName: "Мурзик", furOptionId: "FUR_GRAY" },
+      tutorialPlan: { needAmount: 5, wantAmount: 2, savingsAmount: 3 },
     });
   } finally {
     pool.query = originalQuery;

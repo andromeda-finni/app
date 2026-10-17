@@ -45,6 +45,26 @@ void main() {
     expect(legacy.homeTourCompleted, isFalse);
   });
 
+  test('onboarding status restores the stored tutorial split', () {
+    final resumed = OnboardingResumeState.fromJson({
+      'currentStep': 4,
+      'completed': false,
+      'difficulty': 'SIMPLE',
+      'pet': {'petName': 'Рыжик', 'furOptionId': 'FUR_GRAY'},
+      'tutorialPlan': {'needAmount': 4, 'wantAmount': 3, 'savingsAmount': 3},
+    });
+
+    expect(resumed.data.otherAmount, 4);
+    expect(resumed.data.candyAmount, 3);
+    expect(resumed.data.piggyAmount, 3);
+    expect(resumed.data.budgetPracticed, isTrue);
+    expect(resumed.data.tutorialPlanJson(), {
+      'needAmount': 4,
+      'wantAmount': 3,
+      'savingsAmount': 3,
+    });
+  });
+
   testWidgets('no saved token -> chooses difficulty before onboarding', (
     tester,
   ) async {

@@ -41,12 +41,12 @@ void main() {
     final authStorage = FakeAuthStorage(initialToken: 'tok');
     var finished = false;
     final progressSteps = <int>[];
+    Object? tutorialPlan;
     final client = MockClient((request) async {
       if (request.url.path == '/onboarding/progress') {
-        progressSteps.add(
-          (jsonDecode(request.body) as Map<String, dynamic>)['completedStep']
-              as int,
-        );
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        progressSteps.add(body['completedStep'] as int);
+        if (body['completedStep'] == 3) tutorialPlan = body['tutorialPlan'];
       }
       return http.Response(
         jsonEncode({'ok': true}),
@@ -87,6 +87,12 @@ void main() {
 
     expect(finished, isTrue);
     expect(progressSteps, [2, 3, 4]);
+    // All ten coins went to candy: the first day's plan is all WANT.
+    expect(tutorialPlan, {
+      'needAmount': 0,
+      'wantAmount': 10,
+      'savingsAmount': 0,
+    });
   });
 
   testWidgets('restores an interrupted flow at step 2 with the saved pet', (

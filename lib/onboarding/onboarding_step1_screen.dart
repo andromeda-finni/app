@@ -198,7 +198,7 @@ class _StoryParagraph extends StatelessWidget {
       children: [
         const DropCapStory(
           dropCap: 'В',
-          firstLine: 'одном сказочном городе жил добрый и любопытный котёнок.',
+          firstLine: 'одном сказочном царстве жил добрый и любопытный котёнок.',
           rest: '',
         ),
         const SizedBox(height: AppSpacing.lg),
