@@ -103,6 +103,12 @@ flutter:
     - assets/images/artifacts/purse.webp
     - assets/images/artifacts/boots.webp
     - assets/backgrounds/home_room.webp
+    - assets/events/poor_paw.webp
+    - assets/events/sick.webp
+    - assets/events/hungry.webp
+    - assets/events/cold_night.webp
+    - assets/events/roof_leak.webp
+    - assets/events/beaver_dam.webp
     - assets/icons/leaf_small.webp
     - assets/icons/clew.webp
     - assets/artifacts/items/
@@ -132,6 +138,7 @@ flutter:
     - assets/games/turnip/success_harvest.webp
     - assets/audio/sfx/
     - assets/audio/ambience/
+    - assets/audio/music/
     - assets/games/squirrel/
     - assets/games/ivan/
     - assets/games/goldfish/

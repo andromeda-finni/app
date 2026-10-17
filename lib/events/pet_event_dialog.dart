@@ -147,7 +147,10 @@ class _PetEventDialogState extends State<PetEventDialog>
                         icon: const Icon(Icons.close_rounded),
                       ),
                     ),
-                    _EventPlaceholder(eventId: definition.id),
+                    _EventIllustration(
+                      definition: definition,
+                      petName: widget.petName,
+                    ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
                       definition.dialogTitle(widget.petName),
@@ -273,33 +276,24 @@ class _PetEventDialogState extends State<PetEventDialog>
   }
 }
 
-class _EventPlaceholder extends StatelessWidget {
-  const _EventPlaceholder({required this.eventId});
+class _EventIllustration extends StatelessWidget {
+  const _EventIllustration({required this.definition, required this.petName});
 
-  final String eventId;
+  final PetEventDefinition definition;
+  final String petName;
 
   @override
   Widget build(BuildContext context) {
-    final icon = switch (eventId) {
-      'POOR_PAW' => Icons.healing_rounded,
-      'SICK' => Icons.sick_rounded,
-      'HUNGRY' => Icons.soup_kitchen_rounded,
-      'COLD_NIGHT' => Icons.local_fire_department_rounded,
-      'ROOF_LEAK' => Icons.roofing_rounded,
-      'BEAVER_DAM' => Icons.handyman_rounded,
-      _ => Icons.image_outlined,
-    };
-    return Semantics(
-      image: true,
-      label: 'Место для иллюстрации события',
-      child: Container(
-        height: 150,
-        decoration: BoxDecoration(
-          color: const Color(0xFFE1E1E1),
-          borderRadius: BorderRadius.circular(AppRadii.lg),
-          border: Border.all(color: const Color(0xFFB4B4B4)),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadii.lg),
+      child: AspectRatio(
+        aspectRatio: 3 / 2,
+        child: Image.asset(
+          definition.illustrationAsset,
+          key: ValueKey('pet-event-illustration-${definition.id}'),
+          fit: BoxFit.contain,
+          semanticLabel: definition.dialogTitle(petName),
         ),
-        child: Icon(icon, size: 68, color: const Color(0xFF777777)),
       ),
     );
   }

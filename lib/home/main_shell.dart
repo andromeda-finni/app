@@ -351,6 +351,7 @@ class _MainShellState extends State<MainShell> {
                 if (_planningRequired == required || !mounted) return;
                 setState(() => _planningRequired = required);
               },
+              isActive: _index == 0 && !tourPending,
               focusPlan: _focusHomePlan,
               tourTargets: widget.showHomeTour ? _tourTargets : null,
               onTourReady: _homeDidBecomeReady,

@@ -31,33 +31,55 @@ enum GameAmbience {
   final double volume;
 }
 
+enum GameMusic {
+  mainTheme('audio/music/music.mp3', volume: 0.5);
+
+  const GameMusic(this.assetPath, {required this.volume});
+
+  final String assetPath;
+  final double volume;
+}
+
 /// A small audio boundary for the whole application.
 ///
 /// UI code names an event instead of knowing a file path. That keeps sound
 /// replacement and volume tuning in one place and makes the existing sound
 /// and music settings effective for every game.
 class GameAudioService {
-  GameAudioService._({List<AudioPlayer>? effectPlayers, AudioPlayer? ambience})
+  GameAudioService._({
+    List<AudioPlayer>? effectPlayers,
+    AudioPlayer? ambience,
+    AudioPlayer? music,
+  })
     : _effectPlayers = effectPlayers ?? List.generate(3, (_) => AudioPlayer()),
-      _ambiencePlayer = ambience ?? AudioPlayer();
+      _ambiencePlayer = ambience ?? AudioPlayer(),
+      _musicPlayer = music ?? AudioPlayer();
 
   static final GameAudioService instance = GameAudioService._();
 
   final List<AudioPlayer> _effectPlayers;
   final AudioPlayer _ambiencePlayer;
+  final AudioPlayer _musicPlayer;
   int _nextEffectPlayer = 0;
   bool _soundEnabled = true;
   bool _musicEnabled = true;
   GameAmbience? _activeAmbience;
+  GameMusic? _activeMusic;
 
   bool get soundEnabled => _soundEnabled;
   bool get musicEnabled => _musicEnabled;
 
   void configure({required bool soundEnabled, required bool musicEnabled}) {
+    final shouldRestartMusic = !_musicEnabled && musicEnabled;
     _soundEnabled = soundEnabled;
     _musicEnabled = musicEnabled;
     if (!soundEnabled) unawaited(stopEffects());
-    if (!musicEnabled) unawaited(stopAmbience());
+    if (!musicEnabled) {
+      unawaited(stopAmbience());
+      unawaited(stopMusic());
+    } else if (shouldRestartMusic) {
+      unawaited(startMusic(GameMusic.mainTheme));
+    }
   }
 
   Future<void> play(GameSound sound) async {
@@ -109,11 +131,54 @@ class GameAudioService {
     }
   }
 
+  Future<void> startMusic(GameMusic music) async {
+    if (!_musicEnabled || _activeMusic == music) return;
+    try {
+      await _musicPlayer.stop();
+      await _musicPlayer.setReleaseMode(ReleaseMode.loop);
+      await _musicPlayer.play(
+        AssetSource(music.assetPath),
+        volume: music.volume,
+      );
+      _activeMusic = music;
+    } catch (error, stackTrace) {
+      debugPrint('Could not play ${music.name}: $error\n$stackTrace');
+    }
+  }
+
+  Future<void> pauseMusic() async {
+    if (_activeMusic == null) return;
+    try {
+      await _musicPlayer.pause();
+    } catch (error, stackTrace) {
+      debugPrint('Could not pause music: $error\n$stackTrace');
+    }
+  }
+
+  Future<void> resumeMusic() async {
+    if (!_musicEnabled || _activeMusic == null) return;
+    try {
+      await _musicPlayer.resume();
+    } catch (error, stackTrace) {
+      debugPrint('Could not resume music: $error\n$stackTrace');
+    }
+  }
+
+  Future<void> stopMusic() async {
+    _activeMusic = null;
+    try {
+      await _musicPlayer.stop();
+    } catch (error, stackTrace) {
+      debugPrint('Could not stop music: $error\n$stackTrace');
+    }
+  }
+
   @visibleForTesting
   void resetForTest() {
     _soundEnabled = true;
     _musicEnabled = true;
     _activeAmbience = null;
+    _activeMusic = null;
     _nextEffectPlayer = 0;
   }
 }

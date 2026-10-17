@@ -37,6 +37,7 @@ class HomeScreen extends StatefulWidget {
     this.onOpenSettings,
     this.onOpenInsurance,
     this.onPlanningRequiredChanged,
+    this.isActive = true,
     this.refreshSignal = 0,
     this.focusPlan = false,
     this.tourTargets,
@@ -50,6 +51,9 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback? onOpenSettings;
   final VoidCallback? onOpenInsurance;
   final ValueChanged<bool>? onPlanningRequiredChanged;
+
+  /// False while another tab or the first-run home tour is visible.
+  final bool isActive;
   final int refreshSignal;
 
   /// Opens the day plan as soon as the home loads — used when another tab
@@ -73,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _offline = false;
   bool _busy = false;
   bool _eventDialogOpen = false;
+  String? _presentedEventId;
   List<RecentDay> _recentDays = const [];
   bool _planFocused = false;
   PetEnergyStatus _energy = const PetEnergyStatus.full();
@@ -91,6 +96,8 @@ class _HomeScreenState extends State<HomeScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.refreshSignal != widget.refreshSignal) {
       _load(showLoader: false);
+    } else if (!oldWidget.isActive && widget.isActive) {
+      _scheduleHomeDialogs();
     }
   }
 
@@ -136,12 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) widget.onTourReady?.call();
       });
-      if (widget.focusPlan && !_planFocused) {
-        _planFocused = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _openPlan();
-        });
-      }
+      _scheduleHomeDialogs();
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -152,6 +154,30 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       });
     }
+  }
+
+  void _scheduleHomeDialogs() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted ||
+          !widget.isActive ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        return;
+      }
+      final data = _data;
+      final event = data == null ? null : _activeEvent(data);
+      if (event != null && event.id != _presentedEventId) {
+        await _openEvent(event: event);
+      }
+      if (!mounted ||
+          !widget.isActive ||
+          !widget.focusPlan ||
+          _planFocused ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        return;
+      }
+      _planFocused = true;
+      await _openPlan();
+    });
   }
 
   void _syncEnergyTicker() {
@@ -251,7 +277,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(insuranceNotice)));
     }
-    if (_data?.activeEvent != null) await _openEvent();
   });
 
   Future<HomeEconomyState> _equipArtifact(ArtifactItem item) async {
@@ -320,6 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final active = event ?? (data == null ? null : _activeEvent(data));
     if (data == null || active == null || _eventDialogOpen || !mounted) return;
     _eventDialogOpen = true;
+    _presentedEventId = active.id;
     try {
       final result = await showPetEventDialog(
         context,

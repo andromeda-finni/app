@@ -42,6 +42,7 @@ const REQUIRED_SCHEMA_VERSIONS = [
   "0031_goldfish_home_quest.sql",
   "0032_park_project.sql",
   "0033_pet_energy_artifact_compatibility.sql",
+  "0034_mole_session_reward.sql",
   "0034_onboarding_first_day.sql",
 ] as const;
 

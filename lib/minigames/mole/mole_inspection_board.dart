@@ -69,7 +69,8 @@ class _MoleInspectionBoardState extends State<MoleInspectionBoard> {
       label:
           'Область проверки. Найдено ${widget.foundHotspots.length} из ${widget.episode.hotspots.length} деталей.',
       child: AspectRatio(
-        aspectRatio: 1.08,
+        aspectRatio:
+            1.08 / (1 + (MediaQuery.textScalerOf(context).scale(1) - 1) * 1.4),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final size = constraints.biggest;

@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/minigames/mole/mole_game_data.dart';
 import 'package:andromeda_app/minigames/mole/mole_game_screen.dart';
+import 'package:andromeda_app/minigames/mole/mole_truth_catalog.dart';
 import 'package:andromeda_app/map/quest_map_screen.dart';
 
 import 'support/fake_auth_storage.dart';
@@ -106,7 +107,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text(moleEpisodes[2].title), findsOneWidget);
+    final seed = moleTruthSeed('d54d3ee2-d843-43d0-a67b-ec391078a913');
+    final expectedTitle = moleClassicSteps(seed).contains(2)
+        ? moleEpisodes[2].title
+        : buildMoleTruthRun(seed)[2].title;
+    expect(find.text(expectedTitle), findsOneWidget);
     expect(find.text('ПРОВЕРКА 3 ИЗ 5'), findsOneWidget);
     expect(find.text(moleEpisodes.first.title), findsNothing);
   });

@@ -26,6 +26,7 @@ Widget _shell({
   VoidCallback? onSwitchAudience,
   bool showHomeTour = false,
   bool failHomeTourOnce = false,
+  Map<String, Object>? activeEvent,
   void Function(http.BaseRequest request)? onRequest,
 }) {
   var shouldFailHomeTour = failHomeTourOnce;
@@ -61,7 +62,7 @@ Widget _shell({
         },
         'wallets': {'SPENDABLE': 40, 'SAVINGS': 10, 'FROZEN': 0},
         'activeDay': null,
-        'activeEvent': null,
+        'activeEvent': activeEvent,
         'activeGoal': null,
         'parentTasks': <Object>[],
         'shopItems': <Object>[],
@@ -350,6 +351,29 @@ void main() {
       find.byType(Scrollable).first,
     );
     expect(scrollable.position.pixels, 0);
+  });
+
+  testWidgets('active events wait for the home tour to finish', (tester) async {
+    await tester.pumpWidget(
+      _shell(
+        showHomeTour: true,
+        activeEvent: {
+          'id': 'event-1',
+          'event_definition_id': 'POOR_PAW',
+          'amount_due': 10,
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('home-tour-blocker')), findsOneWidget);
+    expect(find.byKey(const Key('pet-event-resolve')), findsNothing);
+
+    for (var step = 0; step < 3; step++) {
+      await tester.tap(find.byKey(const Key('home-tour-next')));
+      await tester.pumpAndSettle();
+    }
+    expect(find.byKey(const Key('home-tour-blocker')), findsNothing);
+    expect(find.byKey(const Key('pet-event-resolve')), findsOneWidget);
   });
 
   testWidgets('home tour keeps the final step open when saving fails', (

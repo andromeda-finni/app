@@ -23,10 +23,10 @@ INSERT INTO quest_definitions (id, topic_id, title, location_code, difficulty, r
   ('Q_FIRST_BUDGET', 'BUDGETING', 'Первый бюджет', 'FOREST', 'SIMPLE', 10),
   ('Q_SAVING_JAR', 'SAVING', 'Копилка мечты', 'FOREST', 'SIMPLE', 12),
   ('Q_SAFE_CHOICE', 'SCAMS', 'Разговор с хитрым Лисом', 'TOWN', 'SIMPLE', 15),
-  -- Five-stage mini-games take the top step of the economy's 10/12/15 scale;
-  -- any other value is refused when the reward is paid out.
+  -- The mole's five-check session has a scoped reward of 20. Other quests
+  -- retain the existing 10/12/15 reward tiers.
   ('Q_TUGRIKI_CURRENCY', 'CURRENCY', 'Ярмарка тугриков', 'MARKET', 'SIMPLE', 15),
-  ('Q_MOLE_FINE_PRINT', 'CONSUMER_RIGHTS', 'Осторожно, мелкий шрифт', 'MARKET', 'SIMPLE', 15),
+  ('Q_MOLE_FINE_PRINT', 'CONSUMER_RIGHTS', 'Осторожно, мелкий шрифт', 'MARKET', 'SIMPLE', 20),
   ('Q_TURNIP_HARVEST', 'INCOME', 'Репка', 'VILLAGE', 'SIMPLE', 10),
   ('Q_BAKERY_PROFIT', 'PROFIT', 'Пекарня', 'TOWN', 'SIMPLE', 12)
 ON CONFLICT (id) DO UPDATE SET
@@ -37,6 +37,10 @@ ON CONFLICT (id) DO UPDATE SET
 UPDATE quest_definitions
    SET advanced_reward_amount = 15
  WHERE id = 'Q_BAKERY_PROFIT';
+
+UPDATE quest_definitions
+   SET advanced_reward_amount = 20
+ WHERE id = 'Q_MOLE_FINE_PRINT';
 
 INSERT INTO quest_steps (quest_id, step_no, instruction, expected_action_code, success_feedback, recovery_feedback, ui_spec) VALUES
   ('Q_FIRST_BUDGET', 1,
