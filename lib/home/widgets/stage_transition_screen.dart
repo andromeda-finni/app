@@ -7,6 +7,14 @@ import '../../theme/app_theme.dart';
 
 enum StageTransitionType { newDay, petEvolution, homeEvolution }
 
+const double _transitionSeconds = 4.6;
+const double _flashStart = 0.8 / _transitionSeconds;
+const double _flashPeakStart = 2.2 / _transitionSeconds;
+const double _artworkSwitch = 2.45 / _transitionSeconds;
+const double _flashPeakEnd = 2.7 / _transitionSeconds;
+const double _revealEnd = 4 / _transitionSeconds;
+const _artworkAlignment = Alignment(0, -0.28);
+
 /// Full-screen celebration shown between game days or progression stages.
 ///
 /// The economy mutation must happen before this route opens. This widget only
@@ -37,7 +45,7 @@ class StageTransitionScreen extends StatefulWidget {
   final String? title;
   final String? message;
 
-  /// Called once when the confetti burst starts. The host can connect its own
+  /// Called once when the new artwork starts to appear. The host can connect its own
   /// sound service without coupling this reusable screen to an audio package.
   final VoidCallback? onFanfare;
 
@@ -47,7 +55,7 @@ class StageTransitionScreen extends StatefulWidget {
 
 class _StageTransitionScreenState extends State<StageTransitionScreen>
     with SingleTickerProviderStateMixin {
-  static const _duration = Duration(milliseconds: 3400);
+  static const _duration = Duration(milliseconds: 4600);
 
   late final AnimationController _controller = AnimationController(
     vsync: this,
@@ -56,21 +64,29 @@ class _StageTransitionScreenState extends State<StageTransitionScreen>
 
   bool _started = false;
   bool _fanfarePlayed = false;
+  bool _reduceMotion = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_started) return;
-    _started = true;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _controller.value = 1;
-    } else {
-      _controller.forward();
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (_started) {
+      final motionChanged = reduceMotion != _reduceMotion;
+      _reduceMotion = reduceMotion;
+      if (motionChanged) _controller.value = 1;
+      return;
     }
+    _started = true;
+    _reduceMotion = reduceMotion;
+    if (_reduceMotion) {
+      _controller.duration = const Duration(milliseconds: 600);
+    }
+    _controller.forward();
   }
 
   void _handleTimeline() {
-    if (!_fanfarePlayed && _controller.value >= 2.2 / 3.4) {
+    final revealAt = _reduceMotion ? 0.5 : _flashPeakEnd;
+    if (!_fanfarePlayed && _controller.value >= revealAt) {
       _fanfarePlayed = true;
       widget.onFanfare?.call();
     }
@@ -110,14 +126,15 @@ class _StageTransitionScreenState extends State<StageTransitionScreen>
         animation: _controller,
         builder: (context, _) {
           final progress = _controller.value;
-          final focus = Curves.easeOut.transform(
-            _interval(progress, 0, 0.8 / 3.4),
-          );
-          final magic = _interval(progress, 0.8 / 3.4, 2.2 / 3.4);
-          final burst = _interval(progress, 2.2 / 3.4, 3 / 3.4);
-          final card = Curves.easeOutBack.transform(
-            _interval(progress, 3 / 3.4, 1),
-          );
+          final reduceMotion = _reduceMotion;
+          final focus = reduceMotion
+              ? 1.0
+              : Curves.easeOut.transform(_interval(progress, 0, _flashStart));
+          final card = reduceMotion
+              ? _interval(progress, 0.5, 1)
+              : Curves.easeOutBack.transform(
+                  _interval(progress, _revealEnd, 1),
+                );
 
           return Semantics(
             label: 'Праздничный переход. $_title',
@@ -148,37 +165,45 @@ class _StageTransitionScreenState extends State<StageTransitionScreen>
                         constraints.maxWidth * 0.72,
                         constraints.maxHeight * 0.47,
                       );
+                      final artCenter = _artworkAlignment
+                          .inscribe(
+                            Size.square(artSize),
+                            Offset.zero & constraints.biggest,
+                          )
+                          .center;
                       return Stack(
                         fit: StackFit.expand,
                         children: [
                           Align(
-                            alignment: const Alignment(0, -0.28),
+                            alignment: _artworkAlignment,
                             child: SizedBox.square(
                               dimension: artSize,
                               child: _TransformationArtwork(
                                 progress: progress,
+                                reduceMotion: reduceMotion,
                                 beforeArtwork: widget.beforeArtwork,
                                 afterArtwork: widget.afterArtwork,
                               ),
                             ),
                           ),
-                          if (magic > 0 && magic < 1)
+                          if (!reduceMotion && progress < _revealEnd)
                             IgnorePointer(
                               child: CustomPaint(
-                                painter: _MagicSpiralPainter(progress: magic),
-                              ),
-                            ),
-                          if (burst > 0)
-                            IgnorePointer(
-                              child: CustomPaint(
-                                painter: _CelebrationPainter(progress: burst),
+                                painter: _MagicStarsPainter(
+                                  progress: progress,
+                                  center: artCenter,
+                                  artworkSize: artSize,
+                                ),
                               ),
                             ),
                           if (card > 0)
                             Align(
                               alignment: Alignment.bottomCenter,
                               child: Transform.translate(
-                                offset: Offset(0, 38 * (1 - card)),
+                                offset: Offset(
+                                  0,
+                                  reduceMotion ? 0 : 38 * (1 - card),
+                                ),
                                 child: Opacity(
                                   opacity: card.clamp(0, 1),
                                   child: _RewardCard(
@@ -215,48 +240,97 @@ double _interval(double value, double begin, double end) {
 class _TransformationArtwork extends StatelessWidget {
   const _TransformationArtwork({
     required this.progress,
+    required this.reduceMotion,
     required this.beforeArtwork,
     required this.afterArtwork,
   });
 
   final double progress;
+  final bool reduceMotion;
   final Widget beforeArtwork;
   final Widget afterArtwork;
 
   @override
   Widget build(BuildContext context) {
-    final magic = _interval(progress, 0.8 / 3.4, 2.2 / 3.4);
-    final switchProgress = Curves.easeInOut.transform(
-      _interval(magic, 0.35, 0.75),
+    final flashRise = Curves.easeInCubic.transform(
+      _interval(progress, _flashStart, _flashPeakStart),
     );
-    final lift = math.sin(magic * math.pi);
+    final flashFall = Curves.easeOutCubic.transform(
+      _interval(progress, _flashPeakEnd, _revealEnd),
+    );
+    final flashOpacity = reduceMotion
+        ? 0.0
+        : progress < _flashPeakEnd
+        ? flashRise
+        : 1 - flashFall;
+    final switchProgress = reduceMotion
+        ? Curves.easeInOut.transform(progress)
+        : progress >= _artworkSwitch
+        ? 1.0
+        : 0.0;
+    final reveal = Curves.easeOut.transform(
+      _interval(progress, _flashPeakEnd, _revealEnd),
+    );
+    final afterScale = reveal < 0.65
+        ? 0.96 + (0.07 * reveal / 0.65)
+        : 1.03 - (0.03 * (reveal - 0.65) / 0.35);
+    final flashScale = 0.18 + 1.27 * Curves.easeOutCubic.transform(flashRise);
 
-    return Transform.translate(
-      offset: Offset(0, -18 * lift),
-      child: Transform.scale(
-        scale: 1 + (0.15 * lift),
-        child: Stack(
-          fit: StackFit.expand,
-          alignment: Alignment.center,
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.34 * lift),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.72 * lift),
-                    blurRadius: 44 * lift,
-                    spreadRadius: 12 * lift,
-                  ),
-                ],
+    return Stack(
+      fit: StackFit.expand,
+      alignment: Alignment.center,
+      children: [
+        Opacity(
+          key: const Key('stage-transition-before'),
+          opacity: 1 - switchProgress,
+          child: IgnorePointer(
+            child: ExcludeSemantics(
+              excluding: switchProgress >= 0.5,
+              child: beforeArtwork,
+            ),
+          ),
+        ),
+        Opacity(
+          key: const Key('stage-transition-after'),
+          opacity: switchProgress,
+          child: IgnorePointer(
+            child: ExcludeSemantics(
+              excluding: switchProgress < 0.5,
+              child: Transform.scale(
+                scale: reduceMotion ? 1 : afterScale,
+                child: afterArtwork,
               ),
             ),
-            Opacity(opacity: 1 - switchProgress, child: beforeArtwork),
-            Opacity(opacity: switchProgress, child: afterArtwork),
-          ],
+          ),
         ),
-      ),
+        IgnorePointer(
+          child: Opacity(
+            key: const Key('stage-transition-flash'),
+            opacity: flashOpacity.clamp(0, 1),
+            child: Transform.scale(
+              scale: flashScale,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      blurRadius: 54,
+                      spreadRadius: 24,
+                    ),
+                    BoxShadow(
+                      color: AppTheme.gold.withValues(alpha: 0.34),
+                      blurRadius: 82,
+                      spreadRadius: 34,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -451,84 +525,83 @@ class _DawnPainter extends CustomPainter {
       oldDelegate.progress != progress;
 }
 
-class _MagicSpiralPainter extends CustomPainter {
-  const _MagicSpiralPainter({required this.progress});
+class _MagicStarsPainter extends CustomPainter {
+  const _MagicStarsPainter({
+    required this.progress,
+    required this.center,
+    required this.artworkSize,
+  });
 
   final double progress;
+  final Offset center;
+  final double artworkSize;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height * 0.41);
-    for (var index = 0; index < 28; index++) {
-      final phase = (index / 28 + progress * 1.6) * math.pi * 2;
-      final radius = 42 + index * 3.7;
-      final squash = 0.48 + 0.12 * math.sin(progress * math.pi);
-      final position =
+    final scale = artworkSize / 260;
+    final entrance = Curves.easeOut.transform(
+      _interval(progress, 0, _flashStart),
+    );
+    final gather = Curves.easeInOut.transform(
+      _interval(progress, 0, _flashPeakStart),
+    );
+    final burst = Curves.easeOutCubic.transform(
+      _interval(progress, _flashPeakEnd, _revealEnd),
+    );
+    final fade = 1 - _interval(progress, 3.55 / _transitionSeconds, _revealEnd);
+
+    for (var index = 0; index < 30; index++) {
+      final baseAngle = index / 30 * math.pi * 2;
+      final gatheredRadius = 46.0 + (index % 4) * 7;
+      final startingRadius = 128.0 + (index % 6) * 16;
+      final endingRadius = 190.0 + (index % 7) * 18;
+      final radius = burst > 0
+          ? _lerp(gatheredRadius, endingRadius, burst)
+          : _lerp(startingRadius, gatheredRadius, gather);
+      final angle =
+          baseAngle +
+          gather * math.pi * 1.35 +
+          burst * (index.isEven ? 0.5 : -0.4);
+      final point =
           center +
-          Offset(math.cos(phase) * radius, math.sin(phase) * radius * squash);
-      final sparkle = 2.5 + (index % 4) * 1.2;
-      canvas.drawCircle(
-        position,
-        sparkle,
-        Paint()
-          ..color = (index.isEven ? AppTheme.gold : const Color(0xFF65D6A2))
-              .withValues(
-                alpha: 0.45 + 0.45 * math.sin((index + 1) * 0.7).abs(),
-              ),
+          Offset(math.cos(angle) * radius, math.sin(angle) * radius * 0.68) *
+              scale;
+      final twinkle =
+          0.62 + 0.38 * math.sin(index * 1.7 + progress * math.pi * 9).abs();
+      final starRadius = 3.5 + (index % 5) * 0.9;
+      final color = index % 3 == 0 ? Colors.white : const Color(0xFFFFD978);
+
+      canvas.save();
+      canvas.translate(point.dx, point.dy);
+      canvas.rotate(angle + progress * math.pi * 2);
+      canvas.drawPath(
+        _starPath(starRadius),
+        Paint()..color = color.withValues(alpha: entrance * fade * twinkle),
       );
+      canvas.restore();
     }
   }
 
   @override
-  bool shouldRepaint(_MagicSpiralPainter oldDelegate) =>
-      oldDelegate.progress != progress;
+  bool shouldRepaint(_MagicStarsPainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      oldDelegate.center != center ||
+      oldDelegate.artworkSize != artworkSize;
 }
 
-class _CelebrationPainter extends CustomPainter {
-  const _CelebrationPainter({required this.progress});
+double _lerp(double begin, double end, double progress) =>
+    begin + (end - begin) * progress;
 
-  final double progress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final origin = Offset(size.width / 2, size.height * 0.4);
-    for (var index = 0; index < 42; index++) {
-      final angle = (index / 42) * math.pi * 2;
-      final speed = 90 + (index % 7) * 23;
-      final gravity = 120 * progress * progress;
-      final point =
-          origin +
-          Offset(
-            math.cos(angle) * speed * progress,
-            math.sin(angle) * speed * progress + gravity,
-          );
-      final color = switch (index % 3) {
-        0 => AppTheme.gold,
-        1 => const Color(0xFF6CCB9C),
-        _ => const Color(0xFFB72E3C),
-      };
-      final paint = Paint()
-        ..color = color.withValues(alpha: 1 - 0.35 * progress);
-      if (index % 5 == 0) {
-        canvas.drawCircle(point, 7, paint);
-        canvas.drawCircle(point, 4, Paint()..color = const Color(0xFFFFE49A));
-      } else {
-        canvas.save();
-        canvas.translate(point.dx, point.dy);
-        canvas.rotate(angle + progress * math.pi * 3);
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            const Rect.fromLTWH(-3, -7, 6, 14),
-            const Radius.circular(2),
-          ),
-          paint,
-        );
-        canvas.restore();
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_CelebrationPainter oldDelegate) =>
-      oldDelegate.progress != progress;
+Path _starPath(double radius) {
+  final inner = radius * 0.28;
+  return Path()
+    ..moveTo(0, -radius)
+    ..lineTo(inner, -inner)
+    ..lineTo(radius, 0)
+    ..lineTo(inner, inner)
+    ..lineTo(0, radius)
+    ..lineTo(-inner, inner)
+    ..lineTo(-radius, 0)
+    ..lineTo(-inner, -inner)
+    ..close();
 }

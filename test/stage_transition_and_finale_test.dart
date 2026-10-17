@@ -38,7 +38,7 @@ void main() {
     );
   }
 
-  testWidgets('reduced motion immediately reveals transition result', (
+  testWidgets('reduced motion dissolves without a flash within 600 ms', (
     tester,
   ) async {
     var completed = false;
@@ -51,7 +51,21 @@ void main() {
         onCompleted: () => completed = true,
       ),
     );
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      tester
+          .widget<Opacity>(find.byKey(const Key('stage-transition-flash')))
+          .opacity,
+      0,
+    );
+    expect(
+      tester
+          .widget<Opacity>(find.byKey(const Key('stage-transition-after')))
+          .opacity,
+      inExclusiveRange(0, 1),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Доброе утро, Финни!'), findsOneWidget);
     expect(find.textContaining('+30 монет'), findsWidgets);
@@ -69,11 +83,79 @@ void main() {
       transitionApp(onCompleted: () {}, onFanfare: () => fanfareCount++),
     );
 
-    await tester.pump(const Duration(milliseconds: 2250));
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 2600));
+    expect(fanfareCount, 0);
+
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 1000));
 
     expect(fanfareCount, 1);
   });
+
+  testWidgets('artwork changes only while the white flash covers it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(transitionApp(onCompleted: () {}));
+
+    Opacity opacity(String key) => tester.widget<Opacity>(find.byKey(Key(key)));
+
+    expect(opacity('stage-transition-before').opacity, 1);
+    expect(opacity('stage-transition-after').opacity, 0);
+
+    await tester.pump(const Duration(milliseconds: 2400));
+
+    expect(opacity('stage-transition-flash').opacity, 1);
+    expect(opacity('stage-transition-before').opacity, 1);
+    expect(opacity('stage-transition-after').opacity, 0);
+
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(opacity('stage-transition-flash').opacity, 1);
+    expect(opacity('stage-transition-before').opacity, 0);
+    expect(opacity('stage-transition-after').opacity, 1);
+
+    await tester.pump(const Duration(milliseconds: 1500));
+
+    expect(opacity('stage-transition-flash').opacity, 0);
+    expect(opacity('stage-transition-after').opacity, 1);
+  });
+
+  testWidgets('transition finishes in 4.6 seconds and waits for continue', (
+    tester,
+  ) async {
+    var completed = 0;
+    await tester.pumpWidget(transitionApp(onCompleted: () => completed++));
+    await tester.pump(const Duration(milliseconds: 3999));
+
+    expect(find.text('Вперёд, к новым открытиям! 🚀'), findsNothing);
+    expect(completed, 0);
+
+    await tester.pump(const Duration(milliseconds: 601));
+
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(tester.hasRunningAnimations, isFalse);
+    expect(find.text('Вперёд, к новым открытиям! 🚀'), findsOneWidget);
+    expect(completed, 0);
+    await tester.tap(find.text('Вперёд, к новым открытиям! 🚀'));
+    expect(completed, 1);
+  });
+
+  for (final size in [const Size(320, 568), const Size(1024, 900)]) {
+    testWidgets('transition fits ${size.width} x ${size.height}', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(transitionApp(onCompleted: () {}));
+
+      for (final elapsed in [800, 1650, 1550, 600]) {
+        await tester.pump(Duration(milliseconds: elapsed));
+        expect(tester.takeException(), isNull);
+      }
+
+      expect(find.text('Вперёд, к новым открытиям! 🚀'), findsOneWidget);
+    });
+  }
 
   testWidgets('finale is responsive and exports a non-empty PNG', (
     tester,
