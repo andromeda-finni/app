@@ -36,8 +36,11 @@ class OnboardingStep2Screen extends StatelessWidget {
       top: OnboardingScene(
         background: 'assets/backgrounds/shop.webp',
         foreground: 'assets/backgrounds/meadow_foreground.webp',
-        cat: catAssetForFur(data?.furColorId),
-        catAlignment: const Alignment(-0.35, 0.85),
+        cat: catAssetForFur(
+          data?.furColorId,
+          collarColorId: data?.collarColorId,
+        ),
+        catAlignment: const Alignment(-0.35, 0.25),
         catHeightFraction: 0.5,
       ),
       onBack: onBack,

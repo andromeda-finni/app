@@ -72,6 +72,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'Мурзик');
     await _tapVisible(tester, find.text('серый'));
+    await _tapVisible(tester, find.text('синий'));
     await _tapVisible(tester, find.text('Далее'));
 
     expect(find.textContaining('Иногда Мурзик тратил'), findsOneWidget);
@@ -291,6 +292,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField), 'Мурзик');
       await _tapVisible(tester, find.text('серый'));
+      await _tapVisible(tester, find.text('зелёный'));
       await _tapVisible(tester, find.text('Далее'));
 
       await _tapVisible(tester, find.byType(BackCircleButton));
@@ -303,6 +305,7 @@ void main() {
       expect(jsonDecode(requests.last.body), {
         'petName': 'Рыжик',
         'furOptionId': 'FUR_ORANGE',
+        'accessoryOptionId': 'ACC_COLLAR_GREEN',
       });
     },
   );

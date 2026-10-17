@@ -142,13 +142,20 @@ class _StageTransitionScreenState extends State<StageTransitionScreen>
             child: Stack(
               fit: StackFit.expand,
               children: [
-                CustomPaint(
-                  painter: _DawnPainter(
-                    progress: widget.type == StageTransitionType.newDay
-                        ? progress
-                        : 0.72,
+                if (widget.type == StageTransitionType.petEvolution)
+                  Image.asset(
+                    'assets/backgrounds/home_room.webp',
+                    fit: BoxFit.cover,
+                    excludeFromSemantics: true,
+                  )
+                else
+                  CustomPaint(
+                    painter: _DawnPainter(
+                      progress: widget.type == StageTransitionType.newDay
+                          ? progress
+                          : 0.72,
+                    ),
                   ),
-                ),
                 BackdropFilter(
                   filter: ImageFilter.blur(
                     sigmaX: 5 * focus,
@@ -417,7 +424,7 @@ class _RewardCard extends StatelessWidget {
                       textStyle: AppTextStyles.button.copyWith(fontSize: 16),
                     ),
                     child: const Text(
-                      'Вперёд, к новым открытиям! 🚀',
+                      'Вперёд, к новым открытиям!',
                       textAlign: TextAlign.center,
                     ),
                   ),

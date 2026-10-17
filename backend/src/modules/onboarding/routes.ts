@@ -21,6 +21,7 @@ interface OnboardingStatusRow {
   tutorial_need_amount: number | null;
   tutorial_want_amount: number | null;
   tutorial_savings_amount: number | null;
+  accessory_option_id: string | null;
 }
 
 interface CompleteStepBody {
@@ -46,6 +47,7 @@ function statusResponse(row: OnboardingStatusRow) {
         : {
             petName: row.pet_name,
             furOptionId: row.fur_option_id,
+            accessoryOptionId: row.accessory_option_id,
           },
     tutorialPlan:
       row.tutorial_need_amount === null
@@ -67,7 +69,7 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
         `SELECT cp.difficulty, cp.onboarding_step, cp.onboarding_completed_at,
                 cp.home_tour_completed_at, cp.tutorial_need_amount,
                 cp.tutorial_want_amount, cp.tutorial_savings_amount,
-                p.pet_name, p.fur_option_id
+                p.pet_name, p.fur_option_id, p.accessory_option_id
            FROM child_profiles cp
            LEFT JOIN pets p ON p.child_user_id = cp.user_id
           WHERE cp.user_id = $1`,

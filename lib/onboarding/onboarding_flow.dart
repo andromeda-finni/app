@@ -114,7 +114,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   Future<void> _savePet(OnboardingData data) async {
     await _api.put(
       '/pet',
-      body: {'petName': data.petName.trim(), 'furOptionId': data.furColorId},
+      body: {
+        'petName': data.petName.trim(),
+        'furOptionId': data.furColorId,
+        'accessoryOptionId': data.collarColorId,
+      },
     );
   }
 
@@ -218,10 +222,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     try {
       await _api.put(
         '/onboarding/progress',
-        body: {
-          'completedStep': completedStep,
-          'tutorialPlan': ?tutorialPlan,
-        },
+        body: {'completedStep': completedStep, 'tutorialPlan': ?tutorialPlan},
       );
       return true;
     } catch (_) {
