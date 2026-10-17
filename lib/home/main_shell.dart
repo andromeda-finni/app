@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../core/child_difficulty.dart';
 import '../core/game_audio_service.dart';
+import '../core/large_text.dart';
 import '../dictionary/dictionary_progress.dart';
 import '../dictionary/dictionary_storage.dart';
 import '../dictionary/scroll_sheet.dart';
@@ -75,6 +76,7 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _settings = ChildSettingsSnapshot(difficulty: widget.initialDifficulty);
+    LargeTextScope.enabled.value = _settings.largeText;
     GameAudioService.instance.configure(
       soundEnabled: _settings.sound,
       musicEnabled: _settings.music,
@@ -84,6 +86,8 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    // The parent side and onboarding do not use the child's setting.
+    LargeTextScope.enabled.value = false;
     _tourTargets.dispose();
     if (widget.dictionaryProgress == null) _dictionary.dispose();
     super.dispose();
@@ -210,6 +214,7 @@ class _MainShellState extends State<MainShell> {
         soundEnabled: settings.sound,
         musicEnabled: settings.music,
       );
+      LargeTextScope.enabled.value = settings.largeText;
       setState(() => _settings = settings);
     } on ApiException {
       // Keep safe local defaults; the settings screen exposes an explicit
@@ -235,6 +240,7 @@ class _MainShellState extends State<MainShell> {
                 ),
               );
             }
+            LargeTextScope.enabled.value = next.largeText;
             setState(() {
               if (next.difficulty != _settings.difficulty) _mapRevision++;
               _settings = next;
@@ -377,7 +383,6 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
     final tourPending = widget.showHomeTour && !_tourCompleted;
     final content = Scaffold(
       backgroundColor: AppColors.parchment,
@@ -450,31 +455,24 @@ class _MainShellState extends State<MainShell> {
         child: AppNavBar(currentIndex: _index, onSelected: _selectTab),
       ),
     );
-    return MediaQuery(
-      data: media.copyWith(
-        textScaler: _settings.largeText
-            ? media.textScaler.clamp(minScaleFactor: 1.15, maxScaleFactor: 2.0)
-            : media.textScaler,
-      ),
-      child: Stack(
-        key: _tourOverlayKey,
-        children: [
+    return Stack(
+      key: _tourOverlayKey,
+      children: [
+        Positioned.fill(
+          child: ExcludeSemantics(excluding: _tourActive, child: content),
+        ),
+        if (_tourActive)
           Positioned.fill(
-            child: ExcludeSemantics(excluding: _tourActive, child: content),
-          ),
-          if (_tourActive)
-            Positioned.fill(
-              child: HomeTourOverlay(
-                step: _tourStep,
-                spotlights: _spotlights,
-                busy: _tourBusy,
-                error: _tourError,
-                onNext: _nextTourStep,
-                onBack: () => _prepareTourStep(_tourStep - 1),
-              ),
+            child: HomeTourOverlay(
+              step: _tourStep,
+              spotlights: _spotlights,
+              busy: _tourBusy,
+              error: _tourError,
+              onNext: _nextTourStep,
+              onBack: () => _prepareTourStep(_tourStep - 1),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
