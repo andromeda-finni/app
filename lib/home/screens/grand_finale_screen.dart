@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../theme/app_theme.dart';
+import '../../core/pet_assets.dart';
 
 typedef DiplomaShareCallback = Future<void> Function(Uint8List pngBytes);
 
@@ -23,10 +24,16 @@ class GrandFinaleScreen extends StatefulWidget {
     this.daysOnPlan = 7,
     this.safetyBufferHelped = true,
     this.onShareDiploma,
+    this.furOptionId,
+    this.accessoryOptionId,
+    this.evolutionStage = 3,
   });
 
   final String childName;
   final String petName;
+  final String? furOptionId;
+  final String? accessoryOptionId;
+  final int evolutionStage;
   final int earnedCoins;
   final String goalName;
   final int vigilancePercent;
@@ -130,7 +137,15 @@ class _GrandFinaleScreenState extends State<GrandFinaleScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
             child: Column(
               children: [
-                const _TriumphHeader(),
+                _TriumphHeader(
+                  cat: catAsset(
+                    furOptionId: widget.furOptionId,
+                    accessoryOptionId: widget.accessoryOptionId,
+                    evolutionStage: widget.evolutionStage,
+                    mood: PetMood.happy,
+                  ),
+                  stage: widget.evolutionStage,
+                ),
                 const SizedBox(height: 24),
                 RepaintBoundary(
                   key: _diplomaKey,
@@ -159,7 +174,10 @@ class _GrandFinaleScreenState extends State<GrandFinaleScreen> {
 }
 
 class _TriumphHeader extends StatelessWidget {
-  const _TriumphHeader();
+  const _TriumphHeader({required this.cat, required this.stage});
+
+  final String cat;
+  final int stage;
 
   @override
   Widget build(BuildContext context) {
@@ -168,7 +186,7 @@ class _TriumphHeader extends StatelessWidget {
       label: 'Триумф! Ты открыл путь в Тридесятое Царство!',
       child: Column(
         children: [
-          const _GoldenGateScene(),
+          _GoldenGateScene(cat: cat, stage: stage),
           const SizedBox(height: 8),
           FittedBox(
             fit: BoxFit.scaleDown,
@@ -215,7 +233,10 @@ class _TriumphHeader extends StatelessWidget {
 }
 
 class _GoldenGateScene extends StatelessWidget {
-  const _GoldenGateScene();
+  const _GoldenGateScene({required this.cat, required this.stage});
+
+  final String cat;
+  final int stage;
 
   @override
   Widget build(BuildContext context) {
@@ -231,9 +252,9 @@ class _GoldenGateScene extends StatelessWidget {
                 child: CustomPaint(painter: _GoldenGatePainter()),
               ),
               Image.asset(
-                'assets/Cat/Base/playful.webp',
+                cat,
                 fit: BoxFit.contain,
-                height: 190,
+                height: 170 * catStageScale(stage),
                 errorBuilder: (_, _, _) => const Icon(
                   Icons.pets_rounded,
                   color: Colors.white,

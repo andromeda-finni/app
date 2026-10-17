@@ -9,34 +9,33 @@ const furColorOptions = [
     id: 'FUR_GRAY',
     label: 'серый',
     swatch: 0xFF85817E,
-    catAsset: 'assets/Cat/Red_collar/base/striped.webp',
+    catAsset: 'assets/Cat/stages/kitten/red/base_striped.webp',
   ),
   FurColorOption(
     id: 'FUR_ORANGE',
     label: 'рыжий',
     swatch: 0xFFD27A32,
-    catAsset: 'assets/Cat/Red_collar/base/red.webp',
+    catAsset: 'assets/Cat/stages/kitten/red/base_red.webp',
   ),
   FurColorOption(
     id: 'FUR_WHITE',
     label: 'белый',
     swatch: 0xFFF3EDE2,
-    catAsset: 'assets/Cat/Red_collar/base/white.webp',
+    catAsset: 'assets/Cat/stages/kitten/red/base_white.webp',
   ),
 ];
 
 /// Looks up the cat art for a chosen fur id, falling back to the base pose
 /// while nothing is chosen yet.
-String catAssetForFur(String? furColorId, {bool happy = false}) {
-  for (final option in furColorOptions) {
-    if (option.id == furColorId) {
-      return happy
-          ? option.catAsset.replaceFirst('/base/', '/happy/')
-          : option.catAsset;
-    }
-  }
-  return kBaseCatAsset;
-}
+String catAssetForFur(
+  String? furColorId, {
+  String? collarColorId,
+  bool happy = false,
+}) => catAsset(
+  furOptionId: furColorId,
+  accessoryOptionId: collarColorId,
+  mood: happy ? PetMood.happy : PetMood.base,
+);
 
 /// Three clean flat-colour choices. The transparent hit area is larger than
 /// the painted circle, while selection remains visible through a ring, check

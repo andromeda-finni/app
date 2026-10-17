@@ -14,7 +14,8 @@ class OnboardingScene extends StatelessWidget {
     required this.background,
     this.cat,
     this.foreground,
-    this.catAlignment = const Alignment(0, 0.72),
+    // Leave clear ground beneath the feet, above the 44px paper transition.
+    this.catAlignment = const Alignment(0, 0.15),
     this.catHeightFraction = 0.58,
     this.backgroundAlignment = const Alignment(0, 0.45),
     this.foregroundAlignment = Alignment.bottomCenter,
@@ -49,14 +50,6 @@ class OnboardingScene extends StatelessWidget {
               fit: BoxFit.cover,
               alignment: backgroundAlignment,
             ),
-            if (cat != null)
-              Align(
-                alignment: catAlignment,
-                child: FractionallySizedBox(
-                  heightFactor: catHeightFraction,
-                  child: Image.asset(cat!, fit: BoxFit.contain),
-                ),
-              ),
             if (foreground != null)
               IgnorePointer(
                 child: Image.asset(
@@ -64,6 +57,14 @@ class OnboardingScene extends StatelessWidget {
                   fit: BoxFit.cover,
                   alignment: foregroundAlignment,
                   excludeFromSemantics: true,
+                ),
+              ),
+            if (cat != null)
+              Align(
+                alignment: catAlignment,
+                child: FractionallySizedBox(
+                  heightFactor: catHeightFraction,
+                  child: Image.asset(cat!, fit: BoxFit.contain),
                 ),
               ),
             const Positioned(

@@ -43,6 +43,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
             tutorial_need_amount: tutorialPlan?.[0] ?? null,
             tutorial_want_amount: tutorialPlan?.[1] ?? null,
             tutorial_savings_amount: tutorialPlan?.[2] ?? null,
+            accessory_option_id: "ACC_COLLAR_BLUE",
           },
         ] : [],
         rowCount: profileExists ? 1 : 0,
@@ -122,7 +123,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       currentStep: 2,
       completed: false,
       homeTourCompleted: false,
-      pet: { petName: "Мурзик", furOptionId: "FUR_GRAY" },
+      pet: { petName: "Мурзик", furOptionId: "FUR_GRAY", accessoryOptionId: "ACC_COLLAR_BLUE" },
       tutorialPlan: null,
     });
 
@@ -254,7 +255,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       currentStep: 4,
       completed: true,
       homeTourCompleted: true,
-      pet: { petName: "Мурзик", furOptionId: "FUR_GRAY" },
+      pet: { petName: "Мурзик", furOptionId: "FUR_GRAY", accessoryOptionId: "ACC_COLLAR_BLUE" },
       tutorialPlan: { needAmount: 5, wantAmount: 2, savingsAmount: 3 },
     });
   } finally {

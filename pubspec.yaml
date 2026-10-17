@@ -116,12 +116,15 @@ flutter:
     - assets/artifacts/items/
     # Every mood folder is in use: the home screen swaps the pet's drawing to
     # match its stats (see lib/core/pet_assets.dart).
-    - assets/Cat/Red_collar/base/
-    - assets/Cat/Red_collar/happy/
-    - assets/Cat/Red_collar/sad/
-    - assets/Cat/Red_collar/sleep/
-    - assets/Cat/Red_collar/fully/
-    - assets/Cat/Base/playful.webp
+    - assets/Cat/stages/kitten/red/
+    - assets/Cat/stages/kitten/green/
+    - assets/Cat/stages/kitten/blue/
+    - assets/Cat/stages/middle/red/
+    - assets/Cat/stages/middle/green/
+    - assets/Cat/stages/middle/blue/
+    - assets/Cat/stages/adult/red/
+    - assets/Cat/stages/adult/green/
+    - assets/Cat/stages/adult/blue/
     - assets/minigames/tugriki/
     - assets/minigames/mole/
     - assets/minigames/bakery/

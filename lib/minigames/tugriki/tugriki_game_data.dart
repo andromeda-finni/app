@@ -10,7 +10,7 @@ abstract final class TugrikiAssets {
   static const foreignMoneyBag = '$root/foreign_money_bag.webp';
 
   static const homeCoin = 'assets/icons/coin.webp';
-  static const catStriped = 'assets/Cat/Red_collar/base/striped.webp';
+  static const catStriped = 'assets/Cat/stages/kitten/red/base_striped.webp';
 }
 
 /// Товар на сказочном рынке соседнего государства

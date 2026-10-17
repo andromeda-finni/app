@@ -28,6 +28,8 @@ final class DaySummary {
     required this.planFollowed,
     required this.feedback,
     required this.recommendations,
+    this.petStageBefore = 1,
+    this.petStageAfter = 1,
   });
 
   final String periodId;
@@ -39,6 +41,10 @@ final class DaySummary {
   final bool planFollowed;
   final String feedback;
   final List<String> recommendations;
+  final int petStageBefore;
+  final int petStageAfter;
+
+  bool get petGrew => petStageAfter > petStageBefore;
 
   factory DaySummary.fromJson(Map<String, dynamic> json) {
     final periodId = json['periodId'];
@@ -60,6 +66,16 @@ final class DaySummary {
       actual: DaySummaryAmounts.fromJson(Map<String, dynamic>.from(actual)),
       needCovered: json['needCovered'] == true,
       planFollowed: json['planFollowed'] == true,
+      petStageBefore:
+          (_asInt(json['petStageBefore']) == 0
+                  ? 1
+                  : _asInt(json['petStageBefore']))
+              .clamp(1, 3),
+      petStageAfter:
+          (_asInt(json['petStageAfter']) == 0
+                  ? 1
+                  : _asInt(json['petStageAfter']))
+              .clamp(1, 3),
       feedback: feedback,
       recommendations: (json['recommendations'] as List? ?? const [])
           .whereType<String>()

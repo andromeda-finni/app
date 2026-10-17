@@ -37,6 +37,8 @@ class TugrikiGameScreen extends StatefulWidget {
     this.furOptionId,
     this.dictionaryProgress,
     this.dictionaryMedia,
+    this.accessoryOptionId,
+    this.evolutionStage = 1,
   });
 
   final ApiClient? apiClient;
@@ -47,6 +49,8 @@ class TugrikiGameScreen extends StatefulWidget {
   final String? furOptionId;
   final DictionaryProgress? dictionaryProgress;
   final MediaQueryData? dictionaryMedia;
+  final String? accessoryOptionId;
+  final int evolutionStage;
 
   @override
   State<TugrikiGameScreen> createState() => _TugrikiGameScreenState();
@@ -465,8 +469,15 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
                     scale: (!isSparrowSpeaking && showGroshik) ? 1.04 : 0.94,
                     alignment: Alignment.bottomLeft,
                     child: Image.asset(
-                      catAsset(furOptionId: widget.furOptionId),
-                      height: charHeight * 0.92,
+                      catAsset(
+                        furOptionId: widget.furOptionId,
+                        accessoryOptionId: widget.accessoryOptionId,
+                        evolutionStage: widget.evolutionStage,
+                      ),
+                      height:
+                          charHeight *
+                          0.92 *
+                          catStageScale(widget.evolutionStage),
                       fit: BoxFit.contain,
                     ),
                   ),

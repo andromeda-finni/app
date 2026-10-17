@@ -18,6 +18,8 @@ class ParkProjectScreen extends StatefulWidget {
     this.onExit,
     this.petName = 'Питомец',
     this.furOptionId,
+    this.accessoryOptionId,
+    this.evolutionStage = 1,
     this.previewState,
     this.skipFirstOfferIntro = false,
   });
@@ -27,6 +29,8 @@ class ParkProjectScreen extends StatefulWidget {
   final VoidCallback? onExit;
   final String petName;
   final String? furOptionId;
+  final String? accessoryOptionId;
+  final int evolutionStage;
 
   /// Used only by standalone visual previews. Production flows always load
   /// their authoritative state from [apiClient].
@@ -291,6 +295,8 @@ class _ParkProjectScreenState extends State<ParkProjectScreen>
                               ? _introSpeaker(_introStep)
                               : null,
                           furOptionId: widget.furOptionId,
+                          accessoryOptionId: widget.accessoryOptionId,
+                          evolutionStage: widget.evolutionStage,
                           child: _content(state),
                         ),
                 ),
@@ -632,12 +638,16 @@ class _Scene extends StatelessWidget {
     required this.child,
     required this.introSpeaker,
     required this.furOptionId,
+    required this.accessoryOptionId,
+    required this.evolutionStage,
   });
 
   final ParkProjectState state;
   final Widget child;
   final _ParkSpeaker? introSpeaker;
   final String? furOptionId;
+  final String? accessoryOptionId;
+  final int evolutionStage;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -661,11 +671,19 @@ class _Scene extends StatelessWidget {
           Positioned(
             right: -constraints.maxWidth * 0.02,
             bottom: constraints.maxHeight * 0.29,
-            width: math.min(constraints.maxWidth * 0.48, 250),
+            width:
+                math.min(constraints.maxWidth * 0.48, 250) *
+                catStageScale(evolutionStage),
             child: Semantics(
               image: true,
               label: 'Питомец разговаривает с Барсуком',
-              child: Image.asset(catAsset(furOptionId: furOptionId)),
+              child: Image.asset(
+                catAsset(
+                  furOptionId: furOptionId,
+                  accessoryOptionId: accessoryOptionId,
+                  evolutionStage: evolutionStage,
+                ),
+              ),
             ),
           ),
         if (introSpeaker == null &&

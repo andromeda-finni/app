@@ -85,14 +85,26 @@ class _PetSceneState extends State<PetScene>
     // generic `Cat/Base/playful.png` belongs to a different brown cat and
     // caused the pet to visibly change fur colour for a moment.
     final displayedAsset = _reacting
-        ? catAsset(furOptionId: widget.pet.furOptionId, mood: PetMood.happy)
+        ? catAsset(
+            furOptionId: widget.pet.furOptionId,
+            accessoryOptionId: widget.pet.accessoryOptionId,
+            evolutionStage: widget.pet.evolutionStage,
+            mood: PetMood.happy,
+          )
         : widget.pet.assetPath;
     final image = AnimatedSwitcher(
       duration: const Duration(milliseconds: 220),
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.bottomCenter,
+        children: [...previous, ?current],
+      ),
       child: Image.asset(
         displayedAsset,
         key: ValueKey(displayedAsset),
-        height: widget.height * widget.petHeightFactor,
+        height:
+            widget.height *
+            widget.petHeightFactor *
+            catStageScale(widget.pet.evolutionStage),
         fit: BoxFit.contain,
         alignment: Alignment.bottomCenter,
       ),
@@ -127,7 +139,9 @@ class _PetSceneState extends State<PetScene>
                 alignment: Alignment.bottomCenter,
                 children: [
                   Positioned(
-                    bottom: -4,
+                    bottom: 8,
+                    left: 8,
+                    right: 8,
                     child: AnimatedBuilder(
                       animation: _scale,
                       child: petImage,

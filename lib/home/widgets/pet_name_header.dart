@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
+import '../../core/pet_assets.dart';
+import '../../onboarding/widgets/collar_color_picker.dart';
 import '../models/pet.dart';
 
 class PetNameHeader extends StatelessWidget {
@@ -8,29 +10,30 @@ class PetNameHeader extends StatelessWidget {
     super.key,
     required this.pet,
     required this.onRename,
+    this.onUpdateIdentity,
     this.showStage = false,
   });
 
   final Pet pet;
   final Future<void> Function(String name) onRename;
+  final Future<void> Function(String name, String collarId)? onUpdateIdentity;
   final bool showStage;
 
   Future<void> _edit(BuildContext context) async {
-    final name = await showDialog<String>(
+    await showDialog<void>(
       context: context,
-      builder: (_) => _RenameDialog(initialName: pet.name),
+      builder: (_) => _RenameDialog(
+        pet: pet,
+        allowCollar: onUpdateIdentity != null,
+        onSave: (name, collar) async {
+          if (onUpdateIdentity != null) {
+            await onUpdateIdentity!(name, collar);
+          } else {
+            await onRename(name);
+          }
+        },
+      ),
     );
-    if (name == null || name == pet.name || !context.mounted) return;
-    try {
-      await onRename(name);
-    } catch (_) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Не получилось сохранить имя. Попробуй ещё раз.'),
-        ),
-      );
-    }
   }
 
   @override
@@ -63,7 +66,9 @@ class PetNameHeader extends StatelessWidget {
               height: 48,
               child: IconButton(
                 key: const Key('edit-pet-name'),
-                tooltip: 'Изменить имя',
+                tooltip: onUpdateIdentity == null
+                    ? 'Изменить имя'
+                    : 'Изменить имя и ошейник',
                 onPressed: () => _edit(context),
                 icon: const Icon(Icons.edit_rounded),
                 color: AppColors.crimson,
@@ -101,9 +106,15 @@ class PetNameHeader extends StatelessWidget {
 }
 
 class _RenameDialog extends StatefulWidget {
-  const _RenameDialog({required this.initialName});
+  const _RenameDialog({
+    required this.pet,
+    required this.allowCollar,
+    required this.onSave,
+  });
 
-  final String initialName;
+  final Pet pet;
+  final bool allowCollar;
+  final Future<void> Function(String name, String collarId) onSave;
 
   @override
   State<_RenameDialog> createState() => _RenameDialogState();
@@ -111,17 +122,41 @@ class _RenameDialog extends StatefulWidget {
 
 class _RenameDialogState extends State<_RenameDialog> {
   late final TextEditingController _controller = TextEditingController(
-    text: widget.initialName,
+    text: widget.pet.name,
   );
+  late String _collarId =
+      CollarColorPicker.options.any(
+        (option) => option.id == widget.pet.accessoryOptionId,
+      )
+      ? widget.pet.accessoryOptionId!
+      : 'ACC_COLLAR_RED';
   String? _error;
+  bool _saving = false;
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_saving) return;
     final name = _controller.text.trim();
     if (name.isEmpty) {
       setState(() => _error = 'Введи имя');
       return;
     }
-    Navigator.of(context).pop(name);
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.onSave(name, _collarId);
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error =
+              'Не получилось сохранить. Проверь связь и попробуй ещё раз.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -137,29 +172,69 @@ class _RenameDialogState extends State<_RenameDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.lg),
       ),
-      title: const Text('Как зовут питомца?'),
-      content: TextField(
-        key: const Key('pet-name-field'),
-        controller: _controller,
-        autofocus: true,
-        maxLength: 24,
-        textCapitalization: TextCapitalization.words,
-        decoration: InputDecoration(
-          labelText: 'Имя',
-          errorText: _error,
-          border: const OutlineInputBorder(),
+      title: Text(widget.allowCollar ? 'Имя и ошейник' : 'Как зовут питомца?'),
+      content: SizedBox(
+        width: 360,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.allowCollar) ...[
+                Image.asset(
+                  catAsset(
+                    furOptionId: widget.pet.furOptionId,
+                    accessoryOptionId: _collarId,
+                    evolutionStage: widget.pet.evolutionStage,
+                  ),
+                  height: 130 * catStageScale(widget.pet.evolutionStage),
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
+              TextField(
+                key: const Key('pet-name-field'),
+                controller: _controller,
+                autofocus: !widget.allowCollar,
+                enabled: !_saving,
+                maxLength: 24,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Имя',
+                  border: const OutlineInputBorder(),
+                ),
+                onSubmitted: (_) => _submit(),
+              ),
+              if (widget.allowCollar) ...[
+                const SizedBox(height: AppSpacing.md),
+                Text('Цвет ошейника', style: AppTextStyles.sectionTitle),
+                IgnorePointer(
+                  ignoring: _saving,
+                  child: CollarColorPicker(
+                    selectedId: _collarId,
+                    onSelected: (id) => setState(() => _collarId = id),
+                  ),
+                ),
+              ],
+              if (_error != null)
+                Text(
+                  _error!,
+                  style: AppTextStyles.supporting.copyWith(
+                    color: AppColors.crimson,
+                  ),
+                ),
+            ],
+          ),
         ),
-        onSubmitted: (_) => _submit(),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
           child: const Text('Отмена'),
         ),
         FilledButton(
-          onPressed: _submit,
+          onPressed: _saving ? null : _submit,
           style: FilledButton.styleFrom(backgroundColor: AppColors.crimson),
-          child: const Text('Сохранить'),
+          child: Text(_saving ? 'Сохраняем…' : 'Сохранить'),
         ),
       ],
     );

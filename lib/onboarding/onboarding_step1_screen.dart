@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import 'onboarding_data.dart';
 import 'widgets/drop_cap_story.dart';
 import 'widgets/fur_color_picker.dart';
+import 'widgets/collar_color_picker.dart';
 import 'widgets/inline_name_field.dart';
 import 'widgets/onboarding_paper_background.dart';
 import 'widgets/onboarding_scene.dart';
@@ -53,6 +54,7 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
   bool get _canContinue =>
       _data.petName.trim().isNotEmpty &&
       _data.furColorId != null &&
+      _data.collarColorId != null &&
       !_submitting;
 
   Future<void> _handleNext() async {
@@ -102,7 +104,11 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
                                 'assets/backgrounds/meadow_foreground.webp',
                             // Base pose until a colour is chosen, then the cat
                             // in that coat so the choice is reflected at once.
-                            cat: catAssetForFur(_data.furColorId),
+                            cat: catAssetForFur(
+                              _data.furColorId,
+                              collarColorId: _data.collarColorId,
+                            ),
+                            catHeightFraction: 0.50,
                           ),
                         ),
                         Padding(
@@ -123,6 +129,10 @@ class _OnboardingStep1ScreenState extends State<OnboardingStep1Screen> {
                                 ),
                                 onFurSelected: (id) => setState(
                                   () => _data = _data.copyWith(furColorId: id),
+                                ),
+                                onCollarSelected: (id) => setState(
+                                  () =>
+                                      _data = _data.copyWith(collarColorId: id),
                                 ),
                               ),
                               if (_errorMessage != null) ...[
@@ -184,12 +194,14 @@ class _StoryParagraph extends StatelessWidget {
     required this.nameController,
     required this.onNameChanged,
     required this.onFurSelected,
+    required this.onCollarSelected,
   });
 
   final OnboardingData data;
   final TextEditingController nameController;
   final ValueChanged<String> onNameChanged;
   final ValueChanged<String> onFurSelected;
+  final ValueChanged<String> onCollarSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -214,6 +226,18 @@ class _StoryParagraph extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         FurColorPicker(selectedId: data.furColorId, onSelected: onFurSelected),
+        const SizedBox(height: AppSpacing.lg),
+        Text('Выбери цвет ошейника', style: AppTextStyles.sectionTitle),
+        const SizedBox(height: AppSpacing.sm),
+        CollarColorPicker(
+          selectedId: data.collarColorId,
+          onSelected: onCollarSelected,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Цвет шёрстки останется с питомцем, а ошейник можно будет поменять.',
+          style: AppTextStyles.supporting,
+        ),
       ],
     );
   }

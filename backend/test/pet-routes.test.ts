@@ -15,6 +15,7 @@ test("PUT /pet updates the authenticated child's singleton pet on repeated submi
   const originalConnect = pool.connect;
   const writes: unknown[][] = [];
   let profileProgressUpdates = 0;
+  let completed = false;
 
   pool.query = (async (text: string, params: unknown[] = []) => {
     if (text.includes("FROM auth_credentials")) {
@@ -30,6 +31,10 @@ test("PUT /pet updates the authenticated child's singleton pet on repeated submi
     query: async (text: string, params: unknown[] = []) => {
       if (text === "BEGIN" || text === "COMMIT" || text === "ROLLBACK") {
         return { rows: [], rowCount: null };
+      }
+      if (text.includes('FOR UPDATE OF cp')) {
+        assert.equal(params[0], 'child-1');
+        return { rows: [{ onboarding_completed_at: completed ? new Date() : null, fur_option_id: 'FUR_ORANGE', accessory_option_id: 'ACC_COLLAR_BLUE' }], rowCount: 1 };
       }
       if (text.includes("INSERT INTO pets")) {
         assert.match(text, /ON CONFLICT \(child_user_id\) DO UPDATE/);
@@ -60,7 +65,7 @@ test("PUT /pet updates the authenticated child's singleton pet on repeated submi
       method: "PUT",
       url: "/pet",
       headers: { authorization: "Bearer token" },
-      payload: { petName: "Рыжик", furOptionId: "FUR_ORANGE" },
+      payload: { petName: "Рыжик", furOptionId: "FUR_ORANGE", accessoryOptionId: 'ACC_COLLAR_BLUE' },
     });
 
     assert.equal(first.statusCode, 200);
@@ -71,6 +76,36 @@ test("PUT /pet updates the authenticated child's singleton pet on repeated submi
     assert.equal(writes[1]?.[1], "Рыжик");
     assert.equal(writes[1]?.[4], "FUR_ORANGE");
     assert.equal(profileProgressUpdates, 2);
+    assert.equal(writes[1]?.[5], 'ACC_COLLAR_BLUE');
+
+    completed = true;
+    for (const appearance of [
+      { furOptionId: 'FUR_GRAY', accessoryOptionId: 'ACC_COLLAR_BLUE' },
+    ]) {
+      const locked = await app.inject({
+        method: 'PUT', url: '/pet', headers: { authorization: 'Bearer token' },
+        payload: { petName: 'Рыжик', ...appearance },
+      });
+      assert.equal(locked.statusCode, 409);
+    }
+    assert.equal(writes.length, 2);
+    const changeCollar = await app.inject({
+      method: 'PUT', url: '/pet', headers: { authorization: 'Bearer token' },
+      payload: { petName: 'Рыжик', furOptionId: 'FUR_ORANGE', accessoryOptionId: 'ACC_COLLAR_GREEN' },
+    });
+    assert.equal(changeCollar.statusCode, 200);
+    assert.equal(writes[2]?.[5], 'ACC_COLLAR_GREEN');
+    const invalidCollar = await app.inject({
+      method: 'PUT', url: '/pet', headers: { authorization: 'Bearer token' },
+      payload: { petName: 'Рыжик', furOptionId: 'FUR_ORANGE', accessoryOptionId: 'ACC_FAKE' },
+    });
+    assert.equal(invalidCollar.statusCode, 400);
+    const rename = await app.inject({
+      method: 'PUT', url: '/pet', headers: { authorization: 'Bearer token' },
+      payload: { petName: 'Мурзик', furOptionId: 'FUR_ORANGE', accessoryOptionId: 'ACC_COLLAR_BLUE' },
+    });
+    assert.equal(rename.statusCode, 200);
+    assert.equal(writes.length, 4);
   } finally {
     pool.query = originalQuery;
     pool.connect = originalConnect;

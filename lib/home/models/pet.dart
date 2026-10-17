@@ -43,12 +43,17 @@ class Pet {
 
   PetMood get mood => moodFor(satiety: satiety, joy: joy, health: health);
 
-  String get assetPath => catAsset(furOptionId: furOptionId, mood: mood);
-
-  Pet copyWith({String? name, int? health}) => Pet(
-    name: name ?? this.name,
+  String get assetPath => catAsset(
     furOptionId: furOptionId,
     accessoryOptionId: accessoryOptionId,
+    evolutionStage: evolutionStage,
+    mood: mood,
+  );
+
+  Pet copyWith({String? name, int? health, String? accessoryOptionId}) => Pet(
+    name: name ?? this.name,
+    furOptionId: furOptionId,
+    accessoryOptionId: accessoryOptionId ?? this.accessoryOptionId,
     satiety: satiety,
     joy: joy,
     health: health ?? this.health,

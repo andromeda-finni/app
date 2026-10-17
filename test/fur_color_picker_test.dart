@@ -9,7 +9,7 @@ void main() {
     expect(kBaseCatAsset, furColorOptions.first.catAsset);
 
     for (final option in furColorOptions) {
-      expect(catAssetForFur(option.id), contains('/base/'));
+      expect(catAssetForFur(option.id), contains('/kitten/red/base_'));
     }
   });
 }

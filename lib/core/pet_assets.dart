@@ -19,12 +19,32 @@ const _furFolder = <String, String>{
 
 /// Shown before a fur colour has been chosen. It deliberately matches the
 /// first (grey) option, so choosing grey never swaps the cat to another pose.
-const kBaseCatAsset = 'assets/Cat/Red_collar/base/striped.webp';
+const kBaseCatAsset = 'assets/Cat/stages/kitten/red/base_striped.webp';
 
-String catAsset({required String? furOptionId, PetMood mood = PetMood.base}) {
+const _collarFolder = {
+  'ACC_COLLAR_RED': 'red',
+  'ACC_COLLAR_GREEN': 'green',
+  'ACC_COLLAR_BLUE': 'blue',
+};
+
+/// Relative visible height; every scene anchors the transparent art at its feet.
+double catStageScale(int stage) => switch (stage.clamp(1, 3)) {
+  1 => 0.76,
+  2 => 1.0,
+  _ => 1.12,
+};
+
+String catAsset({
+  required String? furOptionId,
+  String? accessoryOptionId,
+  int evolutionStage = 1,
+  PetMood mood = PetMood.base,
+}) {
   // An unknown fur still gets the right mood, drawn in the default grey.
   final fur = _furFolder[furOptionId] ?? _furFolder['FUR_GRAY']!;
-  return 'assets/Cat/Red_collar/${_moodFolder[mood]}/$fur.webp';
+  final collar = _collarFolder[accessoryOptionId] ?? 'red';
+  final stage = ['kitten', 'middle', 'adult'][evolutionStage.clamp(1, 3) - 1];
+  return 'assets/Cat/stages/$stage/$collar/${_moodFolder[mood]}_$fur.webp';
 }
 
 /// Side-view map sprite used only while the pet is travelling between quests.

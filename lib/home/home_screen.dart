@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/pet_assets.dart';
+import '../core/game_audio_service.dart';
 import '../day_summary/day_summary.dart';
 import '../day_summary/day_summary_screen.dart';
 import '../events/pet_event_dialog.dart';
@@ -22,6 +24,7 @@ import 'widgets/dream_card.dart';
 import 'widgets/home_side_panel.dart';
 import 'widgets/pet_name_header.dart';
 import 'widgets/pet_scene.dart';
+import 'widgets/stage_transition_screen.dart';
 import 'widgets/parent_tasks_card.dart';
 import 'widgets/recent_days_card.dart';
 
@@ -258,20 +261,25 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _rename(String name) async {
+  Future<void> _rename(String name) =>
+      _updateIdentity(name, _data?.pet.accessoryOptionId);
+
+  Future<void> _updateIdentity(String name, String? collarId) async {
     final current = _data;
     if (current == null) return;
     final body = <String, dynamic>{
       'petName': name,
       'furOptionId': current.pet.furOptionId,
-      if (current.pet.accessoryOptionId != null)
-        'accessoryOptionId': current.pet.accessoryOptionId,
+      'accessoryOptionId': ?collarId,
     };
     await widget.apiClient.put('/pet', body: body);
     if (!mounted) return;
-    setState(
-      () => _data = current.copyWith(pet: current.pet.copyWith(name: name)),
-    );
+    setState(() {
+      final latest = _data ?? current;
+      _data = latest.copyWith(
+        pet: latest.pet.copyWith(name: name, accessoryOptionId: collarId),
+      );
+    });
   }
 
   Future<void> _runMutation(Future<void> Function() action) async {
@@ -460,6 +468,41 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         );
+        if (!mounted || !summary.petGrew) return;
+        final pet = _data?.pet;
+        if (pet == null) return;
+        Widget artwork(int stage) => Align(
+          alignment: Alignment.bottomCenter,
+          child: FractionallySizedBox(
+            heightFactor: catStageScale(stage) / catStageScale(3),
+            child: Image.asset(
+              catAsset(
+                furOptionId: pet.furOptionId,
+                accessoryOptionId: pet.accessoryOptionId,
+                evolutionStage: stage,
+                mood: PetMood.happy,
+              ),
+              fit: BoxFit.contain,
+              alignment: Alignment.bottomCenter,
+            ),
+          ),
+        );
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute(
+            fullscreenDialog: true,
+            builder: (routeContext) => StageTransitionScreen(
+              beforeArtwork: artwork(summary!.petStageBefore),
+              afterArtwork: artwork(summary.petStageAfter),
+              title: '${pet.name} повзрослел!',
+              message:
+                  'Вы столько всего узнали вместе! Впереди ещё много открытий.',
+              onFanfare: () => unawaited(
+                GameAudioService.instance.play(GameSound.magicEvent),
+              ),
+              onCompleted: () => Navigator.of(routeContext).pop(),
+            ),
+          ),
+        );
       });
     } catch (_) {
       if (mounted) {
@@ -482,6 +525,7 @@ class _HomeScreenState extends State<HomeScreen> {
           state: data,
           onRename: _rename,
           onStroke: _strokePet,
+          onUpdateIdentity: _updateIdentity,
           onRefresh: () async {
             await _load(showLoader: false);
             return _data!;
@@ -682,6 +726,7 @@ class _HomeScreenState extends State<HomeScreen> {
         busy: _busy,
         onRefresh: () => _load(showLoader: false),
         onRename: _rename,
+        onUpdateIdentity: _updateIdentity,
         onSettings: _showSettings,
         onOpenMenu: widget.onOpenMenu,
         onOpenCare: _openCare,
@@ -713,6 +758,7 @@ class _HomeContent extends StatelessWidget {
     required this.busy,
     required this.onRefresh,
     required this.onRename,
+    required this.onUpdateIdentity,
     required this.onSettings,
     this.onOpenMenu,
     required this.onOpenCare,
@@ -737,6 +783,7 @@ class _HomeContent extends StatelessWidget {
   final bool busy;
   final Future<void> Function() onRefresh;
   final Future<void> Function(String) onRename;
+  final Future<void> Function(String, String) onUpdateIdentity;
   final VoidCallback onSettings;
   final ValueChanged<BuildContext>? onOpenMenu;
   final VoidCallback onOpenCare;
@@ -876,6 +923,7 @@ class _HomeContent extends StatelessWidget {
                               child: PetNameHeader(
                                 pet: data.pet,
                                 onRename: onRename,
+                                onUpdateIdentity: onUpdateIdentity,
                               ),
                             ),
                           ],

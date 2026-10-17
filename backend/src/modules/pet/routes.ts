@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { PoolClient } from "pg";
 import { pool, withTransaction } from "../../lib/db.js";
 import { HttpError } from "../../lib/errors.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
@@ -49,6 +50,30 @@ function rethrowPetWriteError(err: unknown): never {
   const pgErr = err as { code?: string; constraint?: string };
   if (pgErr.code === "23503") throw new HttpError(400, "invalid_cosmetic_option");
   throw err;
+}
+
+async function checkAppearanceWrite(client: PoolClient, childId: string, fur: string, accessory: string | null) {
+  // Serialize against onboarding completion and other identity writes.
+  const result = await client.query<{
+    onboarding_completed_at: Date | null;
+    fur_option_id: string | null;
+    accessory_option_id: string | null;
+  }>(
+    `SELECT cp.onboarding_completed_at, p.fur_option_id, p.accessory_option_id
+       FROM child_profiles cp LEFT JOIN pets p ON p.child_user_id = cp.user_id
+      WHERE cp.user_id = $1 FOR UPDATE OF cp`,
+    [childId],
+  );
+  const current = result.rows[0];
+  if (!current) throw new HttpError(404, "child_profile_not_found");
+  if (current.onboarding_completed_at !== null &&
+      fur !== current.fur_option_id) {
+    throw new HttpError(409, "pet_appearance_locked");
+  }
+  if (current.onboarding_completed_at !== null && accessory !== current.accessory_option_id &&
+      !['ACC_COLLAR_RED', 'ACC_COLLAR_GREEN', 'ACC_COLLAR_BLUE'].includes(accessory ?? '')) {
+    throw new HttpError(400, "invalid_collar_option");
+  }
 }
 
 export async function petRoutes(app: FastifyInstance): Promise<void> {
@@ -136,6 +161,7 @@ export async function petRoutes(app: FastifyInstance): Promise<void> {
 
       try {
         const petId = await withTransaction(async (client) => {
+          await checkAppearanceWrite(client, req.authUser!.id, furOptionId, accessoryOptionId);
           const res = await client.query<{ id: string }>(
             `INSERT INTO pets
                (child_user_id, pet_name, pet_name_status, pet_name_flag_reason, fur_option_id, accessory_option_id)
@@ -187,6 +213,7 @@ export async function petRoutes(app: FastifyInstance): Promise<void> {
 
       try {
         const petId = await withTransaction(async (client) => {
+          await checkAppearanceWrite(client, req.authUser!.id, furOptionId, accessoryOptionId);
           const res = await client.query<{ id: string }>(
             `INSERT INTO pets
                (child_user_id, pet_name, pet_name_status, pet_name_flag_reason, fur_option_id, accessory_option_id)

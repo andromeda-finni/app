@@ -152,7 +152,9 @@ void main() {
           expect(
             catAsset(furOptionId: fur, mood: mood),
             matches(
-              RegExp(r'^assets/Cat/Red_collar/\w+/(striped|red|white)\.webp$'),
+              RegExp(
+                r'^assets/Cat/stages/kitten/red/\w+_(striped|red|white)\.webp$',
+              ),
             ),
           );
         }
@@ -466,6 +468,63 @@ void main() {
     expect(find.text('Свет мой, зеркальце, скажи…'), findsOneWidget);
   });
 
+  testWidgets(
+    'server growth opens celebration after day summary with saved name and collar',
+    (tester) async {
+      var closed = false;
+      await _pump(
+        tester,
+        _screen(
+          handler: (request) async {
+            if (request.url.path.endsWith('/close')) {
+              closed = true;
+              return _json({
+                'periodId': _periodId,
+                'sequenceNo': 3,
+                'earnedAmount': 30,
+                'plan': {'need': 10, 'want': 10, 'savings': 10},
+                'actual': {'need': 10, 'want': 0, 'savings': 10},
+                'needCovered': true,
+                'planFollowed': true,
+                'feedback': 'Всё получилось!',
+                'petStageBefore': 1,
+                'petStageAfter': 2,
+              });
+            }
+            return _json(
+              _economy(
+                pet: {
+                  ..._pet(stage: closed ? 2 : 1),
+                  'pet_name': 'Мурзик',
+                  'accessory_option_id': 'ACC_COLLAR_BLUE',
+                },
+                activeDay: closed
+                    ? null
+                    : _draftDay(status: 'CONFIRMED', remainingReserve: 0),
+              ),
+            );
+          },
+        ),
+      );
+      await tester.tap(find.byKey(const Key('finish-day')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Продолжить'));
+      await tester.tap(find.text('Продолжить'));
+      await tester.pumpAndSettle();
+      expect(find.text('Мурзик повзрослел!'), findsOneWidget);
+      final imagePaths = tester
+          .widgetList<Image>(find.byType(Image))
+          .map((image) => image.image)
+          .whereType<AssetImage>()
+          .map((image) => image.assetName);
+      expect(
+        imagePaths,
+        contains('assets/Cat/stages/middle/blue/happy_striped.webp'),
+      );
+      expect(find.textContaining('До взросления'), findsNothing);
+    },
+  );
+
   testWidgets('renaming persists through PUT /pet', (tester) async {
     Map<String, dynamic>? putBody;
     await _pump(
@@ -490,6 +549,104 @@ void main() {
     expect(putBody?['petName'], 'Финни');
     expect(putBody?['furOptionId'], 'FUR_GRAY');
     expect(find.text('Финни'), findsOneWidget);
+  });
+
+  testWidgets('collar editor retries a failed save and preserves fur and age', (
+    tester,
+  ) async {
+    var saves = 0;
+    Map<String, dynamic>? saved;
+    await _pump(
+      tester,
+      _screen(
+        handler: (request) async {
+          if (request.url.path == '/pet' && request.method == 'PUT') {
+            saves++;
+            saved = jsonDecode(request.body) as Map<String, dynamic>;
+            return saves == 1
+                ? _json({'error': 'offline'}, 500)
+                : _json({'ok': true});
+          }
+          return _json(
+            _economy(
+              pet: {
+                ..._pet(stage: 2),
+                'accessory_option_id': 'ACC_COLLAR_BLUE',
+              },
+            ),
+          );
+        },
+      ),
+    );
+    await tester.tap(find.byKey(const Key('edit-pet-name')));
+    await tester.pumpAndSettle();
+    expect(find.text('Имя и ошейник'), findsOneWidget);
+    await tester.tap(find.text('зелёный'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Сохранить'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Не получилось сохранить.'), findsOneWidget);
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.tap(find.text('Сохранить'));
+    await tester.pumpAndSettle();
+    expect(saves, 2);
+    expect(saved, {
+      'petName': 'Грошик',
+      'furOptionId': 'FUR_GRAY',
+      'accessoryOptionId': 'ACC_COLLAR_GREEN',
+    });
+    expect(find.byType(AlertDialog), findsNothing);
+    final paths = tester
+        .widgetList<Image>(find.byType(Image))
+        .map((image) => image.image)
+        .whereType<AssetImage>()
+        .map((image) => image.assetName);
+    expect(paths, contains('assets/Cat/stages/middle/green/base_striped.webp'));
+  });
+
+  testWidgets('collar edited in pet care survives return to home', (
+    tester,
+  ) async {
+    var collar = 'ACC_COLLAR_RED';
+    await _pump(
+      tester,
+      _screen(
+        handler: (request) async {
+          if (request.url.path == '/pet' && request.method == 'PUT') {
+            final body = jsonDecode(request.body) as Map<String, dynamic>;
+            collar = body['accessoryOptionId'] as String;
+            expect(body['furOptionId'], 'FUR_WHITE');
+            expect(body.containsKey('evolutionStage'), isFalse);
+            return _json({'ok': true});
+          }
+          return _json(
+            _economy(
+              pet: {
+                ..._pet(stage: 3),
+                'fur_option_id': 'FUR_WHITE',
+                'accessory_option_id': collar,
+              },
+            ),
+          );
+        },
+      ),
+    );
+    await tester.tap(find.byKey(const Key('open-pet-care')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('edit-pet-name')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('синий'));
+    await tester.tap(find.text('Сохранить'));
+    await tester.pumpAndSettle();
+    expect(collar, 'ACC_COLLAR_BLUE');
+    await tester.tap(find.byKey(const Key('pet-care-back')));
+    await tester.pumpAndSettle();
+    final paths = tester
+        .widgetList<Image>(find.byType(Image))
+        .map((image) => image.image)
+        .whereType<AssetImage>()
+        .map((image) => image.assetName);
+    expect(paths, contains('assets/Cat/stages/adult/blue/base_white.webp'));
   });
 
   testWidgets('draft plan enforces the protected food reserve', (tester) async {

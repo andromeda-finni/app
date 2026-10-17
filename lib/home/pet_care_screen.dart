@@ -17,6 +17,7 @@ class PetCareScreen extends StatefulWidget {
     super.key,
     required this.state,
     required this.onRename,
+    this.onUpdateIdentity,
     required this.onRefresh,
     required this.onOpenInsurance,
     required this.onOpenEvent,
@@ -28,6 +29,7 @@ class PetCareScreen extends StatefulWidget {
 
   final HomeEconomyState state;
   final Future<void> Function(String name) onRename;
+  final Future<void> Function(String name, String collarId)? onUpdateIdentity;
   final Future<HomeEconomyState> Function() onRefresh;
   final VoidCallback onOpenInsurance;
   final VoidCallback onOpenEvent;
@@ -62,6 +64,17 @@ class _PetCareScreenState extends State<PetCareScreen> {
   Future<void> _refresh() async {
     final next = await widget.onRefresh();
     if (mounted) setState(() => _state = next);
+  }
+
+  Future<void> _updateIdentity(String name, String collarId) async {
+    await widget.onUpdateIdentity!(name, collarId);
+    if (mounted) {
+      setState(
+        () => _state = _state.copyWith(
+          pet: _pet.copyWith(name: name, accessoryOptionId: collarId),
+        ),
+      );
+    }
   }
 
   Future<void> _equipArtifact(ArtifactItem item) async {
@@ -141,6 +154,9 @@ class _PetCareScreenState extends State<PetCareScreen> {
                             child: PetNameHeader(
                               pet: _pet,
                               onRename: _rename,
+                              onUpdateIdentity: widget.onUpdateIdentity == null
+                                  ? null
+                                  : _updateIdentity,
                               showStage: true,
                             ),
                           ),
