@@ -11,6 +11,8 @@ import '../games/goldfish/goldfish_game_models.dart';
 import '../games/goldfish/goldfish_game_screen.dart';
 import '../games/ivan/ivan_game_models.dart';
 import '../games/ivan/ivan_game_screen.dart';
+import '../games/squirrel/squirrel_game_models.dart';
+import '../games/squirrel/squirrel_game_screen.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../games/turnip/turnip_game_screen.dart';
 import '../minigames/bakery/bakery_game_screen.dart';
@@ -54,9 +56,9 @@ class QuestMapScreen extends StatefulWidget {
 
 class _QuestMapScreenState extends State<QuestMapScreen>
     with TickerProviderStateMixin {
-  static const _mapAsset = 'assets/map/quest_map_scenarios_v05_clean.webp';
-  static const _sourceWidth = 821.0;
-  static const _sourceHeight = 1916.0;
+  static const _mapAsset = 'assets/map/quest_map_squirrel.webp';
+  static const _sourceWidth = 548.0;
+  static const _sourceHeight = 1280.0;
 
   final _scrollController = ScrollController();
   late final AnimationController _catController = AnimationController(
@@ -231,6 +233,10 @@ class _QuestMapScreenState extends State<QuestMapScreen>
           ? GoldfishDifficulty.hard
           : GoldfishDifficulty.normal,
     ).questId,
+    QuestMapDestination.squirrel =>
+      widget.difficulty == ChildDifficulty.advanced
+          ? squirrelAdvancedQuestId
+          : squirrelSimpleQuestId,
     _ => node.destination.questId,
   };
 
@@ -600,6 +606,21 @@ class _QuestMapScreenState extends State<QuestMapScreen>
                   : GoldfishDifficulty.normal,
             ),
             apiClient: widget.apiClient,
+            petName: _petName,
+            onExit: () => Navigator.of(gameContext).pop(),
+          ),
+        ),
+      ),
+      QuestMapDestination.squirrel => navigator.push<void>(
+        MaterialPageRoute(
+          builder: (gameContext) => SquirrelGameScreen(
+            difficulty: widget.difficulty == ChildDifficulty.advanced
+                ? SquirrelDifficulty.hard
+                : SquirrelDifficulty.normal,
+            apiClient: widget.apiClient,
+            questId: widget.difficulty == ChildDifficulty.advanced
+                ? squirrelAdvancedQuestId
+                : squirrelSimpleQuestId,
             petName: _petName,
             onExit: () => Navigator.of(gameContext).pop(),
           ),
