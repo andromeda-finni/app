@@ -36,6 +36,7 @@ class HomeScreen extends StatefulWidget {
     this.onOpenShop,
     this.onOpenQuests,
     this.onOpenSettings,
+    this.onOpenMenu,
     this.onOpenInsurance,
     this.onPlanningRequiredChanged,
     this.isActive = true,
@@ -50,6 +51,7 @@ class HomeScreen extends StatefulWidget {
   final VoidCallback? onOpenShop;
   final VoidCallback? onOpenQuests;
   final VoidCallback? onOpenSettings;
+  final ValueChanged<BuildContext>? onOpenMenu;
   final VoidCallback? onOpenInsurance;
   final ValueChanged<bool>? onPlanningRequiredChanged;
 
@@ -669,6 +671,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onRefresh: () => _load(showLoader: false),
         onRename: _rename,
         onSettings: _showSettings,
+        onOpenMenu: widget.onOpenMenu,
         onOpenCare: _openCare,
         onOpenGoal: widget.onChooseGoal ?? _showProgress,
         onOpenShop: widget.onOpenShop ?? _showProgress,
@@ -699,6 +702,7 @@ class _HomeContent extends StatelessWidget {
     required this.onRefresh,
     required this.onRename,
     required this.onSettings,
+    this.onOpenMenu,
     required this.onOpenCare,
     required this.onOpenGoal,
     required this.onOpenShop,
@@ -722,6 +726,7 @@ class _HomeContent extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final Future<void> Function(String) onRename;
   final VoidCallback onSettings;
+  final ValueChanged<BuildContext>? onOpenMenu;
   final VoidCallback onOpenCare;
   final VoidCallback onOpenGoal;
   final VoidCallback onOpenShop;
@@ -820,9 +825,17 @@ class _HomeContent extends StatelessWidget {
                                   height: 48,
                                   child: IconButton(
                                     key: const Key('home-settings'),
-                                    tooltip: 'Настройки',
-                                    onPressed: onSettings,
-                                    icon: const Icon(Icons.settings_rounded),
+                                    tooltip: onOpenMenu == null
+                                        ? 'Настройки'
+                                        : 'Меню',
+                                    onPressed: onOpenMenu == null
+                                        ? onSettings
+                                        : () => onOpenMenu!(context),
+                                    icon: Icon(
+                                      onOpenMenu == null
+                                          ? Icons.settings_rounded
+                                          : Icons.menu_rounded,
+                                    ),
                                     color: AppColors.crimson,
                                   ),
                                 ),

@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:andromeda_app/core/api_client.dart';
+import 'package:andromeda_app/dictionary/dictionary_progress.dart';
 import 'package:andromeda_app/home/main_shell.dart';
 import 'package:andromeda_app/home/home_tour.dart';
 import 'package:andromeda_app/home/widgets/app_nav_bar.dart';
@@ -19,6 +20,7 @@ import 'package:andromeda_app/theme/app_theme.dart';
 
 import 'support/fake_auth_storage.dart';
 import 'support/economy_fixture.dart';
+import 'dictionary_progress_test.dart' show MemoryStorage;
 
 /// The home tab makes real calls, so every shell in these tests gets a stub
 /// backend — the nav bar itself is what is under test.
@@ -28,6 +30,7 @@ Widget _shell({
   bool failHomeTourOnce = false,
   Map<String, Object>? activeEvent,
   void Function(http.BaseRequest request)? onRequest,
+  DictionaryProgress? dictionaryProgress,
 }) {
   var shouldFailHomeTour = failHomeTourOnce;
   final client = MockClient((request) async {
@@ -95,6 +98,7 @@ Widget _shell({
         baseUrl: 'http://test',
       ),
       showHomeTour: showHomeTour,
+      dictionaryProgress: dictionaryProgress,
       onSwitchAudience: onSwitchAudience,
     ),
   );
@@ -113,6 +117,27 @@ Icon _iconOf(WidgetTester tester, String label) {
 }
 
 void main() {
+  testWidgets('the hidden dictionary returns to the same home tab', (
+    tester,
+  ) async {
+    final progress = DictionaryProgress(storage: MemoryStorage());
+    await progress.load();
+    await tester.pumpWidget(_shell(dictionaryProgress: progress));
+    await tester.pumpAndSettle();
+    expect(find.text('Словарик'), findsNothing);
+    await tester.tap(find.byTooltip('Меню'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Словарик'));
+    await tester.pumpAndSettle();
+    expect(find.text('Прочитано 0 из 50 · ещё 50'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('close-scroll')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 0);
+    expect(kNavDestinations, hasLength(4));
+    expect(find.text('Словарик'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('shows all four tabs', (tester) async {
     await tester.pumpWidget(_shell());
     await tester.pumpAndSettle();
@@ -259,7 +284,9 @@ void main() {
     await tester.pumpWidget(_shell(onSwitchAudience: () => switched = true));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Настройки').first);
+    await tester.tap(find.byTooltip('Меню'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Настройки'));
     await tester.pumpAndSettle();
 
     // Parent linking uses the parent's one-time code, entered here.

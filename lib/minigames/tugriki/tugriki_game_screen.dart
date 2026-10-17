@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
 import '../../core/pet_assets.dart';
+import '../../dictionary/dictionary_catalog.dart';
+import '../../dictionary/dictionary_progress.dart';
+import '../../dictionary/dictionary_reader.dart';
+import '../../dictionary/word_token.dart';
 import '../../onboarding/widgets/back_circle_button.dart';
 import '../../onboarding/widgets/story_button.dart';
 import '../../theme/app_theme.dart';
@@ -31,6 +35,8 @@ class TugrikiGameScreen extends StatefulWidget {
     this.onExit,
     this.petName = 'Питомец',
     this.furOptionId,
+    this.dictionaryProgress,
+    this.dictionaryMedia,
   });
 
   final ApiClient? apiClient;
@@ -39,6 +45,8 @@ class TugrikiGameScreen extends StatefulWidget {
   /// The name the child gave the pet, who is a character in this story.
   final String petName;
   final String? furOptionId;
+  final DictionaryProgress? dictionaryProgress;
+  final MediaQueryData? dictionaryMedia;
 
   @override
   State<TugrikiGameScreen> createState() => _TugrikiGameScreenState();
@@ -47,6 +55,23 @@ class TugrikiGameScreen extends StatefulWidget {
 class _TugrikiGameScreenState extends State<TugrikiGameScreen>
     with SingleTickerProviderStateMixin {
   NovelStep _step = NovelStep.s1SparrowIntro;
+  bool _explainingWord = false;
+
+  Future<void> _explainBudget() async {
+    final progress = widget.dictionaryProgress;
+    if (progress == null || _explainingWord) return;
+    _explainingWord = true;
+    try {
+      await explainDictionaryWord(
+        context,
+        progress: progress,
+        word: budgetWord,
+        media: widget.dictionaryMedia,
+      );
+    } finally {
+      _explainingWord = false;
+    }
+  }
 
   // Интерактивный набор монет для булочки (Уровень 1)
   int _bunPairsFilled = 0; // от 0 до 6
@@ -816,7 +841,8 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
         return _buildRomanceSpeechCard(
           speakerName: widget.petName,
           isSparrow: false,
-          dialogueText: 'У нас в кошельке осталось ровно 20 монеток. Выбирай покупки с умом, чтобы хватило денег и осталась сдача!',
+          dialogueText: 'У нас в кошельке осталось ровно 20 монеток — это наш бюджет. Выбирай покупки с умом, чтобы хватило денег и осталась сдача!',
+          explainBudget: true,
           actionText: 'Выбрать товары в лоток ➔',
           onAction: _nextStep,
         );
@@ -838,6 +864,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
     required String dialogueText,
     required String actionText,
     required VoidCallback onAction,
+    bool explainBudget = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -881,14 +908,27 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
             ),
             const SizedBox(height: 8),
             // Текст реплики
-            Text(
-              dialogueText,
-              style: const TextStyle(
-                fontFamily: AppFonts.body,
-                fontSize: 15.5,
-                height: 1.35,
-                color: AppColors.ink,
-              ),
+            Builder(
+              builder: (context) {
+                const style = TextStyle(
+                  fontFamily: AppFonts.body,
+                  fontSize: 15.5,
+                  height: 1.35,
+                  color: AppColors.ink,
+                );
+                if (!explainBudget || widget.dictionaryProgress == null) {
+                  return Text(dialogueText, style: style);
+                }
+                final start = dialogueText.indexOf('бюджет');
+                return FinancialStoryText(
+                  before: dialogueText.substring(0, start),
+                  term: 'бюджет',
+                  after: dialogueText.substring(start + 'бюджет'.length),
+                  wordId: 'budget',
+                  style: style,
+                  onExplain: _explainBudget,
+                );
+              },
             ),
           ],
         ),

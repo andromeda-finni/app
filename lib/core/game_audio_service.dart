@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 /// Short, reusable audio cues shared by the map, economy and mini-games.
 enum GameSound {
   uiTap('audio/sfx/item_place.wav', volume: 0.22),
+  parchment('audio/sfx/parchment.mp3', volume: 0.5),
   itemPlaced('audio/sfx/item_place.wav', volume: 0.45),
   purchase('audio/sfx/purchase.wav', volume: 0.48),
   coinSingle('audio/sfx/coin_single.ogg', volume: 0.55),

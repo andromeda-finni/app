@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import '../core/api_client.dart';
 import '../core/child_difficulty.dart';
 import '../core/game_audio_service.dart';
+import '../dictionary/dictionary_progress.dart';
+import '../dictionary/dictionary_storage.dart';
+import '../dictionary/scroll_sheet.dart';
+import '../dictionary/word_token.dart';
 import '../economy/savings_screen.dart';
 import '../insurance/insurance_screen.dart';
 import '../map/quest_map_screen.dart';
@@ -27,6 +31,7 @@ class MainShell extends StatefulWidget {
     this.initialDifficulty = ChildDifficulty.beginner,
     this.showHomeTour = false,
     this.onSwitchAudience,
+    this.dictionaryProgress,
   });
 
   final ApiClient apiClient;
@@ -35,6 +40,7 @@ class MainShell extends StatefulWidget {
 
   /// Returns to the child/parent role choice; wired from the settings screen.
   final VoidCallback? onSwitchAudience;
+  final DictionaryProgress? dictionaryProgress;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -53,6 +59,11 @@ class _MainShellState extends State<MainShell> {
   StoreMode _storeMode = StoreMode.normal;
   bool _planningRequired = false;
   late ChildSettingsSnapshot _settings;
+  late final DictionaryProgress _dictionary =
+      widget.dictionaryProgress ??
+      DictionaryProgress(
+        storage: DeviceDictionaryStorage(apiClient: widget.apiClient),
+      );
   bool _homeReady = false;
   bool _tourCompleted = false;
   bool _tourBusy = false;
@@ -74,6 +85,7 @@ class _MainShellState extends State<MainShell> {
   @override
   void dispose() {
     _tourTargets.dispose();
+    if (widget.dictionaryProgress == null) _dictionary.dispose();
     super.dispose();
   }
 
@@ -237,6 +249,41 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  Future<void> _openMenu(BuildContext gameContext) async {
+    final selection = await showModalBottomSheet<String>(
+      context: gameContext,
+      backgroundColor: AppColors.cardBg,
+      builder: (menuContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const WaxSeal(size: 40),
+                title: const Text('Словарик'),
+                onTap: () => Navigator.pop(menuContext, 'dictionary'),
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.settings_rounded,
+                  color: AppColors.crimson,
+                ),
+                title: const Text('Настройки'),
+                onTap: () => Navigator.pop(menuContext, 'settings'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || !gameContext.mounted) return;
+    if (selection == 'settings') _openSettings();
+    if (selection == 'dictionary') {
+      await showDictionaryScroll(gameContext, progress: _dictionary);
+    }
+  }
+
   Future<void> _openInsurance() async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
@@ -346,6 +393,7 @@ class _MainShellState extends State<MainShell> {
               onOpenShop: () => _selectTab(2),
               onOpenQuests: () => _selectTab(1),
               onOpenSettings: _openSettings,
+              onOpenMenu: _openMenu,
               onOpenInsurance: _openInsurance,
               onPlanningRequiredChanged: (required) {
                 if (_planningRequired == required || !mounted) return;
@@ -369,6 +417,7 @@ class _MainShellState extends State<MainShell> {
                 child: QuestMapScreen(
                   key: ValueKey('map-$_mapRevision'),
                   apiClient: widget.apiClient,
+                  dictionaryProgress: _dictionary,
                   // A tab root has nothing to go back to; the header hides the
                   // arrow instead of offering a button that does nothing.
                   showBack: false,
