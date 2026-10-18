@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../dictionary/dictionary_text.dart';
 import '../core/api_client.dart';
 import '../theme/app_theme.dart';
 import 'economy_action_ui.dart';
@@ -167,7 +168,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
             children: [
               Text(title, style: AppTextStyles.sectionTitle),
               const SizedBox(height: AppSpacing.xxs),
-              Text(hint, style: AppTextStyles.supporting),
+              DictionaryText(hint, style: AppTextStyles.supporting),
               const SizedBox(height: AppSpacing.md),
               LayoutBuilder(
                 builder: (context, constraints) {
@@ -592,7 +593,7 @@ class _EmptyGoalCard extends StatelessWidget {
           style: AppTextStyles.cardTitle,
         ),
         const SizedBox(height: AppSpacing.xxs),
-        Text(
+        DictionaryText(
           'Артефакт из сказки, на который будешь копить. Монеты из копилки '
           'пойдут к нему.',
           textAlign: TextAlign.center,
@@ -1077,7 +1078,7 @@ class _FrostSection extends StatelessWidget {
                   children: [
                     Text('Сундук Морозко', style: AppTextStyles.sectionTitle),
                     const SizedBox(height: AppSpacing.xxs),
-                    Text(
+                    DictionaryText(
                       chest == null
                           ? 'Заморозь монеты на несколько дней — вернутся с бонусом.'
                           : 'Монеты заморожены и ждут своего дня.',
@@ -1210,7 +1211,7 @@ class _OpenFrostDetails extends StatelessWidget {
                 style: AppTextStyles.cardTitle,
               ),
             ),
-            Text(
+            DictionaryText(
               '+$bonus бонус',
               style: AppTextStyles.cardRowLabel.copyWith(
                 color: AppColors.frostBlue,
@@ -1232,7 +1233,7 @@ class _OpenFrostDetails extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
-        Text(
+        DictionaryText(
           matured
               ? 'Срок вышел — можно забирать с бонусом.'
               : 'Осталось ${_gameDaysLabel(remaining)}',

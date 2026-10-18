@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../dictionary/dictionary_text.dart';
 import '../../../theme/app_theme.dart';
 import '../turnip_game_models.dart';
 
@@ -95,7 +96,7 @@ class TurnipIntroView extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: AppSpacing.xs),
-                        Text(line.text, style: AppTextStyles.story),
+                        DictionaryText(line.text, style: AppTextStyles.story),
                         const SizedBox(height: AppSpacing.md),
                         SizedBox(
                           width: double.infinity,

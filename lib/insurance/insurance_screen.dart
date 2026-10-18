@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../dictionary/dictionary_text.dart';
+
 import 'package:flutter/services.dart';
 
 import '../core/api_client.dart';
@@ -412,7 +415,10 @@ class _FactRow extends StatelessWidget {
       Icon(icon, color: color, size: 22),
       const SizedBox(width: AppSpacing.sm),
       Expanded(
-        child: Text(text, style: AppTextStyles.story.copyWith(fontSize: 16)),
+        child: DictionaryText(
+          text,
+          style: AppTextStyles.story.copyWith(fontSize: 16),
+        ),
       ),
     ],
   );

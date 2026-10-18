@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../dictionary/dictionary_text.dart';
 import '../../core/api_client.dart';
 import '../../minigames/quest_reward_messages.dart';
 import '../../theme/app_theme.dart';
@@ -166,7 +167,7 @@ class _IvanGameScreenState extends State<IvanGameScreen> {
               const SizedBox(height: AppSpacing.sm),
               Text('Подсказка', style: AppTextStyles.screenTitle),
               const SizedBox(height: AppSpacing.xs),
-              Text(
+              DictionaryText(
                 _controller.level.hintText,
                 textAlign: TextAlign.center,
                 style: AppTextStyles.story,

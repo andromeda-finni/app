@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../dictionary/dictionary_text.dart';
 import '../../theme/app_theme.dart';
 import '../../onboarding/widgets/story_button.dart';
 import 'fox_event_content.dart';
@@ -385,7 +386,7 @@ class _StoryView extends StatelessWidget {
                 duration: MediaQuery.disableAnimationsOf(context)
                     ? Duration.zero
                     : const Duration(milliseconds: 180),
-                child: Text(
+                child: DictionaryText(
                   _withPetName(pages[pageIndex], petName),
                   key: ValueKey('${node.id}:$pageIndex'),
                   style: AppTextStyles.story,
@@ -570,7 +571,7 @@ class _FeedbackCard extends StatelessWidget {
               children: [
                 Text(petName, style: AppTextStyles.sectionTitle),
                 const SizedBox(height: 4),
-                Text(
+                DictionaryText(
                   _withPetName(node.groshikFeedback!, petName),
                   style: AppTextStyles.story,
                 ),

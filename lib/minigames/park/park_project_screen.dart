@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../dictionary/dictionary_text.dart';
 import '../../core/api_client.dart';
 import '../../core/child_difficulty.dart';
 import '../../core/pet_assets.dart';
@@ -464,7 +465,7 @@ class _ParkProjectScreenState extends State<ParkProjectScreen>
     children: [
       _SpeakerLabel(name: speaker),
       const SizedBox(height: AppSpacing.sm),
-      Text(text, style: AppTextStyles.story),
+      DictionaryText(text, style: AppTextStyles.story),
       const SizedBox(height: AppSpacing.lg),
       StoryButton(key: buttonKey, label: buttonText, onPressed: onPressed),
     ],
@@ -502,7 +503,7 @@ class _ParkProjectScreenState extends State<ParkProjectScreen>
         style: AppTextStyles.screenTitle,
       ),
       const SizedBox(height: AppSpacing.sm),
-      Text(
+      DictionaryText(
         state.stage == 'FIRST_OFFER'
             ? 'Жители хотят парк с дорожками, деревьями и скамейками.'
             : 'Другие жители уже добавили монеты. Не хватает только ${state.offerAmount}.',
@@ -528,7 +529,7 @@ class _ParkProjectScreenState extends State<ParkProjectScreen>
       ),
       if (!state.canContribute) ...[
         const SizedBox(height: AppSpacing.sm),
-        const Text(
+        const DictionaryText(
           'Сначала оставь монеты на важные покупки. Можно выбрать «Не сейчас».',
           style: AppTextStyles.supporting,
         ),
@@ -575,7 +576,11 @@ class _ParkProjectScreenState extends State<ParkProjectScreen>
         style: AppTextStyles.screenTitle,
       ),
       const SizedBox(height: AppSpacing.sm),
-      Text(text, textAlign: TextAlign.center, style: AppTextStyles.story),
+      DictionaryText(
+        text,
+        textAlign: TextAlign.center,
+        style: AppTextStyles.story,
+      ),
       if (_error != null) ...[
         const SizedBox(height: AppSpacing.md),
         _ErrorCard(message: _error!),
@@ -599,7 +604,7 @@ class _ParkProjectScreenState extends State<ParkProjectScreen>
         style: AppTextStyles.screenTitle,
       ),
       const SizedBox(height: AppSpacing.sm),
-      Text(
+      DictionaryText(
         state.childContribution > 0
             ? 'Теперь здесь могут гулять все жители. Твои монеты помогли сделать общее место.'
             : 'Теперь здесь могут гулять все жители. Парк открыт для каждого.',
@@ -608,7 +613,7 @@ class _ParkProjectScreenState extends State<ParkProjectScreen>
       ),
       if (widget.difficulty == ChildDifficulty.advanced) ...[
         const SizedBox(height: AppSpacing.md),
-        const Text(
+        const DictionaryText(
           'Так же работают налоги: жители понемногу складывают деньги на то, чем пользуются все.',
           textAlign: TextAlign.center,
           style: AppTextStyles.supporting,
@@ -909,7 +914,7 @@ class _StatusPill extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       border: Border.all(color: AppColors.parchmentDark, width: 2),
     ),
-    child: Text(
+    child: DictionaryText(
       text,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
