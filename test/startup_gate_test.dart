@@ -32,6 +32,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(GroshikApp(authStorage: FakeAuthStorage()));
       await tester.pumpAndSettle();
+      expect(find.text('Кто сегодня открывает «Финни»?'), findsOneWidget);
       expect(find.text('Я ребёнок'), findsOneWidget);
       expect(find.text('Я родитель'), findsOneWidget);
       expect(find.byType(PetHomeScreen), findsNothing);
