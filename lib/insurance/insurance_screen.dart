@@ -303,51 +303,26 @@ class _PlantainArtwork extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     image: true,
-    label: 'Светящийся лист подорожника в защитном щите',
+    label: active
+        ? 'Щит с подорожником: защита на завтра активна'
+        : 'Щит с подорожником',
     child: SizedBox(
       height: 190,
       child: AnimatedBuilder(
         animation: animation,
-        builder: (context, child) {
-          final value = animation.value;
-          return Transform.translate(
-            offset: Offset(0, -4 * value),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 154 + value * 10,
-                  height: 154 + value * 10,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.amber.withValues(alpha: 0.08),
-                    border: Border.all(
-                      color: AppColors.amber.withValues(
-                        alpha: active ? 0.75 : 0.38,
-                      ),
-                      width: 5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.amber.withValues(
-                          alpha: 0.12 + value * 0.12,
-                        ),
-                        blurRadius: 24,
-                        spreadRadius: 8,
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.shield_outlined,
-                  size: 142,
-                  color: AppColors.amber.withValues(alpha: 0.68),
-                ),
-                Image.asset('assets/icons/leaf.webp', width: 105, height: 105),
-              ],
-            ),
-          );
-        },
+        builder: (context, child) => Transform.translate(
+          offset: Offset(0, -4 * animation.value),
+          child: child,
+        ),
+        child: Center(
+          child: Image.asset(
+            'assets/insurance/plantain_shield.png',
+            width: 184,
+            height: 184,
+            fit: BoxFit.contain,
+            excludeFromSemantics: true,
+          ),
+        ),
       ),
     ),
   );
@@ -456,7 +431,7 @@ class _OracleCard extends StatelessWidget {
         SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
-            'Синоптики леса обещают прохладный день с дождём — защита может пригодиться!',
+            'Завтра будет прохладно и дождливо — защита может пригодиться!',
             style: AppTextStyles.story,
           ),
         ),
