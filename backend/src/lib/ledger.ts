@@ -23,7 +23,8 @@ export type TransactionEventType =
   | "CASHBACK"
   | "ARTIFACT_BONUS"
   | "ARTIFACT_REPAIR"
-  | "PARK_CONTRIBUTION";
+  | "PARK_CONTRIBUTION"
+  | "FOX_EVENT";
 
 export interface PostTransactionInput {
   childUserId: string;

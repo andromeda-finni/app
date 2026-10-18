@@ -148,6 +148,8 @@ class _FoxEventDialogState extends State<FoxEventDialog> {
         key: const ValueKey('arrival'),
         isReturnVisit: widget.isReturnVisit,
         mood: widget.script.node(widget.session.currentNodeId).mood,
+        busy: _controller.busy,
+        errorMessage: _controller.errorMessage,
         onContinue: _controller.continueFromArrival,
       );
     }
@@ -190,6 +192,7 @@ class _FoxEventDialogState extends State<FoxEventDialog> {
   void _finish() => Navigator.of(context).pop(FoxDialogResult.completed);
 
   void _close() {
+    if (_controller.busy) return;
     final result = _controller.node.terminal
         ? FoxDialogResult.completed
         : FoxDialogResult.paused;
@@ -259,11 +262,15 @@ class _ArrivalView extends StatelessWidget {
     required this.isReturnVisit,
     required this.mood,
     required this.onContinue,
+    required this.busy,
+    this.errorMessage,
   });
 
   final bool isReturnVisit;
   final FoxMood mood;
   final Future<void> Function() onContinue;
+  final bool busy;
+  final String? errorMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -287,9 +294,14 @@ class _ArrivalView extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 20),
+          if (errorMessage != null) ...[
+            Text(errorMessage!, style: AppTextStyles.story),
+            const SizedBox(height: 12),
+          ],
           StoryButton(
             label: isReturnVisit ? 'Узнать, что случилось' : 'Поговорить',
-            onPressed: () => onContinue(),
+            isLoading: busy,
+            onPressed: busy ? null : () => onContinue(),
           ),
         ],
       ),

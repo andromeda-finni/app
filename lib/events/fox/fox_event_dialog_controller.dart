@@ -45,9 +45,23 @@ class FoxEventDialogController extends ChangeNotifier {
 
   Future<void> continueFromArrival() async {
     if (_busy) return;
-    _showArrival = false;
-    await _applyCurrentNodeEffect();
+    _busy = true;
+    _errorMessage = null;
     notifyListeners();
+    try {
+      final progress = wallet;
+      if (progress is FoxEventProgress) {
+        await progress.advance(session);
+      } else {
+        await _applyCurrentNodeEffect();
+      }
+      _showArrival = false;
+    } catch (_) {
+      _errorMessage = 'Не получилось продолжить разговор. Попробуй ещё раз.';
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
   }
 
   Future<FoxChoiceResult> select(FoxChoice choice) async {
@@ -59,6 +73,15 @@ class FoxEventDialogController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final progress = wallet;
+      if (progress is FoxEventProgress) {
+        await progress.advance(session, choiceId: choice.id);
+        return switch (session.status) {
+          FoxSessionStatus.waitingForNextDay => const FoxChoiceResult.waiting(),
+          FoxSessionStatus.completed => const FoxChoiceResult.completed(),
+          FoxSessionStatus.active => const FoxChoiceResult.stayed(),
+        };
+      }
       if (choice.coinDelta != 0) {
         await wallet.applyDelta(
           delta: choice.coinDelta,
@@ -98,7 +121,10 @@ class FoxEventDialogController extends ChangeNotifier {
           ? const FoxChoiceResult.completed()
           : const FoxChoiceResult.stayed();
     } on FoxInsufficientFundsException {
-      _errorMessage = 'Сейчас не хватает монет, чтобы дать их Лису.';
+      _errorMessage = 'Не хватает свободных монет. Монеты на заботу о питомце нужно сохранить.';
+      return const FoxChoiceResult.stayed();
+    } catch (_) {
+      _errorMessage = 'Не получилось сохранить ответ. Попробуй ещё раз.';
       return const FoxChoiceResult.stayed();
     } finally {
       _busy = false;

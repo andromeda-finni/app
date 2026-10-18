@@ -134,6 +134,15 @@ Future<void> _openNode(WidgetTester tester, String id) async {
 }
 
 void main() {
+  test('the map contains Squirrel and has no permanent Fox stop', () {
+    expect(questMapNodes.where((node) => node.id == 'squirrel'), hasLength(1));
+    expect(
+      questMapNodes.any(
+        (node) => node.id.contains('fox') || node.character.contains('Лис'),
+      ),
+      false,
+    );
+  });
   group('progress comes from completed server quests', () {
     int indexOf(String id) => questMapNodes.indexWhere((n) => n.id == id);
 

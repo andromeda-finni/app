@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 
 import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/home/main_shell.dart';
+import 'package:andromeda_app/home/pet_home_screen.dart';
 import 'package:andromeda_app/main.dart';
 import 'package:andromeda_app/onboarding/difficulty_choice_screen.dart';
 import 'package:andromeda_app/onboarding/onboarding_data.dart';
@@ -26,6 +27,18 @@ http.Response _jsonResponse(Object? body, int statusCode) => http.Response(
 );
 
 void main() {
+  testWidgets(
+    'normal launcher always opens the full game, even with legacy Fox demo flags',
+    (tester) async {
+      await tester.pumpWidget(GroshikApp(authStorage: FakeAuthStorage()));
+      await tester.pumpAndSettle();
+      expect(find.text('Я ребёнок'), findsOneWidget);
+      expect(find.text('Я родитель'), findsOneWidget);
+      expect(find.byType(PetHomeScreen), findsNothing);
+      expect(find.text('Случайные события'), findsNothing);
+    },
+  );
+
   test('onboarding status carries the persisted home-tour flag', () {
     final completed = OnboardingResumeState.fromJson({
       'currentStep': 4,

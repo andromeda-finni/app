@@ -7,11 +7,8 @@ import '../events/fox/fox_event_wallet.dart';
 import '../onboarding/widgets/story_button.dart';
 import '../theme/app_theme.dart';
 
-/// Temporary whole-app integration point for random Fox events.
-///
-/// The screen owns only an in-memory clock and wallet. The event engine itself
-/// is independent of this UI and can later be driven by the real home screen,
-/// persisted game day and economy without changing the scenario graph.
+/// Isolated Fox story preview, launched only from main_fox_preview.dart.
+/// Normal play uses HomeScreen, the server's game day and its ledger.
 class PetHomeScreen extends StatefulWidget {
   const PetHomeScreen({
     super.key,

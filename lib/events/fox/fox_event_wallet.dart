@@ -1,5 +1,12 @@
 import 'package:flutter/foundation.dart';
 
+import 'fox_event_models.dart';
+
+/// Normal play advances the story and its ledger effects in one server transaction.
+abstract interface class FoxEventProgress implements FoxEventWallet {
+  Future<void> advance(FoxEventSession session, {String? choiceId});
+}
+
 class FoxInsufficientFundsException implements Exception {
   const FoxInsufficientFundsException();
 }

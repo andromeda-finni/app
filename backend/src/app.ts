@@ -25,6 +25,7 @@ import { inventoryRoutes } from "./modules/inventory/routes.js";
 import { childSettingsRoutes } from "./modules/childSettings/routes.js";
 import { parkProjectRoutes } from "./modules/parkProject/routes.js";
 import { catchFoodRoutes } from "./modules/catchFood/routes.js";
+import { foxEventRoutes } from "./modules/foxEvents/routes.js";
 
 /**
  * The migrations this build's SQL assumes. `/health` refuses to report ready
@@ -48,6 +49,7 @@ const REQUIRED_SCHEMA_VERSIONS = [
   "0035_pet_stroke_joy.sql",
   "0035_pet_collar_options.sql",
   "0036_catch_food_sessions.sql",
+  "0036_fox_daily_events.sql",
 ] as const;
 
 const LOOPBACK_ORIGIN_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
@@ -161,6 +163,7 @@ export async function buildApp() {
   });
 
   await app.register(authRoutes);
+  await app.register(foxEventRoutes);
   await app.register(onboardingRoutes);
   await app.register(economyRoutes);
   await app.register(insuranceRoutes);
