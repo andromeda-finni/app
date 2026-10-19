@@ -504,7 +504,7 @@ class _MoleGameScreenState extends State<MoleGameScreen> {
               Text(
                 reward == null
                     ? _serverQuestCompleted
-                          ? 'Награда уже получена'
+                          ? questPracticeCompleteMessage
                           : 'За пять проверок — $_promisedReward монет'
                     : '+$reward монет',
                 style: AppTextStyles.cardTitle.copyWith(

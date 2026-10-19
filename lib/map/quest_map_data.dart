@@ -96,7 +96,7 @@ class QuestMapNode {
 
   /// Centre of the interactive quest marker in normalized map coordinates.
   /// Nodes 1–7 are measured from the painted checkpoint interiors in the
-  /// 821×1916 source image. Node 8 is the proposed stop on the park path.
+  /// current 548×1280 source image. Node 8 is a separate park stop.
   final Offset nodeCenter;
 
   /// Feet/contact point on the painted road, in normalized map coordinates.
@@ -118,21 +118,21 @@ class QuestMapNode {
 
 /// A shared bottom-to-top route following the painted road.
 const questMapPath = <Offset>[
-  Offset(0.50, 0.925),
+  Offset(250 / 548, 1238 / 1280),
   Offset(0.63, 0.825),
-  Offset(0.50, 0.722),
+  Offset(262 / 548, 925 / 1280),
   Offset(0.38, 0.660),
-  Offset(0.50, 0.594),
+  Offset(275 / 548, 787 / 1280),
   Offset(0.62, 0.535),
   Offset(0.60, 0.505),
-  Offset(0.50, 0.469),
+  Offset(315 / 548, 604 / 1280),
   Offset(0.38, 0.410),
-  Offset(0.50, 0.349),
+  Offset(235 / 548, 456 / 1280),
   Offset(0.62, 0.292),
-  Offset(0.50, 0.233),
+  Offset(307 / 548, 326 / 1280),
   Offset(0.39, 0.180),
-  Offset(0.50, 0.123),
-  Offset(0.50, 0.066),
+  Offset(316 / 548, 200 / 1280),
+  Offset(452 / 548, 150 / 1280),
 ];
 
 /// Progress runs from the turnip at the bottom towards the park at the top.
@@ -144,8 +144,8 @@ const questMapNodes = <QuestMapNode>[
     character: 'Дедушка и вся семья',
     description: 'Собери помощников в одну цепочку и помоги семье вытащить огромную репку.',
     topics: ['Командная работа', 'Урожай', 'Доход'],
-    nodeCenter: Offset(274 / 548, 1184 / 1280),
-    catStop: Offset(274 / 548, 1184 / 1280),
+    nodeCenter: Offset(250 / 548, 1238 / 1280),
+    catStop: Offset(250 / 548, 1238 / 1280),
     sceneEffectAnchor: Offset(270 / 548, 1130 / 1280),
     sceneEffect: QuestSceneEffect.turnipGlow,
     pathIndex: 0,
@@ -158,8 +158,8 @@ const questMapNodes = <QuestMapNode>[
     character: 'Крот Земелик',
     description: 'Исследуй объявления и чеки, находи мелкий шрифт и проверяй итоговую стоимость.',
     topics: ['Цена', 'Скидка', 'Чек'],
-    nodeCenter: Offset(274 / 548, 924 / 1280),
-    catStop: Offset(274 / 548, 924 / 1280),
+    nodeCenter: Offset(262 / 548, 925 / 1280),
+    catStop: Offset(262 / 548, 925 / 1280),
     sceneEffectAnchor: Offset(432 / 548, 920 / 1280),
     sceneEffect: QuestSceneEffect.lensGlint,
     pathIndex: 2,
@@ -174,8 +174,8 @@ const questMapNodes = <QuestMapNode>[
     description:
         'Собери всё необходимое для путешествия и уложись в заданный бюджет.',
     topics: ['Бюджет', 'Покупки', 'Остаток'],
-    nodeCenter: Offset(274 / 548, 760 / 1280),
-    catStop: Offset(274 / 548, 760 / 1280),
+    nodeCenter: Offset(275 / 548, 787 / 1280),
+    catStop: Offset(275 / 548, 787 / 1280),
     sceneEffectAnchor: Offset(118 / 548, 770 / 1280),
     sceneEffect: QuestSceneEffect.compassGlint,
     pathIndex: 4,
@@ -188,8 +188,8 @@ const questMapNodes = <QuestMapNode>[
     character: 'Золотая рыбка',
     description: 'Помоги Дедушке и Бабушке выбрать нужные улучшения и оставить запас монет.',
     topics: ['Экономия', 'Запас', 'Сравнение цен'],
-    nodeCenter: Offset(274 / 548, 600 / 1280),
-    catStop: Offset(274 / 548, 600 / 1280),
+    nodeCenter: Offset(315 / 548, 604 / 1280),
+    catStop: Offset(315 / 548, 604 / 1280),
     sceneEffectAnchor: Offset(397 / 548, 615 / 1280),
     sceneEffect: QuestSceneEffect.waterGlint,
     pathIndex: 7,
@@ -202,8 +202,8 @@ const questMapNodes = <QuestMapNode>[
     character: 'Белочка',
     description: 'Помоги Белочке выбрать хорошие продукты и не потратить монеты впустую.',
     topics: ['Качество товара', 'Покупки', 'Внимательность'],
-    nodeCenter: Offset(274 / 548, 447 / 1280),
-    catStop: Offset(274 / 548, 447 / 1280),
+    nodeCenter: Offset(235 / 548, 456 / 1280),
+    catStop: Offset(235 / 548, 456 / 1280),
     sceneEffectAnchor: Offset(103 / 548, 455 / 1280),
     sceneEffect: QuestSceneEffect.fireflies,
     pathIndex: 9,
@@ -216,8 +216,8 @@ const questMapNodes = <QuestMapNode>[
     character: 'Пекарь',
     description: 'Купи продукты, испеки пирожки, продай их на ярмарке и посчитай прибыль.',
     topics: ['Расходы', 'Выручка', 'Прибыль'],
-    nodeCenter: Offset(274 / 548, 298 / 1280),
-    catStop: Offset(274 / 548, 298 / 1280),
+    nodeCenter: Offset(307 / 548, 326 / 1280),
+    catStop: Offset(307 / 548, 326 / 1280),
     sceneEffectAnchor: Offset(435 / 548, 285 / 1280),
     sceneEffect: QuestSceneEffect.ovenLight,
     pathIndex: 11,
@@ -231,8 +231,8 @@ const questMapNodes = <QuestMapNode>[
     character: 'Воробей-путешественник',
     description: 'Отправляйся на соседний рынок, пересчитывай цены по курсу и распределяй бюджет.',
     topics: ['Валюта', 'Курс', 'Обмен'],
-    nodeCenter: Offset(274 / 548, 157 / 1280),
-    catStop: Offset(274 / 548, 157 / 1280),
+    nodeCenter: Offset(316 / 548, 200 / 1280),
+    catStop: Offset(316 / 548, 200 / 1280),
     sceneEffectAnchor: Offset(92 / 548, 270 / 1280),
     sceneEffect: QuestSceneEffect.coinGlint,
     pathIndex: 13,
@@ -246,8 +246,8 @@ const questMapNodes = <QuestMapNode>[
     character: 'Барсук',
     description: 'Реши, готов ли ты сделать вклад в общий парк, и следи за ходом строительства.',
     topics: ['Общие деньги', 'Вклад', 'Городской бюджет'],
-    nodeCenter: Offset(184 / 548, 70 / 1280),
-    catStop: Offset(274 / 548, 84 / 1280),
+    nodeCenter: Offset(452 / 548, 70 / 1280),
+    catStop: Offset(452 / 548, 150 / 1280),
     sceneEffectAnchor: Offset(322 / 548, 82 / 1280),
     sceneEffect: QuestSceneEffect.jarGlint,
     pathIndex: 14,

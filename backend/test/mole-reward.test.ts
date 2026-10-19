@@ -41,6 +41,12 @@ test("the final Mole answer credits twenty coins once and reports the same balan
     query: async (sql: string, args: unknown[] = []) => {
       statements.push(sql);
       if (["BEGIN", "COMMIT", "ROLLBACK"].includes(sql)) return { rows: [], rowCount: null };
+      if (sql.includes("SELECT user_id FROM child_profiles")) return { rows: [{ user_id: "child-1" }], rowCount: 1 };
+      if (sql.includes("SELECT difficulty FROM child_profiles")) return { rows: [{ difficulty: "SIMPLE" }], rowCount: 1 };
+      if (sql.includes("SELECT id, quest_id, status, period_id")) return { rows: [{ id: assignmentId, quest_id: "Q_MOLE_FINE_PRINT", status: "IN_PROGRESS", period_id: "period-1", reward_amount: 20 }], rowCount: 1 };
+      if (sql.includes("FROM quest_definitions WHERE active")) return { rows: [{ id: "Q_MOLE_FINE_PRINT", reward_amount: 20 }], rowCount: 1 };
+      if (sql.includes("FROM quest_day_selections")) return { rows: [{ slot_limit: 3 }], rowCount: 1 };
+      if (sql.includes("SELECT track_id, quest_id, assignment_id")) return { rows: [{ track_id: "mole", quest_id: "Q_MOLE_FINE_PRINT", assignment_id: assignmentId }], rowCount: 1 };
       if (sql.includes("FROM assignments a")) {
         assert.match(sql, /FOR UPDATE OF a/);
         return { rows: [{ quest_id: "Q_MOLE_FINE_PRINT", reward_amount: 20,
@@ -51,7 +57,7 @@ test("the final Mole answer credits twenty coins once and reports the same balan
       if (sql.includes("SELECT outcome FROM quest_step_progress")) return { rows: [], rowCount: 0 };
       if (sql.includes("INSERT INTO quest_step_progress")) return { rows: [], rowCount: 1 };
       if (sql.includes("SELECT MAX(step_no)")) return { rows: [{ max_step: 5 }], rowCount: 1 };
-      if (sql.includes("SELECT gp.id")) return { rows: [{ id: "period-1" }], rowCount: 1 };
+      if (sql.includes("SELECT gp.id")) return { rows: [{ id: "period-1", sequence_no: 1, plan_status: "CONFIRMED" }], rowCount: 1 };
       if (sql.includes("SELECT 1 FROM pets") || sql.includes("FROM inventory_items")) return { rows: [], rowCount: 0 };
       if (sql.includes("SELECT COUNT(*) AS paid")) return { rows: [{ paid: "0" }], rowCount: 1 };
       if (sql.includes("SELECT balance FROM wallets")) {

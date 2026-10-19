@@ -545,7 +545,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openPlan() async {
-    final data = _data;
+    var data = _data;
     if (data == null) return;
     if (data.activeDay == null) {
       try {
@@ -553,9 +553,19 @@ class _HomeScreenState extends State<HomeScreen> {
       } catch (_) {
         if (!mounted) return;
         _showError('Не получилось начать игровой день. Попробуй ещё раз.');
+        return;
       }
-      return;
+      if (!mounted) return;
+      data = _data;
+      if (data == null || data.activeDay == null) return;
+      // A day-start event has priority over planning. Do not put a budget
+      // sheet in front of the event scheduled by the fresh home response.
+      if (_activeEvent(data) != null || _eventDialogOpen) {
+        await _openEvent();
+        return;
+      }
     }
+    final currentData = data;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -577,7 +587,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 620),
               child: BudgetPlanCard(
-                period: data.activeDay,
+                period: currentData.activeDay,
                 onStartPeriod: _startDay,
                 onConfirm: (need, want, savings) async {
                   await _confirmPlan(need, want, savings);

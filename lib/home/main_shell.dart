@@ -459,6 +459,7 @@ class _MainShellState extends State<MainShell> {
                         // A tab root has nothing to go back to; the header hides the
                         // arrow instead of offering a button that does nothing.
                         showBack: false,
+                        onStartDayRequested: _openPlan,
                         difficulty: _settings.difficulty,
                       ),
                     ),

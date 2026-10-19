@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { readDailyQuests } from "../quests/daily.js";
 
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { pool, withTransaction } from "../../lib/db.js";
@@ -196,6 +197,7 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
               wantAmount: state.tutorial_want_amount!,
               savingsAmount: state.tutorial_savings_amount!,
             });
+            await readDailyQuests(client, req.authUser!.id);
           }
           await client.query(
             `UPDATE child_profiles

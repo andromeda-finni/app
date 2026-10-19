@@ -752,6 +752,29 @@ void main() {
     expect(find.byKey(const Key('pet-event-resolve')), findsNothing);
   });
 
+  testWidgets('starting a new day opens its fresh budget plan immediately', (
+    tester,
+  ) async {
+    var starts = 0;
+    await _pump(
+      tester,
+      _screen(
+        handler: (request) async {
+          if (request.method == 'POST' && request.url.path == '/periods') {
+            starts++;
+            return _json({'periodId': _periodId}, 201);
+          }
+          return _json(_economy(activeDay: starts > 0 ? _draftDay() : null));
+        },
+      ),
+    );
+    await tester.tap(find.byKey(const Key('open-budget-plan')));
+    await tester.pumpAndSettle();
+    expect(starts, 1);
+    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.text('Начать новый игровой день'), findsNothing);
+  });
+
   testWidgets('starting a day presents the server event without another roll', (
     tester,
   ) async {

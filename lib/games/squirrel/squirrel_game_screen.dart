@@ -46,6 +46,7 @@ class _SquirrelGameScreenState extends State<SquirrelGameScreen> {
   String? _assignmentId;
   String? _syncNote;
   int? _grantedReward;
+  bool _practiceFinished = false;
   bool _claiming = false;
   bool _outcomeSuccess = false;
 
@@ -145,7 +146,7 @@ class _SquirrelGameScreenState extends State<SquirrelGameScreen> {
         note: _syncNote,
         busy: _claiming,
         actionLabel: _outcomeSuccess
-            ? _grantedReward == null
+            ? _grantedReward == null && !_practiceFinished
                   ? 'Забрать награду 🪙'
                   : 'Готово'
             : 'Переиграть',
@@ -184,6 +185,10 @@ class _SquirrelGameScreenState extends State<SquirrelGameScreen> {
           '/quests/${widget.questId ?? widget.difficulty.questId}/start',
         );
         _assignmentId = started['assignmentId'] as String?;
+        if (started['completed'] == true) {
+          _practiceFinished = true;
+          _syncNote = questPracticeCompleteMessage;
+        }
       } on ApiException catch (error) {
         _syncNote =
             '${questProblemMessage(error)} Можно потренироваться без награды.';
@@ -259,7 +264,10 @@ class _SquirrelGameScreenState extends State<SquirrelGameScreen> {
       });
       return;
     }
-    if (_grantedReward != null || widget.isDemo || _assignmentId == null) {
+    if (_grantedReward != null ||
+        _practiceFinished ||
+        widget.isDemo ||
+        _assignmentId == null) {
       _reportAndExit(rewardGranted: _grantedReward != null);
       return;
     }
@@ -278,7 +286,8 @@ class _SquirrelGameScreenState extends State<SquirrelGameScreen> {
             result['questCompleted'] != true) {
           _syncNote = 'Сервер не принял результат. Попробуй ещё раз.';
         } else if (result['rewardAlreadyGranted'] == true) {
-          _syncNote = 'Награда за эту игру уже получена.';
+          _practiceFinished = true;
+          _syncNote = questPracticeCompleteMessage;
         } else {
           final paid = (result['rewardAmount'] as num?)?.toInt();
           _grantedReward = paid;

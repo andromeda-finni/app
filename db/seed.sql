@@ -95,15 +95,8 @@ ON CONFLICT (id) DO UPDATE SET
   joy_delta = EXCLUDED.joy_delta,
   active = true;
 
-INSERT INTO quest_prerequisites (quest_id, prerequisite_quest_id)
-VALUES ('Q_TUGRIKI_CURRENCY', 'Q_BAKERY_PROFIT'),
-       ('Q_BAKERY_PROFIT', 'Q_MOLE_FINE_PRINT'),
-       ('Q_MOLE_FINE_PRINT', 'Q_TURNIP_HARVEST')
-ON CONFLICT DO NOTHING;
-
-DELETE FROM quest_prerequisites
- WHERE quest_id = 'Q_TUGRIKI_CURRENCY'
-   AND prerequisite_quest_id = 'Q_MOLE_FINE_PRINT';
+-- Daily offers replace the global character chain. Within-character level
+-- prerequisites are installed by their migrations, not re-created by seed.
 
 UPDATE shop_items
    SET active = false

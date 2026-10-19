@@ -32,6 +32,7 @@ class _BakeryGameScreenState extends State<BakeryGameScreen> {
   String? _feedback;
   int? _rewardAmount;
   bool _serverQuestCompleted = false;
+  bool _isPractice = false;
   bool _saving = false;
   Future<void>? _startFuture;
 
@@ -51,6 +52,7 @@ class _BakeryGameScreenState extends State<BakeryGameScreen> {
         _assignmentId = result['assignmentId'] as String?;
         _rewardAmount = (result['rewardAmount'] as num?)?.toInt();
         _serverQuestCompleted = result['completed'] == true;
+        _isPractice = _serverQuestCompleted;
         if (_serverQuestCompleted) {
           _feedback = 'Ты уже получил награду. Можно сыграть ещё раз.';
         }
@@ -472,7 +474,9 @@ class _BakeryGameScreenState extends State<BakeryGameScreen> {
       text: game.boughtHoney
           ? 'Ты купил мёд за 6 монет, но для пирожков он не пригодился. Траты выросли до ${game.basketTotal} монет.\n\n${game.revenue} − ${game.basketTotal} = ${game.profit}. Прибыль — ${game.profit} монеты. Без мёда прибыль была бы 8 монет.'
           : 'Мы получили ${game.revenue} монет и потратили ${game.basketTotal}.\n\n${game.revenue} − ${game.basketTotal} = ${game.profit}. Прибыль — ${game.profit} монет. Теперь в кошельке ${game.finalWallet} монет.',
-      extra: _feedback == null
+      extra: _isPractice
+          ? const _FeedbackCard(message: questPracticeCompleteMessage)
+          : _feedback == null
           ? _RewardLine(
               saving: _saving,
               reward: _serverQuestCompleted ? _rewardAmount : null,

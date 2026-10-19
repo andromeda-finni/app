@@ -22,6 +22,8 @@ import '../minigames/tugriki/tugriki_game_screen.dart';
 import '../pet/pet_energy_status.dart';
 import '../theme/app_theme.dart';
 import 'quest_map_data.dart';
+import 'daily_quests.dart';
+import 'quest_rules.dart';
 
 class QuestMapScreen extends StatefulWidget {
   const QuestMapScreen({
@@ -32,6 +34,9 @@ class QuestMapScreen extends StatefulWidget {
     this.difficulty = ChildDifficulty.beginner,
     this.enableAmbientSceneMotion = true,
     this.dictionaryProgress,
+    this.dailyPreview,
+    this.useDailyQuests = true,
+    this.onStartDayRequested,
   });
 
   /// Source of progress and the server every launched game reports to.
@@ -39,6 +44,11 @@ class QuestMapScreen extends StatefulWidget {
   /// [initialUnlockedIndex] and games run as practice.
   final ApiClient? apiClient;
   final DictionaryProgress? dictionaryProgress;
+
+  /// Explicit local preview; production always reads the server-owned snapshot.
+  final DailyQuestDay? dailyPreview;
+  final bool useDailyQuests;
+  final VoidCallback? onStartDayRequested;
 
   /// False when the map is a tab root and there is nowhere to go back to.
   final bool showBack;
@@ -56,7 +66,11 @@ class QuestMapScreen extends StatefulWidget {
 
 class _QuestMapScreenState extends State<QuestMapScreen>
     with TickerProviderStateMixin {
-  static const _mapAsset = 'assets/map/quest_map_squirrel.webp';
+  DailyQuestDay? _daily;
+  bool get _usesDaily =>
+      (widget.apiClient != null && widget.useDailyQuests) ||
+      widget.dailyPreview != null;
+  static const _mapAsset = 'assets/map/quest_map_hd.png';
   static const _sourceWidth = 548.0;
   static const _sourceHeight = 1280.0;
 
@@ -101,6 +115,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   @override
   void initState() {
     super.initState();
+    _daily = widget.dailyPreview;
     final previewIndex = widget.initialUnlockedIndex
         .clamp(0, questMapNodes.length - 1)
         .toInt();
@@ -115,7 +130,13 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   }
 
   void _placeCatAtCurrent() {
-    final node = questMapNodes[catNodeIndexFor(_completedQuestIds)];
+    final dailyTrack = _daily?.offers
+        .where((offer) => offer.canEarn)
+        .firstOrNull
+        ?.trackId;
+    final node =
+        questMapNodes.where((node) => node.id == dailyTrack).firstOrNull ??
+        questMapNodes[catNodeIndexFor(_completedQuestIds)];
     _catPosition = node.catStop;
     _currentPathIndex = node.pathIndex;
     _arrivedNodeId = node.id;
@@ -144,6 +165,13 @@ class _QuestMapScreenState extends State<QuestMapScreen>
     });
     try {
       final economy = await widget.apiClient!.get('/economy/state');
+      final daily = widget.useDailyQuests
+          ? DailyQuestDay.fromJson(await widget.apiClient!.get('/quests/day'))
+          : null;
+      final activeDayId = (economy['activeDay'] as Map?)?['id'];
+      if (daily != null && daily.periodId != activeDayId) {
+        throw ApiException(409, 'daily_quests_need_connection');
+      }
       final completed = <String>{
         for (final quest in (economy['quests'] as List? ?? const []))
           if (quest is Map && quest['assignment_status'] == 'COMPLETED')
@@ -182,6 +210,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       final nextCatIndex = catNodeIndexFor(completed);
       final shouldMove = _hasLoadedProgress && nextCatIndex != previousCatIndex;
       setState(() {
+        _daily = daily;
         if (name is String && name.trim().isNotEmpty) _petName = name;
         if (fur is String) _furOptionId = fur;
         _accessoryOptionId = pet?['accessory_option_id'] as String?;
@@ -216,11 +245,44 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         _isLoadingProgress = false;
         _progressError = 'Не удалось загрузить прогресс карты';
       });
+    } on FormatException {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingProgress = false;
+        _progressError =
+            'Не удалось загрузить просьбы. Попробуй обновить карту.';
+      });
     }
   }
 
-  QuestMapNodeState _stateFor(QuestMapNode node) =>
-      stateForQuestMapNode(node, _completedQuestIds);
+  QuestMapNodeState _stateFor(QuestMapNode node) {
+    if (!_usesDaily || !node.isRewardedQuest) {
+      return stateForQuestMapNode(node, _completedQuestIds);
+    }
+    final offer = _daily?.offerFor(node.id);
+    if (offer?.canEarn == true) return QuestMapNodeState.current;
+    if (offer != null || _daily?.replayFor(node.id) != null) {
+      return QuestMapNodeState.completed;
+    }
+    return QuestMapNodeState.locked;
+  }
+
+  bool _trackIsComplete(QuestMapNode node) =>
+      node.isRewardedQuest &&
+      node.destination.isCompletedBy(_completedQuestIds);
+
+  DailyQuestStatus? _markerStatus(QuestMapNode node) => _trackIsComplete(node)
+      ? DailyQuestStatus.completed
+      : _daily?.offerFor(node.id)?.status;
+
+  String? _dailyQuestId(QuestMapDestination destination) {
+    final node = questMapNodes
+        .where((node) => node.destination == destination)
+        .firstOrNull;
+    if (node == null) return null;
+    return _daily?.offerFor(node.id)?.questId ??
+        _daily?.replayFor(node.id)?.questId;
+  }
 
   /// The server quest this node will start next: multi-level tracks point at
   /// their next level for the child's difficulty.
@@ -245,10 +307,13 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   };
 
   /// Only amounts the server reported; nothing is promised before it answers.
-  int? _rewardFor(QuestMapNode node) => _rewardAmounts[_questIdFor(node)];
+  int? _rewardFor(QuestMapNode node) => _usesDaily
+      ? _daily?.offerFor(node.id)?.rewardAmount
+      : _rewardAmounts[_questIdFor(node)];
 
-  bool _inProgress(QuestMapNode node) =>
-      _inProgressQuestIds.contains(_questIdFor(node));
+  bool _inProgress(QuestMapNode node) => _usesDaily
+      ? _daily?.offerFor(node.id)?.status == DailyQuestStatus.inProgress
+      : _inProgressQuestIds.contains(_questIdFor(node));
 
   String? get _parkStatusText => switch (_parkScene) {
     'FIRST_OFFER' || 'SECOND_OFFER' => 'Есть просьба',
@@ -260,6 +325,11 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   };
 
   String get _headerProgressLabel {
+    if (_usesDaily) {
+      return _daily?.sequenceNo == null
+          ? 'Карта города'
+          : 'Игровой день ${_daily!.sequenceNo}';
+    }
     final currentIndex = currentPlayableNodeIndex(_completedQuestIds);
     if (currentIndex != null) {
       return 'Квест №${questMapNodes[currentIndex].order}';
@@ -317,6 +387,52 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   }
 
   Future<void> _selectNode(QuestMapNode node) async {
+    if (_usesDaily &&
+        node.isRewardedQuest &&
+        (_trackIsComplete(node) || _daily?.offerFor(node.id) == null)) {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AppColors.cardBg,
+          title: Text(node.character, style: AppTextStyles.screenTitle),
+          content: Text(
+            _progressError != null
+                ? 'Не удалось обновить просьбы. Проверь связь и попробуй ещё раз.'
+                : _trackIsComplete(node)
+                ? 'Ты уже помог, спасибо! Все задания этого персонажа пройдены.'
+                : _daily?.periodId == null
+                ? 'Начни игровой день на главном экране, чтобы узнать новые просьбы.'
+                : noDailyQuestMessage,
+            style: AppTextStyles.story,
+          ),
+          actions: [
+            if (_progressError == null &&
+                _daily?.periodId == null &&
+                widget.onStartDayRequested != null)
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  widget.onStartDayRequested!();
+                },
+                child: const Text('Начать новый день'),
+              ),
+            if (_daily?.replayFor(node.id) != null)
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  _launchNode(node);
+                },
+                child: const Text('Потренироваться без награды'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Понятно'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     final state = _stateFor(node);
     setState(() => _selectedNodeId = null);
 
@@ -490,8 +606,59 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   }
 
   Future<void> _launchNode(QuestMapNode node) async {
+    if (_usesDaily &&
+        node.isRewardedQuest &&
+        _stateFor(node) == QuestMapNodeState.current &&
+        !_inProgress(node) &&
+        !node.destination.questIds.any(_completedQuestIds.contains)) {
+      final accepted = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        backgroundColor: AppColors.cardBg,
+        builder: (sheetContext) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Как помочь: ${node.title}',
+                  style: AppTextStyles.screenTitle,
+                ),
+                const SizedBox(height: 16),
+                for (final rule in questRulesFor(
+                  node.destination,
+                  widget.difficulty,
+                ))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(rule, style: AppTextStyles.story),
+                  ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => Navigator.pop(sheetContext, true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.crimson,
+                    minimumSize: const Size(48, 54),
+                  ),
+                  child: const Text('Начать задание'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(sheetContext, false),
+                  child: const Text('Позже'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      if (!mounted || accepted != true) return;
+    }
     setState(() => _selectedNodeId = null);
     if (_stateFor(node) == QuestMapNodeState.current &&
+        !_inProgress(node) &&
         !await _ensureActivityEnergy()) {
       return;
     }
@@ -588,13 +755,21 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       QuestMapDestination.ivan => navigator.push<void>(
         MaterialPageRoute(
           builder: (gameContext) => IvanGameScreen(
-            initialLevel: nextIvanLevel(
-              completedQuestIds: _completedQuestIds,
-              preferredDifficulty: widget.difficulty == ChildDifficulty.advanced
-                  ? IvanDifficulty.hard
-                  : IvanDifficulty.easy,
-            ),
+            initialLevel:
+                IvanLevelId.values
+                    .where(
+                      (level) => level.questId == _dailyQuestId(destination),
+                    )
+                    .firstOrNull ??
+                nextIvanLevel(
+                  completedQuestIds: _completedQuestIds,
+                  preferredDifficulty:
+                      widget.difficulty == ChildDifficulty.advanced
+                      ? IvanDifficulty.hard
+                      : IvanDifficulty.easy,
+                ),
             apiClient: widget.apiClient,
+            enableSequentialNext: !_usesDaily,
             petName: _petName,
             onExit: () => Navigator.of(gameContext).pop(),
           ),
@@ -603,13 +778,21 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       QuestMapDestination.goldfish => navigator.push<void>(
         MaterialPageRoute(
           builder: (gameContext) => GoldfishGameScreen(
-            initialLevel: nextGoldfishLevel(
-              completedQuestIds: _completedQuestIds,
-              preferredDifficulty: widget.difficulty == ChildDifficulty.advanced
-                  ? GoldfishDifficulty.hard
-                  : GoldfishDifficulty.normal,
-            ),
+            initialLevel:
+                GoldfishLevelId.values
+                    .where(
+                      (level) => level.questId == _dailyQuestId(destination),
+                    )
+                    .firstOrNull ??
+                nextGoldfishLevel(
+                  completedQuestIds: _completedQuestIds,
+                  preferredDifficulty:
+                      widget.difficulty == ChildDifficulty.advanced
+                      ? GoldfishDifficulty.hard
+                      : GoldfishDifficulty.normal,
+                ),
             apiClient: widget.apiClient,
+            enableSequentialNext: !_usesDaily,
             petName: _petName,
             onExit: () => Navigator.of(gameContext).pop(),
           ),
@@ -618,13 +801,18 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       QuestMapDestination.squirrel => navigator.push<void>(
         MaterialPageRoute(
           builder: (gameContext) => SquirrelGameScreen(
-            difficulty: widget.difficulty == ChildDifficulty.advanced
+            difficulty:
+                (_dailyQuestId(destination) == squirrelAdvancedQuestId ||
+                    (_dailyQuestId(destination) == null &&
+                        widget.difficulty == ChildDifficulty.advanced))
                 ? SquirrelDifficulty.hard
                 : SquirrelDifficulty.normal,
             apiClient: widget.apiClient,
-            questId: widget.difficulty == ChildDifficulty.advanced
-                ? squirrelAdvancedQuestId
-                : squirrelSimpleQuestId,
+            questId:
+                _dailyQuestId(destination) ??
+                (widget.difficulty == ChildDifficulty.advanced
+                    ? squirrelAdvancedQuestId
+                    : squirrelSimpleQuestId),
             petName: _petName,
             onExit: () => Navigator.of(gameContext).pop(),
           ),
@@ -674,6 +862,35 @@ class _QuestMapScreenState extends State<QuestMapScreen>
                   : null,
               progressLabel: _headerProgressLabel,
             ),
+            if (_usesDaily &&
+                _daily != null &&
+                _daily!.periodId == null &&
+                !_isLoadingProgress &&
+                _progressError == null)
+              Padding(
+                key: const Key('map-start-new-day'),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'День завершён. Начни новый игровой день, чтобы увидеть просьбы.',
+                      style: AppTextStyles.story,
+                    ),
+                    if (widget.onStartDayRequested != null) ...[
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: widget.onStartDayRequested,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.crimson,
+                          minimumSize: const Size(48, 54),
+                        ),
+                        child: const Text('Начать новый день'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             if (_hasLoadedProgress &&
                 completedPlayableQuestCount(_completedQuestIds) ==
                     playableQuestCount)
@@ -720,12 +937,17 @@ class _QuestMapScreenState extends State<QuestMapScreen>
                         ),
                         child: Center(
                           child: SizedBox(
+                            key: const Key('quest-map-canvas'),
                             width: mapWidth,
-                            height: mapHeight,
+                            height: mapHeight + 36,
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                Positioned.fill(
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  top: 0,
+                                  height: mapHeight,
                                   child: Image.asset(
                                     _mapAsset,
                                     fit: BoxFit.fill,
@@ -861,14 +1083,20 @@ class _QuestMapScreenState extends State<QuestMapScreen>
                 key: Key('quest-map-hero-${node.id}'),
                 behavior: HitTestBehavior.opaque,
                 onTap: () => _selectNode(node),
-                child: _QuestMarker(
-                  node: node,
-                  state: state,
-                  pulse: pulse,
-                  occupied: isArrived,
-                  emphasized: isSelected || isHovered,
-                  sourceScale: sourceScale,
-                ),
+                child: _usesDaily && node.isRewardedQuest
+                    ? _DailyQuestMarker(
+                        status: _markerStatus(node),
+                        sourceScale: sourceScale,
+                        permanentlyCompleted: _trackIsComplete(node),
+                      )
+                    : _QuestMarker(
+                        node: node,
+                        state: state,
+                        pulse: pulse,
+                        occupied: isArrived,
+                        emphasized: isSelected || isHovered,
+                        sourceScale: sourceScale,
+                      ),
               ),
             );
           },
@@ -1126,6 +1354,93 @@ class _FireflyDot extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DailyQuestMarker extends StatelessWidget {
+  const _DailyQuestMarker({
+    required this.status,
+    required this.sourceScale,
+    required this.permanentlyCompleted,
+  });
+  final DailyQuestStatus? status;
+  final double sourceScale;
+  final bool permanentlyCompleted;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: SizedBox(
+      // Constant geometry for every state: cover the painted red oval without
+      // moving the hit target or changing the cat's road contact point.
+      width: 124 * sourceScale,
+      height: 80 * sourceScale,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/map/checkpoint_road.webp',
+              key: const ValueKey('daily-stone-platform'),
+              fit: BoxFit.fill,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
+          if (status != null)
+            Positioned(
+              // Keep the badge clear of the cat standing on this platform.
+              right: -14,
+              top: 0,
+              child: Semantics(
+                label: switch (status!) {
+                  DailyQuestStatus.available => 'Новая просьба',
+                  DailyQuestStatus.inProgress => 'Можно продолжить',
+                  DailyQuestStatus.completed =>
+                    permanentlyCompleted
+                        ? 'Все задания пройдены'
+                        : 'Сегодня уже помог',
+                },
+                child: Container(
+                  key: ValueKey('daily-badge-${status!.name}'),
+                  constraints: const BoxConstraints(
+                    minWidth: 30,
+                    minHeight: 30,
+                  ),
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: status == DailyQuestStatus.completed
+                        ? AppColors.leafGreen
+                        : AppColors.crimson,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.cardBg, width: 2),
+                  ),
+                  child: status == DailyQuestStatus.available
+                      ? const Text(
+                          '1',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: AppFonts.body,
+                            color: Colors.white,
+                            fontSize: 16,
+                            height: 1.1,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : Icon(
+                          // Static icons: no urgency or endless clock animation.
+                          // Completion is either today's offer or the whole track.
+                          status == DailyQuestStatus.completed
+                              ? Icons.check_rounded
+                              : Icons.schedule_rounded,
+                          size: 18,
+                          color: Colors.white,
+                        ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _QuestMarker extends StatelessWidget {
@@ -1524,6 +1839,9 @@ class _MapHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final stacked =
+        MediaQuery.sizeOf(context).width < 360 ||
+        MediaQuery.textScalerOf(context).scale(1) > 1.4;
     return Material(
       color: AppColors.cardBg,
       elevation: 3,
@@ -1542,43 +1860,59 @@ class _MapHeader extends StatelessWidget {
             ] else
               const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                MediaQuery.sizeOf(context).width < 360
-                    ? 'Карта'
-                    : 'Карта приключений',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: AppFonts.body,
-                  color: AppColors.ink,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 19,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    MediaQuery.sizeOf(context).width < 440
+                        ? 'Карта'
+                        : 'Карта приключений',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: AppFonts.body,
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 19,
+                    ),
+                  ),
+                  if (stacked)
+                    Text(
+                      progressLabel,
+                      style: AppTextStyles.supporting.copyWith(
+                        color: AppColors.crimson,
+                      ),
+                    ),
+                ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: AppColors.parchment,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.fieldBorder),
-              ),
-              child: MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler: MediaQuery.textScalerOf(context)
-                      .clamp(maxScaleFactor: 1.2),
+            if (!stacked)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
                 ),
-                child: Text(
-                  progressLabel,
-                  style: const TextStyle(
-                    fontFamily: AppFonts.body,
-                    color: AppColors.crimson,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                decoration: BoxDecoration(
+                  color: AppColors.parchment,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppColors.fieldBorder),
+                ),
+                child: MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler: MediaQuery.textScalerOf(context)
+                        .clamp(maxScaleFactor: 1.2),
+                  ),
+                  child: Text(
+                    progressLabel,
+                    style: const TextStyle(
+                      fontFamily: AppFonts.body,
+                      color: AppColors.crimson,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),

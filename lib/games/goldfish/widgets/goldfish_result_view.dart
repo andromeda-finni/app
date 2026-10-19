@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_theme.dart';
+import '../../../minigames/quest_reward_messages.dart';
 import '../goldfish_game_content.dart';
 import '../goldfish_game_models.dart';
 
@@ -57,7 +58,7 @@ class GoldfishResultView extends StatelessWidget {
     final success = result.isSuccessful;
     final rewardText = rewardAmount != null
         ? rewardWasAlreadyGranted
-              ? 'Награда $rewardAmount монет уже была получена.'
+              ? questPracticeCompleteMessage
               : '+$rewardAmount монет начислено в кошелёк!'
         : statusNote ??
               (isSyncing

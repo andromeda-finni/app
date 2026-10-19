@@ -9,6 +9,7 @@ import { calculateDayOutcome, ECONOMY_RULES } from "../economy/rules.js";
 import { lockGoalOwner, requireGoal } from "../economy/goals.js";
 import { rollActivePeriodPetEvent } from "../petEvents/service.js";
 import { readDaySummary } from "./daySummary.js";
+import { readDailyQuests } from "../quests/daily.js";
 
 export function buildPeriodFeedback({
   planFollowed,
@@ -161,6 +162,8 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
 
         const event = await rollActivePeriodPetEvent(client, childUserId);
         if (event.artifactEffect) artifactEffects.push(event.artifactEffect);
+        // Create the day's offers even if the child never opens the map today.
+        await readDailyQuests(client, childUserId);
 
         return {
           periodId,
@@ -311,6 +314,8 @@ export async function periodRoutes(app: FastifyInstance): Promise<void> {
       const { periodId } = req.params;
 
       const result = await withTransaction(async (client) => {
+        // Same owner-first order as daily offers and reward completion.
+        await lockGoalOwner(client, childUserId);
         const periodRes = await client.query(
           `SELECT * FROM game_periods WHERE id = $1 AND child_user_id = $2 FOR UPDATE`,
           [periodId, childUserId],

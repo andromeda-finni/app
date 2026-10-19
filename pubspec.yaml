@@ -80,7 +80,9 @@ flutter:
     - assets/shop/items/apple.webp
     - assets/shop/items/carrot.webp
     - assets/map/quest_map_squirrel.webp
+    - assets/map/quest_map_hd.png
     - assets/map/checkpoint_road_v2.webp
+    - assets/map/checkpoint_road.webp
     - assets/map/cat_idle/striped.webp
     - assets/map/cat_idle/red.webp
     - assets/map/cat_idle/white.webp

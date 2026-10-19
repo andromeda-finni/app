@@ -180,6 +180,40 @@ class OfflineSync extends ChangeNotifier {
     }
     if (!OfflineEconomy.supports(method, path)) throw networkError;
 
+    // Never invent a new paid daily offer or a new energy charge while offline.
+    // Existing assignments can still be resumed; the server reconciles answers.
+    if (method == 'POST' &&
+        path.startsWith('/quests/') &&
+        path.endsWith('/start') &&
+        _cache['/quests/day'] is Map) {
+      final questId = path.split('/')[2];
+      final state = _cache['/economy/state'];
+      final quests = state is Map
+          ? state['quests'] as List? ?? const []
+          : const [];
+      final quest = quests
+          .whereType<Map>()
+          .where((q) => q['id'] == questId)
+          .firstOrNull;
+      if (quest?['assignment_status'] == 'COMPLETED') {
+        return {
+          'completed': true,
+          'rewardAlreadyGranted': true,
+          'assignmentId': quest?['assignment_id'],
+          'rewardAmount': quest?['reward_amount'],
+        };
+      }
+      if (quest?['assignment_status'] == 'IN_PROGRESS' &&
+          quest?['assignment_id'] is String) {
+        return {
+          'resumed': true,
+          'assignmentId': quest?['assignment_id'],
+          'nextStepNo': 1,
+        };
+      }
+      throw ApiException(0, 'daily_quests_need_connection');
+    }
+
     final state = _cache['/economy/state'];
     final park = _cache['/park-project'];
     final outcome = _economy.apply(

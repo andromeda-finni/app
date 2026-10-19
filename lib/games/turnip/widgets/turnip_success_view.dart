@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_theme.dart';
+import '../../../minigames/quest_reward_messages.dart';
 import '../turnip_game_content.dart';
 
 class TurnipPullingView extends StatelessWidget {
@@ -94,7 +95,7 @@ class TurnipSuccessView extends StatelessWidget {
   Widget build(BuildContext context) {
     final rewardText = rewardAmount != null
         ? rewardWasAlreadyGranted
-              ? 'Награда $rewardAmount монет уже была сохранена'
+              ? questPracticeCompleteMessage
               : 'Награда: $rewardAmount монет'
         : statusNote ?? 'Сохраняем результат…';
     return ColoredBox(
