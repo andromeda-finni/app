@@ -1,10 +1,10 @@
 {
   "module": "catch-food",
-  "branch": "codex/catch-food-game",
-  "baseCommit": "d196074",
+  "branch": "codex/catch-food-all-coats",
+  "baseCommit": "06f48c5555f6d92c218d050f0a34ff7f90f3d34f",
   "publicationTarget": {
     "remote": "origin",
-    "branch": "codex/catch-food-game",
+    "branch": "codex/catch-food-all-coats",
     "mainModified": false
   },
   "checks": {
@@ -12,8 +12,14 @@
       "passed": true
     },
     "featureAndHomeTests": {
-      "passed": 44,
-      "failed": 0
+      "passed": 57,
+      "failed": 0,
+      "files": [
+        "catch_food_controller_test.dart",
+        "catch_food_art_test.dart",
+        "catch_food_screen_test.dart",
+        "home_screen_test.dart"
+      ]
     },
     "flutterFullSuite": {
       "run": "Initial implementation, before the faster-food and spoiled-food update; full suite was not repeated for this update",
@@ -24,21 +30,24 @@
       "failingTests": [
         "goldfish_game_test.dart: dialogue is paged and shows only the current speaker",
         "quest_map_test.dart: an advanced child gets the hard Goldfish level"
-      ]
+      ],
+      "reproducedOnBase": "d196074"
     },
     "backendBuild": {
-      "passed": true
+      "passed": true,
+      "run": "2026-10-17 initial implementation; backend unchanged by the coat update and not retested for this update"
     },
     "backendTests": {
       "passed": 47,
       "failed": 0,
       "skipped": 9,
-      "skipReason": "No ECONOMY_TEST_DATABASE_URL configured; disposable PostgreSQL integration tests are opt-in"
+      "skipReason": "No ECONOMY_TEST_DATABASE_URL configured; disposable PostgreSQL integration tests are opt-in",
+      "run": "2026-10-17 initial implementation; backend unchanged by the coat update and not retested for this update"
     },
     "androidDebugBuild": {
       "passed": true,
       "file": "build/app/outputs/flutter-apk/app-debug.apk",
-      "bytes": 238594137
+      "bytes": 238763870
     },
     "visualReview": {
       "passed": true,
@@ -49,7 +58,10 @@
         "result.png",
         "small-screen.png",
         "spoiled-food.png",
-        "spoiled-catch.png"
+        "spoiled-catch.png",
+        "striped-gameplay.png",
+        "orange-gameplay.png",
+        "white-gameplay.png"
       ],
       "smallScreen": "320x640 at 1.5x text"
     },
@@ -58,9 +70,9 @@
     },
     "sourceArt": {
       "passed": true,
-      "assets": 18,
-      "transparentSprites": 16,
-      "runtimeWebpBytes": 1715550,
+      "assets": 34,
+      "transparentSprites": 32,
+      "runtimeWebpBytes": 3758770,
       "manifest": "art/minigames/catch_food/manifest.json"
     }
   },
@@ -80,6 +92,28 @@
     "spoiledFood": "skip safely; catching costs one mistake and awards no score",
     "fatigue": "session state, using existing energy/recovery for admission",
     "food": "score only",
-    "characterVariant": "brown tabby, red collar"
+    "characterVariant": "All existing fur colors; shared red embroidered collar"
+  },
+  "checkedOn": "2026-10-19",
+  "coatSupport": {
+    "furMapping": {
+      "FUR_GRAY": "striped",
+      "FUR_ORANGE": "orange",
+      "FUR_WHITE": "white"
+    },
+    "posesPerCoat": 8,
+    "catSprites": 24,
+    "newGeneratedSprites": 16,
+    "newRuntimeWebpBytes": 2043220,
+    "precache": "Only the selected coat and shared scene/effects",
+    "collarPolicy": "Shared red collar; saved pet accessories are not modified",
+    "gallery": "art/minigames/catch_food/coats.html",
+    "prompts": [
+      "art/minigames/catch_food/prompts/orange",
+      "art/minigames/catch_food/prompts/white"
+    ],
+    "generationTool": "built-in-imagegen",
+    "minimumSilhouetteIou": 0.966083,
+    "galleryLinksValid": true
   }
 }
