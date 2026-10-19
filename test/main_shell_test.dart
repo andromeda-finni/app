@@ -16,6 +16,7 @@ import 'package:andromeda_app/core/large_text.dart';
 import 'package:andromeda_app/dictionary/dictionary_progress.dart';
 import 'package:andromeda_app/home/main_shell.dart';
 import 'package:andromeda_app/home/home_tour.dart';
+import 'package:andromeda_app/home/main_tabs_tour.dart';
 import 'package:andromeda_app/home/widgets/app_nav_bar.dart';
 import 'package:andromeda_app/theme/app_theme.dart';
 
@@ -29,12 +30,15 @@ Widget _shell({
   VoidCallback? onSwitchAudience,
   bool showHomeTour = false,
   bool failHomeTourOnce = false,
+  bool showMainTabsTour = false,
+  bool failMainTabsTourOnce = false,
   Map<String, Object>? activeEvent,
   void Function(http.BaseRequest request)? onRequest,
   DictionaryProgress? dictionaryProgress,
   bool largeText = false,
 }) {
   var shouldFailHomeTour = failHomeTourOnce;
+  var shouldFailMainTabsTour = failMainTabsTourOnce;
   final client = MockClient((request) async {
     onRequest?.call(request);
     if (request.url.path == '/onboarding/home-tour') {
@@ -48,6 +52,21 @@ Widget _shell({
       }
       return http.Response(
         jsonEncode({'homeTourCompleted': true}),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    }
+    if (request.url.path == '/onboarding/main-tabs-tour') {
+      if (shouldFailMainTabsTour) {
+        shouldFailMainTabsTour = false;
+        return http.Response(
+          jsonEncode({'error': 'temporary_failure'}),
+          500,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response(
+        jsonEncode({'mainTabsTourCompleted': true}),
         200,
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
@@ -108,6 +127,7 @@ Widget _shell({
         baseUrl: 'http://test',
       ),
       showHomeTour: showHomeTour,
+      showMainTabsTour: showMainTabsTour,
       dictionaryProgress: dictionaryProgress,
       onSwitchAudience: onSwitchAudience,
     ),
@@ -419,7 +439,7 @@ void main() {
     await tester.tap(find.byKey(const Key('home-tour-next')));
     await tester.pumpAndSettle();
     expect(find.text('План на период'), findsWidgets);
-    expect(find.text('Понятно — в домик'), findsOneWidget);
+    expect(find.text('Далее'), findsOneWidget);
     expect(
       tester.widget<HomeTourOverlay>(find.byType(HomeTourOverlay)).spotlights,
       hasLength(1),
@@ -481,7 +501,7 @@ void main() {
       find.text('Не получилось сохранить. Попробовать ещё раз.'),
       findsOneWidget,
     );
-    expect(find.text('Понятно — в домик'), findsOneWidget);
+    expect(find.text('Далее'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('home-tour-next')));
     await tester.pumpAndSettle();
@@ -516,7 +536,164 @@ void main() {
     await tester.tap(find.byKey(const Key('home-tour-next')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Понятно — в домик'), findsOneWidget);
+    expect(find.text('Далее'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('remaining tabs tour follows map, shop and savings targets', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(412, 915);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(() {
+      tester.view.reset();
+      tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+    });
+    final requests = <String>[];
+
+    await tester.pumpWidget(
+      _shell(
+        showMainTabsTour: true,
+        onRequest: (request) =>
+            requests.add('${request.method} ${request.url.path}'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Карта приключений'), findsWidgets);
+    expect(find.byKey(const Key('main-tabs-tour-blocker')), findsOneWidget);
+    expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 1);
+    expect(
+      tester
+          .widget<MainTabsTourOverlay>(find.byType(MainTabsTourOverlay))
+          .spotlights,
+      hasLength(2),
+    );
+
+    await tester.tap(_tab('Магазин'), warnIfMissed: false);
+    await tester.pump();
+    expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 1);
+
+    await tester.ensureVisible(find.byKey(const Key('main-tabs-tour-next')));
+    await tester.tap(find.byKey(const Key('main-tabs-tour-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('Как начать задание'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('main-tabs-tour-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('Монеты в магазине'), findsOneWidget);
+    expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 2);
+
+    await tester.tap(find.byKey(const Key('main-tabs-tour-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('Три полки'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('main-tabs-tour-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('Мечта и накопления'), findsOneWidget);
+    expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 3);
+
+    await tester.tap(find.byKey(const Key('main-tabs-tour-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('Переложить монеты'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('main-tabs-tour-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('Сундук Морозко'), findsWidgets);
+    expect(
+      tester
+          .widget<MainTabsTourOverlay>(find.byType(MainTabsTourOverlay))
+          .spotlights,
+      hasLength(1),
+    );
+
+    await tester.ensureVisible(find.byKey(const Key('main-tabs-tour-next')));
+    await tester.tap(find.byKey(const Key('main-tabs-tour-next')));
+    await tester.pumpAndSettle();
+
+    expect(requests, contains('PUT /onboarding/main-tabs-tour'));
+    expect(find.byKey(const Key('main-tabs-tour-error')), findsNothing);
+    expect(find.byKey(const Key('main-tabs-tour-blocker')), findsNothing);
+    expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 0);
+  });
+
+  testWidgets('remaining tabs tour keeps its final step after save failure', (
+    tester,
+  ) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await tester.pumpWidget(
+      _shell(showMainTabsTour: true, failMainTabsTourOnce: true),
+    );
+    await tester.pumpAndSettle();
+
+    for (var step = 0; step < MainTabsTourOverlay.stepCount; step++) {
+      await tester.tap(find.byKey(const Key('main-tabs-tour-next')));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.byKey(const Key('main-tabs-tour-error')), findsOneWidget);
+    expect(
+      find.text('Не получилось сохранить. Попробовать ещё раз.'),
+      findsOneWidget,
+    );
+    expect(find.text('Понятно — в домик'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('main-tabs-tour-next')));
+    await tester.tap(find.byKey(const Key('main-tabs-tour-next')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('main-tabs-tour-blocker')), findsNothing);
+  });
+
+  testWidgets('new child continues from the home tour into the other tabs', (
+    tester,
+  ) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await tester.pumpWidget(_shell(showHomeTour: true, showMainTabsTour: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Деньги и разделы'), findsOneWidget);
+    for (var step = 0; step < 3; step++) {
+      await tester.ensureVisible(find.byKey(const Key('home-tour-next')));
+      await tester.tap(find.byKey(const Key('home-tour-next')));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.byKey(const Key('home-tour-blocker')), findsNothing);
+    expect(find.byKey(const Key('main-tabs-tour-blocker')), findsOneWidget);
+    expect(find.text('Карта приключений'), findsWidgets);
+  });
+
+  testWidgets('remaining tabs tour fits a narrow phone with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(() {
+      tester.view.reset();
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
+      tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+    });
+
+    await tester.pumpWidget(_shell(showMainTabsTour: true));
+    await tester.pumpAndSettle();
+
+    for (var step = 0; step < MainTabsTourOverlay.stepCount; step++) {
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.byKey(const Key('main-tabs-tour-next')));
+      await tester.tap(find.byKey(const Key('main-tabs-tour-next')));
+      await tester.pumpAndSettle();
+    }
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('main-tabs-tour-blocker')), findsNothing);
   });
 }

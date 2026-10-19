@@ -31,6 +31,7 @@ void main() {
       'currentStep': 4,
       'completed': true,
       'homeTourCompleted': true,
+      'mainTabsTourCompleted': true,
       'difficulty': 'SIMPLE',
       'pet': {'petName': 'Рыжик', 'furOptionId': 'FUR_GRAY'},
     });
@@ -42,7 +43,9 @@ void main() {
     });
 
     expect(completed.homeTourCompleted, isTrue);
+    expect(completed.mainTabsTourCompleted, isTrue);
     expect(legacy.homeTourCompleted, isFalse);
+    expect(legacy.mainTabsTourCompleted, isFalse);
   });
 
   test('onboarding status restores the stored tutorial split', () {
@@ -123,6 +126,7 @@ void main() {
         'currentStep': 4,
         'completed': true,
         'homeTourCompleted': true,
+        'mainTabsTourCompleted': true,
         'pet': {'petName': 'Рыжик', 'furOptionId': 'FUR_GRAY'},
       }, 200);
     });
@@ -303,6 +307,7 @@ void main() {
         'currentStep': 4,
         'completed': true,
         'homeTourCompleted': true,
+        'mainTabsTourCompleted': true,
         'pet': {'petName': 'Грошик', 'furOptionId': 'FUR_GRAY'},
       }, 200);
     });

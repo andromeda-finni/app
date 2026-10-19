@@ -10,6 +10,7 @@ import '../economy/economy_state.dart';
 import '../economy/item_art_catalog.dart';
 import '../economy/item_artwork.dart';
 import '../insurance/insurance_screen.dart';
+import '../home/main_tabs_tour.dart';
 import '../theme/app_theme.dart';
 import 'widgets/artifact_product_card.dart';
 import 'widgets/shop_category_card.dart';
@@ -59,6 +60,8 @@ class ShopScreen extends StatefulWidget {
     required this.onGoalSelected,
     required this.onOpenPlan,
     required this.onOpenQuests,
+    this.tourTargets,
+    this.onTourReady,
   });
 
   final ApiClient apiClient;
@@ -67,6 +70,8 @@ class ShopScreen extends StatefulWidget {
   final VoidCallback onGoalSelected;
   final VoidCallback onOpenPlan;
   final VoidCallback onOpenQuests;
+  final MainTabsTourTargets? tourTargets;
+  final VoidCallback? onTourReady;
 
   @override
   State<ShopScreen> createState() => _ShopScreenState();
@@ -79,6 +84,7 @@ class _ShopScreenState extends State<ShopScreen> {
   bool _busy = false;
   String? _pendingPurchaseId;
   _ShopCategory? _category;
+  bool _tourReadyReported = false;
   late final EconomyActions _actions = EconomyActions(widget.apiClient);
 
   @override
@@ -118,6 +124,7 @@ class _ShopScreenState extends State<ShopScreen> {
         _economy = EconomyState.fromJson(json);
         _error = null;
       });
+      _reportTourReady();
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _error = economyErrorMessage(error));
@@ -127,6 +134,15 @@ class _ShopScreenState extends State<ShopScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _reportTourReady() {
+    if (_tourReadyReported || widget.onTourReady == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _tourReadyReported) return;
+      _tourReadyReported = true;
+      widget.onTourReady?.call();
+    });
   }
 
   Future<bool> _execute(EconomyOperation operation) async {
@@ -249,6 +265,7 @@ class _ShopScreenState extends State<ShopScreen> {
         color: AppColors.crimson,
         child: ListView(
           key: ValueKey('shop-${_category?.name ?? 'categories'}'),
+          controller: widget.tourTargets?.shopScrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.md,
@@ -257,14 +274,21 @@ class _ShopScreenState extends State<ShopScreen> {
             AppSpacing.xxl,
           ),
           children: [
-            _ShopTopBar(wallet: economy.wallet, onBack: _goBack),
+            _ShopTopBar(
+              wallet: economy.wallet,
+              onBack: _goBack,
+              walletKey: widget.tourTargets?.shopWallet,
+            ),
             const SizedBox(height: AppSpacing.xs),
             _ShopTitleSign(title: _category?.title ?? 'Магазин'),
             const SizedBox(height: AppSpacing.xs),
             if (_category == null) ...[
               const _ShelfPrompt(),
               const SizedBox(height: AppSpacing.xs),
-              _ShopCategoryMenu(onSelected: _openCategory),
+              KeyedSubtree(
+                key: widget.tourTargets?.shopCategories,
+                child: _ShopCategoryMenu(onSelected: _openCategory),
+              ),
             ] else
               _CatalogWidth(
                 child: _CategoryContent(
@@ -502,10 +526,15 @@ class _ShopBackdrop extends StatelessWidget {
 }
 
 class _ShopTopBar extends StatelessWidget {
-  const _ShopTopBar({required this.wallet, required this.onBack});
+  const _ShopTopBar({
+    required this.wallet,
+    required this.onBack,
+    this.walletKey,
+  });
 
   final int wallet;
   final VoidCallback onBack;
+  final GlobalKey? walletKey;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -521,6 +550,7 @@ class _ShopTopBar extends StatelessWidget {
         ),
       ),
       Semantics(
+        key: walletKey,
         label: 'В кошельке $wallet монет',
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
