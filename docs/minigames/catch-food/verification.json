@@ -1,11 +1,10 @@
 {
   "module": "catch-food",
-  "branch": "codex/catch-food-all-coats",
+  "branch": "main",
   "baseCommit": "06f48c5555f6d92c218d050f0a34ff7f90f3d34f",
   "publicationTarget": {
     "remote": "origin",
-    "branch": "codex/catch-food-all-coats",
-    "mainModified": false
+    "branch": "main"
   },
   "checks": {
     "flutterAnalyze": {
@@ -22,32 +21,39 @@
       ]
     },
     "flutterFullSuite": {
-      "run": "Initial implementation, before the faster-food and spoiled-food update; full suite was not repeated for this update",
-      "passed": 312,
-      "failed": 2,
-      "failuresReproducedOnBase": true,
-      "reason": "Existing assets/games/goldfish/goldfish.webp is empty (0 bytes)",
-      "failingTests": [
-        "goldfish_game_test.dart: dialogue is paged and shows only the current speaker",
-        "quest_map_test.dart: an advanced child gets the hard Goldfish level"
-      ],
-      "reproducedOnBase": "d196074"
+      "passed": 391,
+      "failed": 0,
+      "skipped": 1,
+      "skipReason": "OFFLINE_PARITY_URL is not set; optional parity check requires a running local backend",
+      "previousValidation": {
+        "run": "Initial implementation, before the faster-food and spoiled-food update; full suite was not repeated for this update",
+        "passed": 312,
+        "failed": 2,
+        "failuresReproducedOnBase": true,
+        "reason": "Existing assets/games/goldfish/goldfish.webp is empty (0 bytes)",
+        "failingTests": [
+          "goldfish_game_test.dart: dialogue is paged and shows only the current speaker",
+          "quest_map_test.dart: an advanced child gets the hard Goldfish level"
+        ],
+        "reproducedOnBase": "d196074"
+      }
     },
     "backendBuild": {
       "passed": true,
-      "run": "2026-10-17 initial implementation; backend unchanged by the coat update and not retested for this update"
+      "checkedOn": "2026-10-20"
     },
     "backendTests": {
       "passed": 47,
       "failed": 0,
       "skipped": 9,
-      "skipReason": "No ECONOMY_TEST_DATABASE_URL configured; disposable PostgreSQL integration tests are opt-in",
-      "run": "2026-10-17 initial implementation; backend unchanged by the coat update and not retested for this update"
+      "checkedOn": "2026-10-20",
+      "skipReason": "No ECONOMY_TEST_DATABASE_URL; disposable PostgreSQL integration tests are opt-in"
     },
     "androidDebugBuild": {
       "passed": true,
       "file": "build/app/outputs/flutter-apk/app-debug.apk",
-      "bytes": 238763870
+      "bytes": 238762908,
+      "checkedOn": "2026-10-20"
     },
     "visualReview": {
       "passed": true,
@@ -94,7 +100,7 @@
     "food": "score only",
     "characterVariant": "All existing fur colors; shared red embroidered collar"
   },
-  "checkedOn": "2026-10-19",
+  "checkedOn": "2026-10-20",
   "coatSupport": {
     "furMapping": {
       "FUR_GRAY": "striped",
@@ -115,5 +121,15 @@
     "generationTool": "built-in-imagegen",
     "minimumSilhouetteIou": 0.966083,
     "galleryLinksValid": true
+  },
+  "sourceBranch": "codex/catch-food-all-coats",
+  "mainIntegration": {
+    "checkedOn": "2026-10-20",
+    "remoteMainBefore": "06f48c5555f6d92c218d050f0a34ff7f90f3d34f",
+    "testedSourceCommit": "185add59fafaadaa53543f857dc278d88e3a8cc6",
+    "textConflicts": false,
+    "integration": "fast-forward from the fetched main",
+    "concurrentChangesPolicy": "Fetch again before push; normal fast-forward push rejects concurrent remote updates; merge and retest if necessary",
+    "newDatabaseMigrations": false
   }
 }
