@@ -1007,6 +1007,7 @@ class _HomeContent extends StatelessWidget {
                             DreamCard(goal: data.activeGoal, onTap: onOpenGoal),
                             const SizedBox(height: 14),
                             CatchFoodEntryCard(
+                              furOptionId: data.pet.furOptionId,
                               onTap: busy || offline ? null : onOpenCatchFood,
                             ),
                             const SizedBox(height: 14),

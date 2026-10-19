@@ -125,17 +125,44 @@ class CatchFoodInfo {
     required this.config,
     required this.energy,
     required this.bestScore,
+    this.furOptionId,
   });
 
   factory CatchFoodInfo.fromJson(Map<String, dynamic> json) => CatchFoodInfo(
     config: CatchFoodConfig.fromJson(json['config'] as Map<String, dynamic>),
     energy: PetEnergyStatus.fromJson(json['pet'] as Map<String, dynamic>),
     bestScore: json['bestScore'] as int,
+    furOptionId:
+        (json['pet'] as Map<String, dynamic>)['fur_option_id'] as String?,
   );
 
   final CatchFoodConfig config;
   final PetEnergyStatus energy;
   final int bestScore;
+  final String? furOptionId;
+  CatchFoodCoat get coat => CatchFoodCoat.fromFur(furOptionId);
 }
 
 const catchFoodAssetRoot = 'assets/minigames/catch_food';
+
+/// The mini-game shares the red collar across coats to avoid multiplying art
+/// for every cosmetic combination. Unknown/legacy fur IDs use striped art.
+enum CatchFoodCoat {
+  striped,
+  orange,
+  white;
+
+  static CatchFoodCoat fromFur(String? furOptionId) => switch (furOptionId) {
+    'FUR_ORANGE' => orange,
+    'FUR_WHITE' => white,
+    _ => striped,
+  };
+
+  String catAsset(String pose) =>
+      '$catchFoodAssetRoot/${this == striped ? '' : '$name/'}cat_$pose.webp';
+
+  List<String> get catAssets => [
+    for (final pose in ['idle', 'happy', 'miss', 'tired']) catAsset(pose),
+    for (final lane in CatchLane.values) catAsset('catch_${lane.assetName}'),
+  ];
+}

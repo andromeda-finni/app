@@ -1,7 +1,7 @@
 {
-  "checkedAt": "2026-10-17T14:49:50.1284268Z",
-  "expectedCount": 18,
-  "actualPngCount": 18,
+  "checkedAt": "2026-10-19T19:31:07.7368928Z",
+  "expectedCount": 34,
+  "actualPngCount": 34,
   "allPassed": true,
   "assets": [
     {
@@ -360,6 +360,326 @@
           "top": 176,
           "right": 1160,
           "bottom": 1112
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/orange/cat_catch_lower_left.png",
+      "passed": true,
+      "sha256": "c2699cd04158316946c78651bd7b69669479cda3f282ea696c39a95c25bf6502",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 897348,
+        "partialAlphaPixels": 674829,
+        "opaquePixels": 339,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 100,
+          "top": 89,
+          "right": 1190,
+          "bottom": 1186
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/white/cat_catch_lower_left.png",
+      "passed": true,
+      "sha256": "d6b59313e32b4240b6f30902851d42f7710e6278e87018420e25245702fe83c4",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 902979,
+        "partialAlphaPixels": 668915,
+        "opaquePixels": 622,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 101,
+          "top": 96,
+          "right": 1191,
+          "bottom": 1184
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/orange/cat_catch_upper_left.png",
+      "passed": true,
+      "sha256": "d56064c08020b9497b8f2aed2be99cb29ef9cd3ea4f510c005640b6ff3bd350f",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 874767,
+        "partialAlphaPixels": 697101,
+        "opaquePixels": 648,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 125,
+          "top": 79,
+          "right": 1180,
+          "bottom": 1193
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/white/cat_catch_upper_left.png",
+      "passed": true,
+      "sha256": "0e779974372d33654df4d7d32504e0f348a3bdcf4e902e14f9fc3f64c0b508a6",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 872798,
+        "partialAlphaPixels": 699326,
+        "opaquePixels": 392,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 125,
+          "top": 79,
+          "right": 1180,
+          "bottom": 1192
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/orange/cat_catch_upper_right.png",
+      "passed": true,
+      "sha256": "713c0f6e17139c31f13e2b46352ec992ca41477ca5a278b17910230a3267ad71",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 842661,
+        "partialAlphaPixels": 729336,
+        "opaquePixels": 519,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 104,
+          "top": 79,
+          "right": 1192,
+          "bottom": 1194
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/white/cat_catch_upper_right.png",
+      "passed": true,
+      "sha256": "65592d7d6474050aab075def7902acde0b630d208171ae78f3ce7256fff44681",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 831114,
+        "partialAlphaPixels": 741037,
+        "opaquePixels": 365,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 103,
+          "top": 79,
+          "right": 1192,
+          "bottom": 1194
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/orange/cat_catch_lower_right.png",
+      "passed": true,
+      "sha256": "df4d86ad41dd4fd3e125db7e3a6723f157c4760ff46115b0295f0ca57585c4c4",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 879715,
+        "partialAlphaPixels": 692158,
+        "opaquePixels": 643,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 99,
+          "top": 73,
+          "right": 1212,
+          "bottom": 1200
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/white/cat_catch_lower_right.png",
+      "passed": true,
+      "sha256": "ae0896bae08d74830e2c61598628588a1d7595a0b3779a20d0ec6c590b09403c",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 873143,
+        "partialAlphaPixels": 699054,
+        "opaquePixels": 319,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 97,
+          "top": 74,
+          "right": 1214,
+          "bottom": 1200
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/orange/cat_idle.png",
+      "passed": true,
+      "sha256": "a33496a5c0b308763a9b0f8126cec810f99ee63d82fb99f02ea92357673e4902",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 850646,
+        "partialAlphaPixels": 721427,
+        "opaquePixels": 443,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 229,
+          "top": 63,
+          "right": 1157,
+          "bottom": 1196
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/white/cat_idle.png",
+      "passed": true,
+      "sha256": "851240af6f9326c3f0ad8ca7082408f7de39616f4b3d7071af062def4c1bae20",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 859831,
+        "partialAlphaPixels": 711989,
+        "opaquePixels": 696,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 228,
+          "top": 63,
+          "right": 1155,
+          "bottom": 1196
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/orange/cat_happy.png",
+      "passed": true,
+      "sha256": "ab5d18734ae410285f37dcfb306cd3ede3414708725855a5d19c750eb7e19996",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 919112,
+        "partialAlphaPixels": 653185,
+        "opaquePixels": 219,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 265,
+          "top": 13,
+          "right": 1144,
+          "bottom": 1232
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/white/cat_happy.png",
+      "passed": true,
+      "sha256": "029675be40fa7c49b2242895c13de7fa6fb1d9524d9a7739c20e72b627767451",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 915027,
+        "partialAlphaPixels": 657278,
+        "opaquePixels": 211,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 262,
+          "top": 13,
+          "right": 1140,
+          "bottom": 1231
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/orange/cat_miss.png",
+      "passed": true,
+      "sha256": "9f733f0a1dd5052d1328452560da245ce33fc827d774e5f1d9b47422e04a1ee9",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 951674,
+        "partialAlphaPixels": 620658,
+        "opaquePixels": 184,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 261,
+          "top": 52,
+          "right": 1126,
+          "bottom": 1207
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/white/cat_miss.png",
+      "passed": true,
+      "sha256": "34fa22b4c57d1091249afa531be521149440603e7e7e539ba41aa60f65b0ca61",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 949930,
+        "partialAlphaPixels": 622398,
+        "opaquePixels": 188,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 262,
+          "top": 56,
+          "right": 1123,
+          "bottom": 1206
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/orange/cat_tired.png",
+      "passed": true,
+      "sha256": "5bb2c4b84cad8804f52da7cdcbb353298106522b0543b9b793dde0e350792151",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 816303,
+        "partialAlphaPixels": 755898,
+        "opaquePixels": 315,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 111,
+          "top": 52,
+          "right": 1225,
+          "bottom": 1187
+        },
+        "touchesEdge": false
+      }
+    },
+    {
+      "file": "variants/white/cat_tired.png",
+      "passed": true,
+      "sha256": "dba6b6176cc0da842c6b78cb05506be85f05c7010486c56d83d9bab9e764bd13",
+      "info": {
+        "width": 1254,
+        "height": 1254,
+        "transparentPixels": 816456,
+        "partialAlphaPixels": 755837,
+        "opaquePixels": 223,
+        "hasTransparency": true,
+        "visibleBounds": {
+          "left": 111,
+          "top": 55,
+          "right": 1232,
+          "bottom": 1187
         },
         "touchesEdge": false
       }

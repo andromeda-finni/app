@@ -18,6 +18,13 @@ import 'support/fake_auth_storage.dart';
 import 'support/pump_catch_food.dart';
 
 const _captureKey = Key('catch-food-capture');
+
+Finder _imageAsset(WidgetTester tester, String path) => find.byWidgetPredicate(
+  (widget) =>
+      widget is Image &&
+      widget.image is AssetImage &&
+      (widget.image as AssetImage).assetName == path,
+);
 const _config = {
   'energyCost': 20,
   'durationMs': 60000,
@@ -30,9 +37,13 @@ const _config = {
   'spoiledFoodPercent': 20,
 };
 
-Map<String, dynamic> _info([int energy = 100, int spoiledFoodPercent = 20]) => {
+Map<String, dynamic> _info([
+  int energy = 100,
+  int spoiledFoodPercent = 20,
+  String? furOptionId,
+]) => {
   'config': {..._config, 'spoiledFoodPercent': spoiledFoodPercent},
-  'pet': {'energy_level': energy},
+  'pet': {'energy_level': energy, 'fur_option_id': furOptionId},
   'bestScore': 7,
 };
 
@@ -47,6 +58,8 @@ class _Server {
   int finishes = 0;
   int energy = 100;
   int spoiledFoodPercent = 20;
+  String? furOptionId;
+  String? startFurOptionId;
   bool failStart = false;
   bool failFinish = false;
   final List<String> startKeys = [];
@@ -54,7 +67,7 @@ class _Server {
 
   Future<http.Response> call(http.Request request) async {
     if (request.method == 'GET') {
-      return _json(_info(energy, spoiledFoodPercent));
+      return _json(_info(energy, spoiledFoodPercent, furOptionId));
     }
     if (request.url.path.endsWith('/start')) {
       starts++;
@@ -66,7 +79,7 @@ class _Server {
       }
       energy -= 20;
       return _json({
-        ..._info(energy, spoiledFoodPercent),
+        ..._info(energy, spoiledFoodPercent, startFurOptionId ?? furOptionId),
         'session': {'id': id, 'energyCost': 20, 'finished': false},
       });
     }
@@ -142,6 +155,72 @@ Future<void> _capture(WidgetTester tester, String name) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(loadCatchFoodCaptureFonts);
+  for (final entry in [
+    ('FUR_GRAY', CatchFoodCoat.striped),
+    ('FUR_ORANGE', CatchFoodCoat.orange),
+    ('FUR_WHITE', CatchFoodCoat.white),
+  ]) {
+    testWidgets(
+      '${entry.$1} follows the pet through instructions, every bowl and result',
+      (tester) async {
+        final server = _Server()..furOptionId = entry.$1;
+        await _pump(tester, server);
+        expect(_imageAsset(tester, entry.$2.catAsset('idle')), findsOneWidget);
+        await _start(tester);
+        final board = tester.widget<CatchFoodBoard>(
+          find.byType(CatchFoodBoard),
+        );
+        expect(board.coat, entry.$2);
+        for (final lane in CatchLane.values) {
+          await tester.tap(find.byKey(Key('catch-control-${lane.assetName}')));
+          await tester.pump();
+          expect(
+            _imageAsset(tester, entry.$2.catAsset('catch_${lane.assetName}')),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        }
+        await _capture(tester, '${entry.$2.name}-gameplay');
+        await tester.tap(find.byKey(const Key('catch-food-pause')));
+        await tester.pump();
+        await tester.tap(find.text('Завершить попытку'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Завершить'));
+        await tester.pumpAndSettle();
+        expect(_imageAsset(tester, entry.$2.catAsset('miss')), findsOneWidget);
+        expect(server.starts, 1);
+        expect(server.finishes, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+  testWidgets('a changed coat in the start response is loaded before play', (
+    tester,
+  ) async {
+    final server = _Server()
+      ..furOptionId = 'FUR_ORANGE'
+      ..startFurOptionId = 'FUR_WHITE';
+    await _pump(tester, server);
+    await _start(tester);
+    for (
+      var i = 0;
+      i < 150 && find.byType(CatchFoodBoard).evaluate().isEmpty;
+      i++
+    ) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(
+      tester.widget<CatchFoodBoard>(find.byType(CatchFoodBoard)).coat,
+      CatchFoodCoat.white,
+    );
+    expect(server.starts, 1);
+    await tester.tap(find.byKey(const Key('catch-food-pause')));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'instructions show the cost and never charge before explicit start',
     (tester) async {

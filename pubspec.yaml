@@ -128,6 +128,8 @@ flutter:
     - assets/minigames/tugriki/
     - assets/minigames/mole/
     - assets/minigames/catch_food/
+    - assets/minigames/catch_food/orange/
+    - assets/minigames/catch_food/white/
     - assets/minigames/bakery/
     - assets/minigames/park/
     - assets/Fox/fox_friendly.webp

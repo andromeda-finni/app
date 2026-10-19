@@ -57,10 +57,15 @@ foreach ($asset in $manifest.assets) {
   if ($asset.transparent -and $info.touchesEdge) { $passed = $false }
   $report += [pscustomobject]@{file=$asset.file; passed=$passed; sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant(); info=$info}
 }
+$managedPngFiles = @(Get-ChildItem -LiteralPath $AssetDirectory -Filter '*.png' -File)
+$variantDirectory = Join-Path $AssetDirectory 'variants'
+if (Test-Path -LiteralPath $variantDirectory) {
+  $managedPngFiles += @(Get-ChildItem -LiteralPath $variantDirectory -Filter '*.png' -File -Recurse)
+}
 $result = [pscustomobject]@{
   checkedAt=(Get-Date).ToUniversalTime().ToString('o')
   expectedCount=$manifest.assets.Count
-  actualPngCount=@(Get-ChildItem -LiteralPath $AssetDirectory -Filter '*.png' -File).Count
+  actualPngCount=$managedPngFiles.Count
   allPassed=(@($report | Where-Object {-not $_.passed}).Count -eq 0)
   assets=$report
 }

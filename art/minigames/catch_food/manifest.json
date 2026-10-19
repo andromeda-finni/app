@@ -1,11 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
   "title": "Лови корм",
   "status": "source-art-complete",
-  "character": "brown_tabby_red_collar",
+  "character": "three_coats_shared_red_collar",
   "generationTool": "built-in-imagegen",
-  "assetCount": 18,
-  "transparentAssetCount": 16,
+  "assetCount": 34,
+  "transparentAssetCount": 32,
   "applicationCodeChanged": true,
   "anchorCoordinateSystem": "normalized source PNG coordinates: x left-to-right, y top-to-bottom",
   "anchorAccuracy": "visual estimates for initial scene placement; calibrate bowl openings and feet in the implemented scene",
@@ -111,7 +111,8 @@
           0.268,
           0.126
         ]
-      }
+      },
+      "coat": "striped"
     },
     {
       "name": "cat_catch_lower_left",
@@ -137,7 +138,8 @@
           0.239,
           0.403
         ]
-      }
+      },
+      "coat": "striped"
     },
     {
       "name": "cat_catch_upper_right",
@@ -163,7 +165,8 @@
           0.772,
           0.121
         ]
-      }
+      },
+      "coat": "striped"
     },
     {
       "name": "cat_catch_lower_right",
@@ -189,7 +192,8 @@
           0.809,
           0.419
         ]
-      }
+      },
+      "coat": "striped"
     },
     {
       "name": "cat_idle",
@@ -205,7 +209,8 @@
       "dimensions": {
         "width": 1254,
         "height": 1254
-      }
+      },
+      "coat": "striped"
     },
     {
       "name": "cat_happy",
@@ -221,7 +226,8 @@
       "dimensions": {
         "width": 1254,
         "height": 1254
-      }
+      },
+      "coat": "striped"
     },
     {
       "name": "cat_miss",
@@ -237,7 +243,8 @@
       "dimensions": {
         "width": 1254,
         "height": 1254
-      }
+      },
+      "coat": "striped"
     },
     {
       "name": "cat_tired",
@@ -253,7 +260,8 @@
       "dimensions": {
         "width": 1254,
         "height": 1254
-      }
+      },
+      "coat": "striped"
     },
     {
       "name": "food_fish",
@@ -330,6 +338,364 @@
         "width": 1254,
         "height": 1254
       }
+    },
+    {
+      "name": "orange/cat_catch_lower_left",
+      "label": "Рыжий · Ловля — слева снизу",
+      "group": "cat",
+      "coat": "orange",
+      "transparent": true,
+      "file": "variants/orange/cat_catch_lower_left.png",
+      "prompt": "prompts/orange/cat_catch_lower_left.txt",
+      "referenceImages": [
+        "cat_catch_lower_left.png",
+        "references/canonical-orange.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "anchors": {
+        "feet": [
+          0.53,
+          0.94
+        ],
+        "bowl": [
+          0.239,
+          0.403
+        ]
+      }
+    },
+    {
+      "name": "white/cat_catch_lower_left",
+      "label": "Белый · Ловля — слева снизу",
+      "group": "cat",
+      "coat": "white",
+      "transparent": true,
+      "file": "variants/white/cat_catch_lower_left.png",
+      "prompt": "prompts/white/cat_catch_lower_left.txt",
+      "referenceImages": [
+        "cat_catch_lower_left.png",
+        "references/canonical-white.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "anchors": {
+        "feet": [
+          0.53,
+          0.94
+        ],
+        "bowl": [
+          0.239,
+          0.403
+        ]
+      }
+    },
+    {
+      "name": "orange/cat_catch_upper_left",
+      "label": "Рыжий · Ловля — слева сверху",
+      "group": "cat",
+      "coat": "orange",
+      "transparent": true,
+      "file": "variants/orange/cat_catch_upper_left.png",
+      "prompt": "prompts/orange/cat_catch_upper_left.txt",
+      "referenceImages": [
+        "cat_catch_upper_left.png",
+        "references/canonical-orange.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "anchors": {
+        "feet": [
+          0.53,
+          0.94
+        ],
+        "bowl": [
+          0.268,
+          0.126
+        ]
+      }
+    },
+    {
+      "name": "white/cat_catch_upper_left",
+      "label": "Белый · Ловля — слева сверху",
+      "group": "cat",
+      "coat": "white",
+      "transparent": true,
+      "file": "variants/white/cat_catch_upper_left.png",
+      "prompt": "prompts/white/cat_catch_upper_left.txt",
+      "referenceImages": [
+        "cat_catch_upper_left.png",
+        "references/canonical-white.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "anchors": {
+        "feet": [
+          0.53,
+          0.94
+        ],
+        "bowl": [
+          0.268,
+          0.126
+        ]
+      }
+    },
+    {
+      "name": "orange/cat_catch_upper_right",
+      "label": "Рыжий · Ловля — справа сверху",
+      "group": "cat",
+      "coat": "orange",
+      "transparent": true,
+      "file": "variants/orange/cat_catch_upper_right.png",
+      "prompt": "prompts/orange/cat_catch_upper_right.txt",
+      "referenceImages": [
+        "cat_catch_upper_right.png",
+        "references/canonical-orange.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "anchors": {
+        "feet": [
+          0.52,
+          0.94
+        ],
+        "bowl": [
+          0.772,
+          0.121
+        ]
+      }
+    },
+    {
+      "name": "white/cat_catch_upper_right",
+      "label": "Белый · Ловля — справа сверху",
+      "group": "cat",
+      "coat": "white",
+      "transparent": true,
+      "file": "variants/white/cat_catch_upper_right.png",
+      "prompt": "prompts/white/cat_catch_upper_right.txt",
+      "referenceImages": [
+        "cat_catch_upper_right.png",
+        "references/canonical-white.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "anchors": {
+        "feet": [
+          0.52,
+          0.94
+        ],
+        "bowl": [
+          0.772,
+          0.121
+        ]
+      }
+    },
+    {
+      "name": "orange/cat_catch_lower_right",
+      "label": "Рыжий · Ловля — справа снизу",
+      "group": "cat",
+      "coat": "orange",
+      "transparent": true,
+      "file": "variants/orange/cat_catch_lower_right.png",
+      "prompt": "prompts/orange/cat_catch_lower_right.txt",
+      "referenceImages": [
+        "cat_catch_lower_right.png",
+        "references/canonical-orange.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "anchors": {
+        "feet": [
+          0.53,
+          0.945
+        ],
+        "bowl": [
+          0.809,
+          0.419
+        ]
+      }
+    },
+    {
+      "name": "white/cat_catch_lower_right",
+      "label": "Белый · Ловля — справа снизу",
+      "group": "cat",
+      "coat": "white",
+      "transparent": true,
+      "file": "variants/white/cat_catch_lower_right.png",
+      "prompt": "prompts/white/cat_catch_lower_right.txt",
+      "referenceImages": [
+        "cat_catch_lower_right.png",
+        "references/canonical-white.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      },
+      "anchors": {
+        "feet": [
+          0.53,
+          0.945
+        ],
+        "bowl": [
+          0.809,
+          0.419
+        ]
+      }
+    },
+    {
+      "name": "orange/cat_idle",
+      "label": "Рыжий · Кот — ожидание",
+      "group": "cat",
+      "coat": "orange",
+      "transparent": true,
+      "file": "variants/orange/cat_idle.png",
+      "prompt": "prompts/orange/cat_idle.txt",
+      "referenceImages": [
+        "cat_idle.png",
+        "references/canonical-orange.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "white/cat_idle",
+      "label": "Белый · Кот — ожидание",
+      "group": "cat",
+      "coat": "white",
+      "transparent": true,
+      "file": "variants/white/cat_idle.png",
+      "prompt": "prompts/white/cat_idle.txt",
+      "referenceImages": [
+        "cat_idle.png",
+        "references/canonical-white.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "orange/cat_happy",
+      "label": "Рыжий · Кот — радость",
+      "group": "cat",
+      "coat": "orange",
+      "transparent": true,
+      "file": "variants/orange/cat_happy.png",
+      "prompt": "prompts/orange/cat_happy.txt",
+      "referenceImages": [
+        "cat_happy.png",
+        "references/canonical-orange.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "white/cat_happy",
+      "label": "Белый · Кот — радость",
+      "group": "cat",
+      "coat": "white",
+      "transparent": true,
+      "file": "variants/white/cat_happy.png",
+      "prompt": "prompts/white/cat_happy.txt",
+      "referenceImages": [
+        "cat_happy.png",
+        "references/canonical-white.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "orange/cat_miss",
+      "label": "Рыжий · Кот — промах",
+      "group": "cat",
+      "coat": "orange",
+      "transparent": true,
+      "file": "variants/orange/cat_miss.png",
+      "prompt": "prompts/orange/cat_miss.txt",
+      "referenceImages": [
+        "cat_miss.png",
+        "references/canonical-orange.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "white/cat_miss",
+      "label": "Белый · Кот — промах",
+      "group": "cat",
+      "coat": "white",
+      "transparent": true,
+      "file": "variants/white/cat_miss.png",
+      "prompt": "prompts/white/cat_miss.txt",
+      "referenceImages": [
+        "cat_miss.png",
+        "references/canonical-white.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "orange/cat_tired",
+      "label": "Рыжий · Кот — усталость",
+      "group": "cat",
+      "coat": "orange",
+      "transparent": true,
+      "file": "variants/orange/cat_tired.png",
+      "prompt": "prompts/orange/cat_tired.txt",
+      "referenceImages": [
+        "cat_tired.png",
+        "references/canonical-orange.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
+    },
+    {
+      "name": "white/cat_tired",
+      "label": "Белый · Кот — усталость",
+      "group": "cat",
+      "coat": "white",
+      "transparent": true,
+      "file": "variants/white/cat_tired.png",
+      "prompt": "prompts/white/cat_tired.txt",
+      "referenceImages": [
+        "cat_tired.png",
+        "references/canonical-white.webp"
+      ],
+      "dimensions": {
+        "width": 1254,
+        "height": 1254
+      }
     }
-  ]
+  ],
+  "characters": {
+    "FUR_GRAY": "striped",
+    "FUR_ORANGE": "orange",
+    "FUR_WHITE": "white"
+  },
+  "collarPolicy": "Shared red embroidered collar for every coat; other accessory colors are intentionally omitted."
 }
