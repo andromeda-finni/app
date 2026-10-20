@@ -17,6 +17,7 @@ import '../games/squirrel/squirrel_game_models.dart';
 import '../games/squirrel/squirrel_game_screen.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../games/turnip/turnip_game_screen.dart';
+import '../home/main_tabs_tour.dart';
 import '../minigames/bakery/bakery_game_screen.dart';
 import '../minigames/mole/mole_game_screen.dart';
 import '../minigames/park/park_project_screen.dart';
@@ -34,6 +35,8 @@ class QuestMapScreen extends StatefulWidget {
     this.difficulty = ChildDifficulty.beginner,
     this.enableAmbientSceneMotion = true,
     this.dictionaryProgress,
+    this.tourTargets,
+    this.onTourReady,
   });
 
   /// Source of progress and the server every launched game reports to.
@@ -51,6 +54,8 @@ class QuestMapScreen extends StatefulWidget {
   /// Allows deterministic screenshots and tests while production keeps the
   /// current story scene gently alive. System reduced-motion still wins.
   final bool enableAmbientSceneMotion;
+  final MainTabsTourTargets? tourTargets;
+  final VoidCallback? onTourReady;
 
   @override
   State<QuestMapScreen> createState() => _QuestMapScreenState();
@@ -99,6 +104,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   bool _hasLoadedProgress = false;
   bool _isLoadingProgress = false;
   String? _progressError;
+  bool _tourReadyReported = false;
 
   @override
   void initState() {
@@ -212,6 +218,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       } else {
         WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToStart());
       }
+      _reportTourReady();
     } on ApiException {
       if (!mounted) return;
       setState(() {
@@ -219,6 +226,15 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         _progressError = 'Не удалось загрузить прогресс карты';
       });
     }
+  }
+
+  void _reportTourReady() {
+    if (_tourReadyReported || widget.onTourReady == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _tourReadyReported) return;
+      _tourReadyReported = true;
+      widget.onTourReady?.call();
+    });
   }
 
   QuestMapNodeState _stateFor(QuestMapNode node) =>
@@ -688,11 +704,14 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       body: SafeArea(
         child: Column(
           children: [
-            _MapHeader(
-              onBack: widget.showBack
-                  ? () => Navigator.of(context).maybePop()
-                  : null,
-              progressLabel: _headerProgressLabel,
+            KeyedSubtree(
+              key: widget.tourTargets?.mapHeader,
+              child: _MapHeader(
+                onBack: widget.showBack
+                    ? () => Navigator.of(context).maybePop()
+                    : null,
+                progressLabel: _headerProgressLabel,
+              ),
             ),
             if (_hasLoadedProgress &&
                 completedPlayableQuestCount(_completedQuestIds) ==
@@ -712,6 +731,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
                 onAction: _loadProgress,
               ),
             Expanded(
+              key: widget.tourTargets?.mapViewport,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final mapWidth = math.min(constraints.maxWidth, _sourceWidth);
@@ -854,6 +874,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       width: nodeWidth,
       height: nodeHeight,
       child: Semantics(
+        key: isCurrent ? widget.tourTargets?.mapCurrentQuest : null,
         button: true,
         selected: isSelected,
         label:

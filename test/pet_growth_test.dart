@@ -23,16 +23,19 @@ void main() {
           'evolution_stage': stage,
         };
         final fed = Pet.fromJson(json);
-        expect(fed.mood, PetMood.fully);
+        // Full energy no longer means the stuffed pose (its face looks
+        // worried): a well-fed pet with ordinary joy looks calm.
+        expect(fed.mood, PetMood.base);
         expect(
           fed.assetPath,
           catAsset(
             furOptionId: 'FUR_WHITE',
             accessoryOptionId: 'ACC_COLLAR_BLUE',
             evolutionStage: stage,
-            mood: PetMood.happy,
+            mood: PetMood.base,
           ),
         );
+        expect(fed.assetPath, isNot(endsWith('/fully_white.webp')));
         expect(
           Pet.fromJson({...json, 'health_level': 55}).assetPath,
           endsWith('/sad_white.webp'),
