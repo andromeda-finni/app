@@ -77,9 +77,29 @@ export function corsOriginPolicy(configured: string | undefined) {
     }
   };
 }
+/**
+ * Number of reverse proxies in front of the API (TRUST_PROXY_HOPS). In
+ * production Caddy terminates HTTPS, so every request reaches Fastify from
+ * Caddy's address: without trusting exactly that one hop, the per-IP rate
+ * limit would treat all children as a single client. Unset means no proxy,
+ * so a client cannot spoof X-Forwarded-For to dodge the limit.
+ */
+export function trustProxySetting(
+  value: string | undefined,
+): false | ((address: string, hop: number) => boolean) {
+  if (value === undefined || value.trim() === "") return false;
+  const hops = Number(value);
+  if (!Number.isInteger(hops) || hops < 1 || hops > 5) {
+    throw new Error("TRUST_PROXY_HOPS must be an integer from 1 to 5");
+  }
+  // Trust the nearest `hops` addresses (our own proxies) and nothing beyond.
+  return (_address, hop) => hop < hops;
+}
+
 export async function buildApp() {
   const app = Fastify({
     logger: true,
+    trustProxy: trustProxySetting(process.env["TRUST_PROXY_HOPS"]),
     ajv: {
       customOptions: {
         // Fastify defaults this to true, which makes `additionalProperties:

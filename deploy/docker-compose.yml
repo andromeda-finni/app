@@ -1,0 +1,78 @@
+# Production stack on the server (/opt/groshik). Started by deploy/deploy.sh,
+# which the GitHub workflow runs after copying this folder and db/ there.
+#
+#   db       PostgreSQL; its port is NOT published, only backend reaches it
+#   backend  the API image built by CI (BACKEND_IMAGE)
+#   caddy    HTTPS on 80/443 in front of backend
+#   migrate  one-off: applies db/migrations and db/seed.sql (profile "tools")
+name: groshik
+
+services:
+  db:
+    image: mirror.gcr.io/library/postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: groshik
+      POSTGRES_USER: groshik_admin
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?set POSTGRES_ADMIN_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U groshik_admin -d groshik"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    image: mirror.gcr.io/library/postgres:17-alpine
+    profiles: ["tools"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://groshik_admin:${POSTGRES_ADMIN_PASSWORD}@db:5432/groshik
+      GROSHIK_APP_PASSWORD: ${GROSHIK_APP_PASSWORD:?set GROSHIK_APP_PASSWORD in .env}
+    volumes:
+      - ./db:/db:ro
+    entrypoint: ["bash", "-c"]
+    command:
+      - >-
+        /db/scripts/migrate.sh &&
+        psql "$$DATABASE_URL" -q -v ON_ERROR_STOP=1 -f /db/seed.sql
+
+  backend:
+    image: ${BACKEND_IMAGE:?set BACKEND_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_DATABASE_URL: postgres://groshik_app:${GROSHIK_APP_PASSWORD}@db:5432/groshik?sslmode=disable
+      # db is reachable only inside this compose network on the same host.
+      APP_DATABASE_PRIVATE_HOSTS: db
+      # Caddy is the one reverse proxy in front of the API.
+      TRUST_PROXY_HOPS: "1"
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+
+  caddy:
+    image: mirror.gcr.io/library/caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The project's own certificate; placed on the server by hand.
+      - ./certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

@@ -54,7 +54,9 @@ class FurColorPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final tileWidth = (constraints.maxWidth - AppSpacing.sm * 2) / 3;
+        // Android may lay out the first frame at zero width.
+        final tileWidth = ((constraints.maxWidth - AppSpacing.sm * 2) / 3)
+            .clamp(0.0, double.infinity);
         return Wrap(
           spacing: AppSpacing.sm,
           runSpacing: AppSpacing.sm,

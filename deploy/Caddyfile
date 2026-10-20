@@ -1,0 +1,14 @@
+# HTTPS for the API with the project's own certificate. The certificate files
+# live only on the server in /opt/groshik/certs (never in git):
+#   fullchain.pem  certificate followed by the CA chain
+#   privkey.pem    private key
+{
+	# Never request certificates from Let's Encrypt; still redirect HTTP to HTTPS.
+	auto_https disable_certs
+}
+
+{$API_DOMAIN} {
+	tls /certs/fullchain.pem /certs/privkey.pem
+	encode gzip
+	reverse_proxy backend:3000
+}

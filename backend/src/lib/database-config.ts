@@ -8,7 +8,26 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
  * ambiguity caused local Docker startup to fail after a dependency update.
  * Requiring an explicit mode keeps local and deployed behavior deterministic.
  */
-export function validateAppDatabaseUrl(connectionString: string): string {
+/**
+ * Hostnames that live on a private network of the same machine, e.g. the
+ * `db` service of the production docker compose project. Its port is not
+ * published, so traffic never leaves the host; such a host may use
+ * sslmode=disable like loopback. Must be listed explicitly — nothing is
+ * trusted by default.
+ */
+export function parsePrivateHosts(value: string | undefined): Set<string> {
+  return new Set(
+    (value ?? "")
+      .split(",")
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+export function validateAppDatabaseUrl(
+  connectionString: string,
+  privateHosts: ReadonlySet<string> = new Set(),
+): string {
   let url: URL;
   try {
     url = new URL(connectionString);
@@ -28,6 +47,12 @@ export function validateAppDatabaseUrl(connectionString: string): string {
     if (sslMode !== "disable") {
       throw new Error(
         "Local APP_DATABASE_URL must use sslmode=disable because the loopback-only Docker PostgreSQL instance does not provide TLS",
+      );
+    }
+  } else if (privateHosts.has(url.hostname.toLowerCase())) {
+    if (sslMode !== "disable" && sslMode !== "verify-full") {
+      throw new Error(
+        "APP_DATABASE_URL on a private host must use sslmode=disable or sslmode=verify-full",
       );
     }
   } else if (sslMode !== "verify-full") {

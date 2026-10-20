@@ -1,0 +1,100 @@
+name: Deploy backend
+
+# Ships the API to https://groshiktheapp.ru after CI has passed on main.
+# Only commits that touch backend/, db/ or deploy/ are deployed; a manual run
+# always deploys the current main.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   DEPLOY_HOST         groshiktheapp.ru
+#   DEPLOY_USER         deploy
+#   DEPLOY_SSH_KEY      private key whose public half bootstrap.sh installed
+#   DEPLOY_KNOWN_HOSTS  output of `ssh-keyscan groshiktheapp.ru`
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build & deploy API
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
+
+      - name: Check whether the backend changed
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only HEAD^ HEAD | grep -qE '^(backend|db|deploy)/'; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No backend, database or deploy changes — nothing to ship."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the API image
+        if: steps.changes.outputs.deploy == 'true'
+        run: |
+          tag="$(git rev-parse --short=12 HEAD)"
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          docker build -t "groshik-backend:$tag" backend
+          mkdir -p bundle
+          docker save "groshik-backend:$tag" | gzip > bundle/backend-image.tar.gz
+          cp deploy/docker-compose.yml deploy/Caddyfile deploy/deploy.sh bundle/
+          cp -r db bundle/db
+
+      - name: Configure SSH
+        if: steps.changes.outputs.deploy == 'true'
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Copy and start the new version
+        if: steps.changes.outputs.deploy == 'true'
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh_opts="-i $HOME/.ssh/deploy_key -o StrictHostKeyChecking=yes"
+          # rsync keeps the server-only .env and certs/ untouched and drops
+          # removed files.
+          rsync -az --delete --exclude '.env' --exclude 'certs/' \
+            -e "ssh $ssh_opts" bundle/ "$USER@$HOST:/opt/groshik/"
+          ssh $ssh_opts "$USER@$HOST" "bash /opt/groshik/deploy.sh $TAG"
+
+      - name: Check https://groshiktheapp.ru/health
+        if: steps.changes.outputs.deploy == 'true'
+        run: |
+          for attempt in $(seq 1 20); do
+            if curl -fsS --max-time 10 https://groshiktheapp.ru/health | tee /dev/stderr | grep -q '"ok":true'; then
+              echo
+              echo "Live: https://groshiktheapp.ru"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "The API did not answer over HTTPS." >&2
+          exit 1
