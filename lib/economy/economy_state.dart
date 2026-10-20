@@ -56,6 +56,10 @@ final class EconomyRules {
   int frostBonusFor(int principal) =>
       (principal * frostBonusPercent + 99) ~/ 100;
 
+  /// What a child gets back for [principal] after the full term. Children
+  /// see this example instead of a percentage.
+  int frostReturnFor(int principal) => principal + frostBonusFor(principal);
+
   factory EconomyRules.fromJson(Map<String, dynamic> json) {
     final rawTransferAmounts = json['savingsTransferAmounts'];
     if (rawTransferAmounts is! List) {
@@ -260,4 +264,15 @@ final class EconomyState {
       savingsHistory: _asList(json['savingsHistory']),
     );
   }
+}
+
+/// "1 монету", "3 монеты", "11 монет" — for "получишь …".
+String coinsAccusative(int value) {
+  final lastTwo = value % 100;
+  if (lastTwo >= 11 && lastTwo <= 14) return '$value монет';
+  return switch (value % 10) {
+    1 => '$value монету',
+    2 || 3 || 4 => '$value монеты',
+    _ => '$value монет',
+  };
 }

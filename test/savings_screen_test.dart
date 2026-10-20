@@ -222,6 +222,29 @@ void main() {
     expect(choice('10 монет').onPressed, isNull);
   });
 
+  testWidgets('the Morozko chest is explained with an example, not percent', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_screen(_state()));
+    await tester.pumpAndSettle();
+    final chest = find.text('Сундук Морозко');
+    await tester.scrollUntilVisible(chest, 200);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining(
+        'Положи 10 монет — через 5 игровых дней получишь 11 монет.',
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('10 → 11'), findsOneWidget);
+    expect(find.text('положил → получишь'), findsOneWidget);
+    // The chest's own 10% bonus is no longer shown as a percentage.
+    expect(find.textContaining('10%', findRichText: true), findsNothing);
+    expect(find.text('бонус'), findsNothing);
+  });
+
   testWidgets('an open chest shows its days and payout', (tester) async {
     await tester.pumpWidget(
       _screen(

@@ -1109,7 +1109,9 @@ class _FrostSection extends StatelessWidget {
                     const SizedBox(height: AppSpacing.xxs),
                     DictionaryText(
                       chest == null
-                          ? 'Заморозь монеты на несколько дней — вернутся с бонусом.'
+                          ? 'Положи ${coinsAccusative(economy.rules.frostMinimum)} '
+                                '— через ${_gameDaysLabel(economy.rules.frostDays)} '
+                                'получишь ${coinsAccusative(economy.rules.frostReturnFor(economy.rules.frostMinimum))}.'
                           : 'Монеты заморожены и ждут своего дня.',
                       style: AppTextStyles.supporting,
                     ),
@@ -1178,8 +1180,9 @@ class _ClosedFrostDetails extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: _FrostFact(
-              value: '+${rules.frostBonusPercent}%',
-              label: 'бонус',
+              value:
+                  '${rules.frostMinimum} → ${rules.frostReturnFor(rules.frostMinimum)}',
+              label: 'положил → получишь',
             ),
           ),
         ],

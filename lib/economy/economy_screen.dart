@@ -1014,9 +1014,10 @@ class _FrostCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               Text(
-                'Положи монеты на ${economy.rules.frostDays} завершённых дней '
-                'и получи сумму с бонусом ${economy.rules.frostBonusPercent}% '
-                'в Кошелёк. Раньше срока — без бонуса.',
+                'Положи ${coinsAccusative(economy.rules.frostMinimum)} на '
+                '${economy.rules.frostDays} завершённых дней — получишь '
+                '${coinsAccusative(economy.rules.frostReturnFor(economy.rules.frostMinimum))}. '
+                'Раньше срока вернутся только твои монеты.',
               ),
               for (final amount in economy.rules.frostPrincipalOptions) ...[
                 OutlinedButton(

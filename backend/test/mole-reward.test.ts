@@ -46,6 +46,7 @@ test("the final Mole answer credits twenty coins once and reports the same balan
       if (sql.includes("SELECT id, quest_id, status, period_id")) return { rows: [{ id: assignmentId, quest_id: "Q_MOLE_FINE_PRINT", status: "IN_PROGRESS", period_id: "period-1", reward_amount: 20 }], rowCount: 1 };
       if (sql.includes("FROM quest_definitions WHERE active")) return { rows: [{ id: "Q_MOLE_FINE_PRINT", reward_amount: 20 }], rowCount: 1 };
       if (sql.includes("FROM quest_day_selections")) return { rows: [{ slot_limit: 3 }], rowCount: 1 };
+      if (sql.includes("FROM quest_steps GROUP BY quest_id")) return { rows: [{ quest_id: "Q_MOLE_FINE_PRINT", steps: 1 }], rowCount: 1 };
       if (sql.includes("SELECT track_id, quest_id, assignment_id")) return { rows: [{ track_id: "mole", quest_id: "Q_MOLE_FINE_PRINT", assignment_id: assignmentId }], rowCount: 1 };
       if (sql.includes("FROM assignments a")) {
         assert.match(sql, /FOR UPDATE OF a/);

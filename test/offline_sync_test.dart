@@ -44,6 +44,15 @@ class _Server {
     'recentDays': <Object>[],
   };
 
+  Map<String, dynamic> day = {
+    'periodId': null,
+    'planConfirmed': false,
+    'offers': <Object>[],
+  };
+
+  /// What the server says about a replayed quest answer.
+  bool confirmsQuest = true;
+
   late final client = MockClient((request) async {
     if (!online) throw const SocketException('offline');
     if (databaseDown) {
@@ -62,6 +71,11 @@ class _Server {
     if (refusal != null) return _json({'error': refusal}, 409);
     return switch (key) {
       'GET /economy/state' => _json(state),
+      'GET /quests/day' => _json(day),
+      'POST /assignments/server-assignment-7/answer' => _json({
+        'outcome': confirmsQuest ? 'SUCCESS' : 'RECOVERABLE_ERROR',
+        'questCompleted': confirmsQuest,
+      }),
       'GET /health' => _json({'ok': true}),
       'POST /periods' => _json({'periodId': 'server-day-1'}, 201),
       'POST /frost-chests' => _json({'id': 'server-chest-9'}, 201),
@@ -229,30 +243,102 @@ void main() {
     },
   );
 
+  /// Today's offers loaded while online, with a confirmed plan.
+  Future<void> playOnlineDay() async {
+    server.state['activeDay'] = {
+      'id': 'd1',
+      'sequence_no': 2,
+      'budget_plan_status': 'CONFIRMED',
+      'required_need_amount': 10,
+      'remaining_reserve': 0,
+    };
+    server.state['wallets'] = {'SPENDABLE': 5, 'SAVINGS': 0, 'FROZEN': 0};
+    server.day = {
+      'periodId': 'd1',
+      'planConfirmed': true,
+      'offers': [
+        {
+          'trackId': 'turnip',
+          'questId': 'Q1',
+          'assignmentId': null,
+          'status': 'AVAILABLE',
+          'rewardAmount': 10,
+          'stepCount': 1,
+        },
+      ],
+    };
+    await api.get('/economy/state');
+    await api.get('/quests/day');
+  }
+
+  test('a quest finished offline pays coins and syncs with real ids', () async {
+    await playOnlineDay();
+    server.online = false;
+
+    final start = await api.post('/quests/Q1/start');
+    final assignment = start['assignmentId'] as String;
+    final result = await api.post(
+      '/assignments/$assignment/answer',
+      body: {'stepNo': 1, 'selectedOptionCode': 'ok'},
+    );
+    expect(result['questCompleted'], isTrue);
+    expect(result['rewardAmount'], 10);
+    final preview = await api.get('/economy/state');
+    expect(preview['wallets']['SPENDABLE'], 15);
+    expect(preview['pet']['energy_level'], 30);
+
+    later();
+    server.online = true;
+    await api.get('/economy/state');
+    expect(server.requests, [
+      'POST /quests/Q1/start',
+      'POST /assignments/server-assignment-7/answer',
+    ]);
+    expect(server.bodies['POST /assignments/server-assignment-7/answer'], {
+      'stepNo': 1,
+      'selectedOptionCode': 'ok',
+    });
+    expect(sync.takeNotices(), isEmpty);
+  });
+
   test(
-    'a quest result saved offline is sent with the real assignment',
+    'a day opened offline shows an empty list instead of an error',
     () async {
+      await playOnlineDay();
+      // Yesterday is closed and a new day starts without a connection.
+      server.state['activeDay'] = null;
+      server.state['activeGoal'] = {'id': 'g1', 'target_amount': 80};
       await api.get('/economy/state');
       server.online = false;
+      final started = await api.post('/periods');
 
-      final start = await api.post('/quests/Q1/start');
-      final assignment = start['assignmentId'] as String;
+      final day = await api.get('/quests/day');
+      expect(day['periodId'], started['periodId']);
+      expect(day['offers'], isEmpty);
       await expectLater(
-        api.post('/assignments/$assignment/answer', body: {'stepNo': 1}),
+        api.post('/quests/Q1/start'),
         throwsA(
-          isA<ApiException>().having((e) => e.isSavedOffline, 'saved', true),
+          isA<ApiException>().having((e) => e.isNetworkError, 'net', true),
         ),
       );
-
-      later();
-      server.online = true;
-      await api.get('/economy/state');
-      expect(server.requests, [
-        'POST /quests/Q1/start',
-        'POST /assignments/server-assignment-7/answer',
-      ]);
     },
   );
+
+  test('coins the server does not confirm are explained', () async {
+    await playOnlineDay();
+    server.online = false;
+    final start = await api.post('/quests/Q1/start');
+    await api.post(
+      '/assignments/${start['assignmentId']}/answer',
+      body: {'stepNo': 1, 'selectedOptionCode': 'wrong'},
+    );
+
+    later();
+    server.online = true;
+    server.confirmsQuest = false;
+    await api.get('/economy/state');
+    expect(sync.takeNotices().single, contains('не засчитал'));
+  });
 
   test('a chest opened offline is withdrawn by its real id', () async {
     server.state['rules'] = {

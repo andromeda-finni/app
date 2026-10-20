@@ -259,4 +259,130 @@ void main() {
         : false,
     timeout: const Timeout(Duration(minutes: 2)),
   );
+
+  test(
+    'a quest finished offline pays what the server pays',
+    () async {
+      final client = http.Client();
+      addTearDown(client.close);
+
+      Future<Map<String, dynamic>> call(
+        String? token,
+        String method,
+        String path, [
+        Map<String, dynamic>? body,
+      ]) async {
+        final request = http.Request(method, Uri.parse('$_baseUrl$path'))
+          ..headers['Content-Type'] = 'application/json'
+          ..body = jsonEncode(body ?? {});
+        if (token != null) request.headers['Authorization'] = 'Bearer $token';
+        final response = await http.Response.fromStream(
+          await client.send(request),
+        );
+        expect(
+          response.statusCode,
+          lessThan(300),
+          reason: '$method $path → ${response.body}',
+        );
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+
+      // The server picks three of seven characters a day; the turnip quest
+      // has a known correct answer, so play a child whose day offers it.
+      String? token;
+      Map<String, dynamic>? daily;
+      for (var attempt = 0; attempt < 6 && token == null; attempt++) {
+        final child =
+            (await call(null, 'POST', '/auth/child/register', {
+                  'difficulty': 'ADVANCED',
+                }))['token']
+                as String;
+        await call(child, 'POST', '/pet', {
+          'petName': 'Сверка',
+          'furOptionId': 'FUR_GRAY',
+        });
+        await call(child, 'POST', '/goals', {'targetItemId': 'saucer'});
+        final day = await call(child, 'POST', '/periods');
+        await call(child, 'PUT', '/periods/${day['periodId']}/budget-plan', {
+          'needAmount': 10,
+          'wantAmount': 20,
+          'savingsAmount': 0,
+        });
+        await call(
+          child,
+          'POST',
+          '/periods/${day['periodId']}/budget-plan/confirm',
+        );
+        final offers = await call(child, 'GET', '/quests/day');
+        final hasTurnip = (offers['offers'] as List).any(
+          (offer) => (offer as Map)['questId'] == 'Q_TURNIP_HARVEST',
+        );
+        if (hasTurnip) {
+          token = child;
+          daily = offers;
+        }
+      }
+      if (token == null) {
+        markTestSkipped('The turnip quest was not offered to any test child');
+        return;
+      }
+
+      var ids = 0;
+      final economy = OfflineEconomy(
+        nextId: (kind) => 'offline-$kind-${++ids}',
+      );
+      final before = await call(token, 'GET', '/economy/state');
+      final started = economy.apply(
+        'POST',
+        '/quests/Q_TURNIP_HARVEST/start',
+        null,
+        before,
+        cachedDaily: daily,
+      );
+      final answer = {
+        'stepNo': 1,
+        'selectedOptionCode': 'grandmother,granddaughter,zhuchka,cat,mouse',
+      };
+      final finished = economy.apply(
+        'POST',
+        '/assignments/${started.createdId}/answer',
+        answer,
+        started.state,
+        cachedDaily: started.daily,
+      );
+
+      final serverStart = await call(
+        token,
+        'POST',
+        '/quests/Q_TURNIP_HARVEST/start',
+      );
+      final serverAnswer = await call(
+        token,
+        'POST',
+        '/assignments/${serverStart['assignmentId']}/answer',
+        answer,
+      );
+      final after = await call(token, 'GET', '/economy/state');
+      final afterDay = await call(token, 'GET', '/quests/day');
+
+      expect(serverAnswer['questCompleted'], isTrue);
+      expect(finished.response['rewardAmount'], serverAnswer['rewardAmount']);
+      expect(finished.response['balanceAfter'], serverAnswer['balanceAfter']);
+      expect(finished.state!['wallets'], after['wallets']);
+      expect(
+        finished.state!['pet']['energy_level'],
+        after['pet']['energy_level'],
+      );
+      String statusOf(Map<String, dynamic> day) =>
+          ((day['offers'] as List).firstWhere(
+                (offer) => (offer as Map)['questId'] == 'Q_TURNIP_HARVEST',
+              ) as Map)['status']
+              as String;
+      expect(statusOf(finished.daily!), statusOf(afterDay));
+    },
+    skip: _baseUrl == null
+        ? 'Set OFFLINE_PARITY_URL to a running local backend'
+        : false,
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
 }

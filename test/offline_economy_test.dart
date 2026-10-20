@@ -231,17 +231,162 @@ void main() {
     },
   );
 
-  test('a completed quest is replayed as training, a new one gets an id', () {
-    final done = economy.apply('POST', '/quests/Q_DONE/start', null, _state());
-    expect(done.queue, isFalse);
-    expect(done.response['completed'], isTrue);
+  group('quests offline', () {
+    Map<String, dynamic> daily({String status = 'AVAILABLE', String? id}) => {
+      'periodId': 'd1',
+      'planConfirmed': true,
+      'limit': 3,
+      'offers': [
+        {
+          'trackId': 'turnip',
+          'questId': 'Q_NEW',
+          'assignmentId': id,
+          'status': status,
+          'rewardAmount': 12,
+          'stepCount': 2,
+        },
+      ],
+    };
+    Map<String, dynamic> playing({int energy = 50}) => {
+      ..._state(day: _confirmedDay(), spendable: 5),
+      'pet': {'pet_name': 'Мурзик', 'energy_level': energy, 'joy_level': 50},
+    };
 
-    final fresh = economy.apply('POST', '/quests/Q_NEW/start', null, _state());
-    expect(fresh.queue, isTrue);
-    expect(fresh.response['assignmentId'], fresh.createdId);
+    test('a completed quest is replayed as training', () {
+      final done = economy.apply(
+        'POST',
+        '/quests/Q_DONE/start',
+        null,
+        _state(),
+      );
+      expect(done.queue, isFalse);
+      expect(done.response['completed'], isTrue);
+    });
+
+    test('a new offer starts from the day loaded online and costs energy', () {
+      final started = economy.apply(
+        'POST',
+        '/quests/Q_NEW/start',
+        null,
+        playing(),
+        cachedDaily: daily(),
+      );
+      expect(started.queue, isTrue);
+      expect(started.response['assignmentId'], started.createdId);
+      expect(started.state!['pet']['energy_level'], 30);
+      final offer = (started.daily!['offers'] as List).first as Map;
+      expect(offer['status'], 'IN_PROGRESS');
+      expect(offer['assignmentId'], started.createdId);
+    });
+
+    test('without the day list, or tired, a new quest cannot start', () {
+      expect(
+        () => economy.apply('POST', '/quests/Q_NEW/start', null, playing()),
+        throwsA(
+          isA<ApiException>().having((e) => e.isNetworkError, 'network', true),
+        ),
+      );
+      expect(
+        () => economy.apply(
+          'POST',
+          '/quests/Q_NEW/start',
+          null,
+          playing(energy: 10),
+          cachedDaily: daily(),
+        ),
+        throwsA(refusedWith('pet_energy_insufficient')),
+      );
+      expect(
+        () => economy.apply(
+          'POST',
+          '/quests/Q_OTHER/start',
+          null,
+          playing(),
+          cachedDaily: daily(),
+        ),
+        throwsA(refusedWith('quest_not_offered_today')),
+      );
+    });
+
+    test('a day opened offline has no offers to start', () {
+      final state = playing();
+      state['activeDay'] = {..._confirmedDay(), 'id': 'offline-day-1'};
+      expect(
+        () => economy.apply(
+          'POST',
+          '/quests/Q_NEW/start',
+          null,
+          state,
+          cachedDaily: daily(),
+        ),
+        throwsA(
+          isA<ApiException>().having((e) => e.isNetworkError, 'network', true),
+        ),
+      );
+    });
+
+    test('the last step pays the reward into the wallet', () {
+      final started = economy.apply(
+        'POST',
+        '/quests/Q_NEW/start',
+        null,
+        playing(),
+        cachedDaily: daily(),
+      );
+      final id = started.createdId!;
+      final first = economy.apply(
+        'POST',
+        '/assignments/$id/answer',
+        {'stepNo': 1},
+        started.state,
+        cachedDaily: started.daily,
+      );
+      expect(first.response['questCompleted'], isFalse);
+      expect(first.previewReward, isNull);
+      expect(first.state!['wallets']['SPENDABLE'], 5);
+
+      final last = economy.apply(
+        'POST',
+        '/assignments/$id/answer',
+        {'stepNo': 2},
+        first.state,
+        cachedDaily: first.daily,
+      );
+      expect(last.response['questCompleted'], isTrue);
+      expect(last.response['rewardAmount'], 12);
+      expect(last.response['balanceAfter'], 17);
+      expect(last.state!['wallets']['SPENDABLE'], 17);
+      expect(last.previewReward, 12);
+      final offer = (last.daily!['offers'] as List).first as Map;
+      expect(offer['status'], 'COMPLETED');
+
+      final replay = economy.apply(
+        'POST',
+        '/assignments/$id/answer',
+        {'stepNo': 2},
+        last.state,
+        cachedDaily: last.daily,
+      );
+      expect(replay.queue, isFalse);
+      expect(replay.response['rewardAlreadyGranted'], isTrue);
+    });
+
+    test('an unfinished quest is resumed without charging energy again', () {
+      final resumed = economy.apply(
+        'POST',
+        '/quests/Q_NEW/start',
+        null,
+        playing(),
+        cachedDaily: daily(status: 'IN_PROGRESS', id: 'a-1'),
+      );
+      expect(resumed.queue, isFalse);
+      expect(resumed.response['resumed'], isTrue);
+      expect(resumed.response['assignmentId'], 'a-1');
+      expect(resumed.state, isNull);
+    });
   });
 
-  test('quest answers are saved without a preview', () {
+  test('answers outside today\'s known offers are saved without a preview', () {
     final outcome = economy.apply(
       'POST',
       '/assignments/offline-assignment-1/answer',

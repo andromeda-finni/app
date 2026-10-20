@@ -10,6 +10,8 @@ export interface DailyOffer {
   assignmentId: string | null;
   status: "AVAILABLE" | "IN_PROGRESS" | "COMPLETED";
   rewardAmount: number;
+  /** Lets the offline app know which answer completes the quest. */
+  stepCount: number;
 }
 
 interface HistoryRow {
@@ -46,6 +48,9 @@ export async function readDailyQuests(client: PoolClient, childUserId: string) {
        FROM quest_definitions WHERE active`, [profile.difficulty],
   )).rows;
   const active = new Map(catalog.map(row => [row.id, row.reward_amount]));
+  const stepCounts = new Map((await client.query<{ quest_id: string; steps: number }>(
+    `SELECT quest_id, COUNT(*)::int AS steps FROM quest_steps GROUP BY quest_id`,
+  )).rows.map(row => [row.quest_id, row.steps]));
   let selection = (await client.query<{ slot_limit: number }>(
     `SELECT slot_limit FROM quest_day_selections WHERE period_id = $1 AND child_user_id = $2`,
     [period.id, childUserId],
@@ -113,7 +118,8 @@ export async function readDailyQuests(client: PoolClient, childUserId: string) {
       assignmentId: assignment?.id ?? row.assignment_id,
       status: assignment?.status === "COMPLETED" ? "COMPLETED" :
         assignment?.status === "IN_PROGRESS" ? "IN_PROGRESS" : "AVAILABLE",
-      rewardAmount: assignment?.reward_amount ?? active.get(row.quest_id) ?? 0 };
+      rewardAmount: assignment?.reward_amount ?? active.get(row.quest_id) ?? 0,
+      stepCount: stepCounts.get(row.quest_id) ?? 1 };
   });
   const replayTracks = new Set<string>();
   const replays: DailyOffer[] = history.filter(row => row.status === "COMPLETED").flatMap(row => {
@@ -121,7 +127,8 @@ export async function readDailyQuests(client: PoolClient, childUserId: string) {
     if (!track || replayTracks.has(track.id) || !active.has(row.quest_id)) return [];
     replayTracks.add(track.id);
     return [{ trackId: track.id, questId: row.quest_id, assignmentId: row.id,
-      status: "COMPLETED" as const, rewardAmount: row.reward_amount }];
+      status: "COMPLETED" as const, rewardAmount: row.reward_amount,
+      stepCount: stepCounts.get(row.quest_id) ?? 1 }];
   });
   return { periodId: period.id, sequenceNo: period.sequence_no,
     limit: selection.slot_limit, planConfirmed: period.plan_status === "CONFIRMED", offers, replays };

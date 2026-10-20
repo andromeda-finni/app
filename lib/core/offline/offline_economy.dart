@@ -17,7 +17,9 @@ class OfflineOutcome {
     required this.response,
     this.state,
     this.park,
+    this.daily,
     this.createdId,
+    this.previewReward,
     this.label = 'Действие',
     this.queue = true,
     this.saveOnly = false,
@@ -31,6 +33,13 @@ class OfflineOutcome {
 
   /// The cached `/park-project` view after the action; null when unchanged.
   final Map<String, dynamic>? park;
+
+  /// The cached `/quests/day` offers after the action; null when unchanged.
+  final Map<String, dynamic>? daily;
+
+  /// Coins credited ahead of the server for a completed quest. If the server
+  /// later does not confirm the completion, the child is told why they left.
+  final int? previewReward;
 
   /// An offline id this action creates (a day, an assignment); the sync maps
   /// it to the id the server returns.
@@ -120,17 +129,24 @@ class OfflineEconomy {
     Map<String, dynamic>? body,
     Map<String, dynamic>? cachedState, {
     Map<String, dynamic>? cachedPark,
+    Map<String, dynamic>? cachedDaily,
   }) {
-    if (_answer.hasMatch(path)) {
-      return const OfflineOutcome(
-        response: {},
-        label: 'Результат задания',
-        saveOnly: true,
+    final answer = _answer.firstMatch(path);
+    if (answer != null) {
+      return _answerQuest(
+        answer.group(1)!,
+        body ?? const {},
+        cachedState == null ? null : _copy(cachedState),
+        cachedDaily == null ? null : _copy(cachedDaily),
       );
     }
     final questStart = _questStart.firstMatch(path);
     if (questStart != null) {
-      return _startQuest(questStart.group(1)!, cachedState);
+      return _startQuest(
+        questStart.group(1)!,
+        cachedState == null ? null : _copy(cachedState),
+        cachedDaily == null ? null : _copy(cachedDaily),
+      );
     }
 
     if (cachedState == null) {
@@ -947,23 +963,190 @@ class OfflineEconomy {
     );
   }
 
-  OfflineOutcome _startQuest(String questId, Map<String, dynamic>? state) {
-    final quest = _list(state?['quests'])
-        .map(_map)
-        .where((candidate) => candidate['id'] == questId)
-        .firstOrNull;
+  /// Starts one of today's quest offers. Offers are chosen by the server, so
+  /// a quest can start offline only from the day's list loaded while online.
+  OfflineOutcome _startQuest(
+    String questId,
+    Map<String, dynamic>? state,
+    Map<String, dynamic>? daily,
+  ) {
+    final quest = _questEntry(state, questId);
     if (quest?['assignment_status'] == 'COMPLETED') {
-      return const OfflineOutcome(
+      return OfflineOutcome(
         queue: false,
-        response: {'completed': true, 'assignmentId': null},
+        response: {
+          'completed': true,
+          'rewardAlreadyGranted': true,
+          'assignmentId': quest?['assignment_id'],
+          'rewardAmount': quest?['reward_amount'],
+        },
       );
     }
+    if (state == null || daily == null) {
+      throw ApiException(0, 'daily_quests_need_connection');
+    }
+    final day = state['activeDay'];
+    // A day opened offline has no server-chosen offers yet.
+    if (day is! Map ||
+        daily['periodId'] == null ||
+        day['id'] != daily['periodId']) {
+      throw ApiException(0, 'daily_quests_need_connection');
+    }
+    _confirmedDay(state);
+    final offer = _offers(daily)
+        .where((entry) => entry['questId'] == questId)
+        .firstOrNull;
+    if (offer == null) throw ApiException(409, 'quest_not_offered_today');
+    final reward = _int(offer['rewardAmount']);
+    if (offer['status'] == 'COMPLETED') {
+      return OfflineOutcome(
+        queue: false,
+        response: {
+          'completed': true,
+          'rewardAlreadyGranted': true,
+          'assignmentId': offer['assignmentId'],
+          'rewardAmount': reward,
+        },
+      );
+    }
+    if (offer['status'] == 'IN_PROGRESS' && offer['assignmentId'] is String) {
+      return OfflineOutcome(
+        queue: false,
+        response: {
+          'assignmentId': offer['assignmentId'],
+          'rewardAmount': reward,
+          'resumed': true,
+          'nextStepNo': _int(offer['_offline_next_step'], 1),
+        },
+      );
+    }
+
+    // A new run costs energy, exactly once, like on the server.
+    final pet = _map(state['pet']);
+    final cost = _int(_map(pet['energy_recovery'])['activity_cost'], 20);
+    final energy = _int(pet['energy_level']);
+    if (energy < cost) {
+      throw ApiException(409, 'pet_energy_insufficient', {
+        'energyLevel': energy,
+        'requiredEnergy': cost,
+      });
+    }
+    pet['energy_level'] = energy - cost;
+    state['pet'] = pet;
     final assignmentId = nextId('assignment');
+    offer['status'] = 'IN_PROGRESS';
+    offer['assignmentId'] = assignmentId;
+    offer['_offline_next_step'] = 1;
+    if (quest != null) {
+      quest['assignment_status'] = 'IN_PROGRESS';
+      quest['assignment_id'] = assignmentId;
+    }
     return OfflineOutcome(
+      state: state,
+      daily: daily,
       createdId: assignmentId,
-      label: 'Начало задания',
-      response: {'completed': false, 'assignmentId': assignmentId},
+      label: 'Начало задания «${quest?['title'] ?? questId}»',
+      response: {
+        'assignmentId': assignmentId,
+        'rewardAmount': reward,
+        'resumed': false,
+        'nextStepNo': 1,
+        'pet': pet,
+      },
     );
+  }
+
+  /// Records a mini-game result. The game sends it only after the child
+  /// succeeded by its own rules, so the last step pays the offer's reward
+  /// right away; the server re-checks every answer when the queue is sent.
+  OfflineOutcome _answerQuest(
+    String assignmentId,
+    Map<String, dynamic> body,
+    Map<String, dynamic>? state,
+    Map<String, dynamic>? daily,
+  ) {
+    final offer = daily == null
+        ? null
+        : _offers(daily)
+              .where((entry) => entry['assignmentId'] == assignmentId)
+              .firstOrNull;
+    final steps = _int(offer?['stepCount']);
+    if (state == null || offer == null || steps <= 0) {
+      // Not one of today's known offers: keep the result for the server.
+      return const OfflineOutcome(
+        response: {},
+        label: 'Результат задания',
+        saveOnly: true,
+      );
+    }
+    final reward = _int(offer['rewardAmount']);
+    final quest = _questEntry(state, offer['questId']);
+    final title = quest?['title'] ?? 'задание';
+    if (offer['status'] == 'COMPLETED') {
+      return OfflineOutcome(
+        queue: false,
+        response: {
+          'outcome': 'SUCCESS',
+          'feedback': 'Результат уже сохранён.',
+          'questCompleted': true,
+          'rewardAmount': reward,
+          'balanceAfter': _wallets(state)['SPENDABLE'],
+          'rewardAlreadyGranted': true,
+          'replayed': true,
+        },
+      );
+    }
+    final stepNo = math.max(1, _int(body['stepNo'], 1));
+    if (stepNo < steps) {
+      offer['_offline_next_step'] = math.max(
+        _int(offer['_offline_next_step'], 1),
+        stepNo + 1,
+      );
+      return OfflineOutcome(
+        state: state,
+        daily: daily,
+        label: 'Результат задания «$title»',
+        response: const {
+          'outcome': 'SUCCESS',
+          'feedback': '',
+          'questCompleted': false,
+        },
+      );
+    }
+
+    final wallets = _wallets(state);
+    wallets['SPENDABLE'] = _int(wallets['SPENDABLE']) + reward;
+    offer['status'] = 'COMPLETED';
+    if (quest != null) quest['assignment_status'] = 'COMPLETED';
+    return OfflineOutcome(
+      state: state,
+      daily: daily,
+      previewReward: reward,
+      label: 'Награда за задание «$title»',
+      response: {
+        'outcome': 'SUCCESS',
+        'feedback': 'Отлично! Награда уже в кошельке.',
+        'questCompleted': true,
+        'rewardAmount': reward,
+        'balanceAfter': wallets['SPENDABLE'],
+        'artifactEffects': const <Object>[],
+      },
+    );
+  }
+
+  Map<String, dynamic>? _questEntry(
+    Map<String, dynamic>? state,
+    Object? questId,
+  ) =>
+      _list(state?['quests'])
+          .whereType<Map<String, dynamic>>()
+          .where((q) => q['id'] == questId)
+          .firstOrNull;
+
+  List<Map<String, dynamic>> _offers(Map<String, dynamic> daily) {
+    final offers = _list(daily['offers']).map(_map).toList();
+    daily['offers'] = offers;
+    return offers;
   }
 
   Map<String, dynamic> _confirmedDay(Map<String, dynamic> state) {

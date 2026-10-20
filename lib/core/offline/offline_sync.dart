@@ -171,6 +171,25 @@ class OfflineSync extends ChangeNotifier {
           economy is Map ? Map<String, dynamic>.from(economy) : null,
         );
       }
+      if (path == '/quests/day') {
+        final day = economy is Map ? economy['activeDay'] : null;
+        final cachedDay = _cache['/quests/day'];
+        if (day is Map &&
+            (cachedDay is! Map || cachedDay['periodId'] != day['id'])) {
+          // A day opened offline: the server has not chosen its offers yet,
+          // so the map shows an empty day instead of an error.
+          return {
+            'periodId': day['id'],
+            'sequenceNo': day['sequence_no'],
+            'limit': cachedDay is Map ? cachedDay['limit'] ?? 3 : 3,
+            'planConfirmed': day['budget_plan_status'] == 'CONFIRMED',
+            'offers': const <Object>[],
+            'replays': cachedDay is Map
+                ? cachedDay['replays'] ?? const []
+                : const [],
+          };
+        }
+      }
       if (_cache.containsKey(path)) return _cache[path];
       if (path == '/pet') {
         final state = _cache['/economy/state'];
@@ -180,50 +199,19 @@ class OfflineSync extends ChangeNotifier {
     }
     if (!OfflineEconomy.supports(method, path)) throw networkError;
 
-    // Never invent a new paid daily offer or a new energy charge while offline.
-    // Existing assignments can still be resumed; the server reconciles answers.
-    if (method == 'POST' &&
-        path.startsWith('/quests/') &&
-        path.endsWith('/start') &&
-        _cache['/quests/day'] is Map) {
-      final questId = path.split('/')[2];
-      final state = _cache['/economy/state'];
-      final quests = state is Map
-          ? state['quests'] as List? ?? const []
-          : const [];
-      final quest = quests
-          .whereType<Map>()
-          .where((q) => q['id'] == questId)
-          .firstOrNull;
-      if (quest?['assignment_status'] == 'COMPLETED') {
-        return {
-          'completed': true,
-          'rewardAlreadyGranted': true,
-          'assignmentId': quest?['assignment_id'],
-          'rewardAmount': quest?['reward_amount'],
-        };
-      }
-      if (quest?['assignment_status'] == 'IN_PROGRESS' &&
-          quest?['assignment_id'] is String) {
-        return {
-          'resumed': true,
-          'assignmentId': quest?['assignment_id'],
-          'nextStepNo': 1,
-        };
-      }
-      throw ApiException(0, 'daily_quests_need_connection');
-    }
-
     final state = _cache['/economy/state'];
     final park = _cache['/park-project'];
+    final daily = _cache['/quests/day'];
     final outcome = _economy.apply(
       method,
       path,
       body,
       state is Map ? Map<String, dynamic>.from(state) : null,
       cachedPark: park is Map ? Map<String, dynamic>.from(park) : null,
+      cachedDaily: daily is Map ? Map<String, dynamic>.from(daily) : null,
     );
     if (outcome.park != null) _cache['/park-project'] = outcome.park;
+    if (outcome.daily != null) _cache['/quests/day'] = outcome.daily;
     final nextState = outcome.state;
     if (nextState != null) {
       _cache['/economy/state'] = nextState;
@@ -238,6 +226,7 @@ class OfflineSync extends ChangeNotifier {
         'body': ?body,
         'createdId': ?outcome.createdId,
         'label': outcome.label,
+        'previewReward': ?outcome.previewReward,
       });
     }
     await _persist();
@@ -288,6 +277,15 @@ class OfflineSync extends ChangeNotifier {
       try {
         final result = await send(method, path, body);
         _recordCreatedId(item, result);
+        if (item['previewReward'] != null &&
+            !(result is Map && result['questCompleted'] == true)) {
+          // The coins shown offline came from the game's own check; the
+          // server's check is the one that counts.
+          _notices.add(
+            '${item['label']}: сервер не засчитал задание, '
+            'монеты за него не начислены.',
+          );
+        }
         _queue.removeAt(0);
         delivered = true;
         await _persist();

@@ -40,7 +40,9 @@ test("daily snapshots, carry-over, zero-energy resume, reward replay and ownersh
     await day();
     return { send, userId, day };
   };
-  type Offer = { trackId: string; questId: string; status: string; assignmentId: string | null };
+  type Offer = {
+    trackId: string; questId: string; status: string; assignmentId: string | null; stepCount: number;
+  };
   try {
     assert.equal((await app.inject({ method: "GET", url: "/quests/day" })).statusCode, 401);
     const a = await child();
@@ -51,6 +53,14 @@ test("daily snapshots, carry-over, zero-energy resume, reward replay and ownersh
     const offers = snapshot.offers as Offer[];
     assert.equal(offers.length, 3);
     assert.equal(new Set(offers.map(row => row.trackId)).size, 3);
+    // The offline app pays the reward on the last step, so it must know it.
+    const { pool } = await import("../src/lib/db.js");
+    for (const offer of offers) {
+      const steps = await pool.query<{ count: number }>(
+        `SELECT COUNT(*)::int AS count FROM quest_steps WHERE quest_id = $1`, [offer.questId],
+      );
+      assert.equal(offer.stepCount, steps.rows[0]!.count, offer.questId);
+    }
     const excluded = QUEST_TRACKS.flatMap(track => track.simple).find(id => !offers.some(row => row.questId === id))!;
     const refused = await a.send("POST", `/quests/${excluded}/start`);
     assert.equal(refused.statusCode, 409, refused.body);

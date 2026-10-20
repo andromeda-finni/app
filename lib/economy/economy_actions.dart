@@ -249,8 +249,7 @@ class EconomyActions {
           if (early)
             'Прошло дней: ${chest['completed_days']}. Осталось: ${chest['days_remaining']}.',
           if (early)
-            'При открытии сейчас ты не получишь бонус $bonus монет '
-                '(${s.rules.frostBonusPercent}%).',
+            'Если дождаться срока, получишь на ${coinsAccusative(bonus)} больше.',
           'Кошелёк: ${s.wallet} → ${s.wallet + total}',
         ],
       ),
