@@ -148,6 +148,17 @@ void main() {
       expect(moodFor(satiety: 100, joy: 10, health: 100), PetMood.sad);
     });
 
+    test('sleeps only when energy is too low for a quest', () {
+      expect(moodFor(satiety: 0, joy: 50, health: 100), PetMood.sleep);
+      expect(moodFor(satiety: 19, joy: 50, health: 100), PetMood.sleep);
+      expect(moodFor(satiety: 20, joy: 50, health: 100), PetMood.base);
+    });
+
+    test('a full energy bar does not show the stuffed cat', () {
+      expect(moodFor(satiety: 100, joy: 60, health: 100), PetMood.base);
+      expect(moodFor(satiety: 100, joy: 70, health: 100), PetMood.happy);
+    });
+
     test('each mood resolves to art for every fur colour', () {
       for (final fur in ['FUR_GRAY', 'FUR_ORANGE', 'FUR_WHITE']) {
         for (final mood in PetMood.values) {

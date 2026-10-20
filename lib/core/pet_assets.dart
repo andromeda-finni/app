@@ -65,13 +65,8 @@ String catMapIdleAsset({required String? furOptionId}) {
 // 55 or the pet would look perfectly fine while an unpaid bill is pending.
 const _sadHealth = 60;
 const _sadJoy = 20;
-const _sleepySatiety = 20;
-const _stuffedSatiety = 90;
-
-// A new pet starts at satiety 100 and joy 50, so "stuffed" also asks for a
-// cheerful mood — otherwise every pet would be drawn as a food coma from the
-// moment it is created, and the pose would stop meaning anything.
-const _stuffedJoy = 60;
+// A quest costs 20 energy. The cat sleeps only while it cannot start one.
+const _questEnergyCost = 20;
 const _happyJoy = 70;
 const _happySatiety = 50;
 
@@ -80,8 +75,7 @@ const _happySatiety = 50;
 /// happy face.
 PetMood moodFor({required int satiety, required int joy, required int health}) {
   if (health < _sadHealth || joy <= _sadJoy) return PetMood.sad;
-  if (satiety <= _sleepySatiety) return PetMood.sleep;
-  if (satiety >= _stuffedSatiety && joy >= _stuffedJoy) return PetMood.fully;
+  if (satiety < _questEnergyCost) return PetMood.sleep;
   if (joy >= _happyJoy && satiety >= _happySatiety) return PetMood.happy;
   return PetMood.base;
 }
