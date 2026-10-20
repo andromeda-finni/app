@@ -25,6 +25,35 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Install the Android NDK that Flutter needs
+        # Otherwise Gradle downloads the ~700 MB NDK in the middle of the
+        # build, and one corrupt download ("Error on ZipFile unknown archive")
+        # fails the whole release. Install it up front, retrying.
+        run: |
+          ext="$FLUTTER_ROOT/packages/flutter_tools/gradle/src/main/kotlin/FlutterExtension.kt"
+          ndk="$(grep -oE 'val ndkVersion: String = "[0-9.]+"' "$ext" 2>/dev/null | grep -oE '[0-9][0-9.]+' || true)"
+          if [ -z "$ndk" ]; then
+            echo "::warning::Could not read Flutter's NDK version; Gradle will install it."
+            exit 0
+          fi
+          sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          if [ -f "$sdk/ndk/$ndk/source.properties" ]; then
+            echo "NDK $ndk is already installed."
+            exit 0
+          fi
+          for attempt in 1 2 3; do
+            rm -rf "$sdk/ndk/$ndk"
+            if yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk" > /dev/null \
+                && [ -f "$sdk/ndk/$ndk/source.properties" ]; then
+              echo "NDK $ndk installed."
+              exit 0
+            fi
+            echo "NDK download attempt $attempt failed, retrying…"
+            sleep 15
+          done
+          echo "::error::Could not install NDK $ndk"
+          exit 1
+
       - name: Validate production API URL
         run: |
           # A repository variable edited in the browser can carry a trailing
