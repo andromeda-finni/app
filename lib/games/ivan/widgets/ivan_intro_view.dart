@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../dictionary/dictionary_text.dart';
 import '../../../theme/app_theme.dart';
 import '../ivan_game_content.dart';
 import '../ivan_game_models.dart';
@@ -122,7 +123,7 @@ class IvanIntroView extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: AppSpacing.xs),
-                        Text(
+                        DictionaryText(
                           line.text,
                           style: compact
                               ? AppTextStyles.supporting.copyWith(

@@ -102,6 +102,7 @@ class FoxScript {
 
 class FoxEventSession {
   FoxEventSession({
+    this.id,
     required this.scriptId,
     required this.currentNodeId,
     this.status = FoxSessionStatus.active,
@@ -113,6 +114,7 @@ class FoxEventSession {
 
   factory FoxEventSession.fromJson(Map<String, dynamic> json) {
     return FoxEventSession(
+      id: json['id'] as String?,
       scriptId: json['scriptId'] as String,
       currentNodeId: json['currentNodeId'] as String,
       status: FoxSessionStatus.values.byName(json['status'] as String),
@@ -127,6 +129,7 @@ class FoxEventSession {
     );
   }
 
+  final String? id;
   final String scriptId;
   String currentNodeId;
   FoxSessionStatus status;
@@ -135,6 +138,7 @@ class FoxEventSession {
   final List<String> choiceHistory;
 
   Map<String, dynamic> toJson() => {
+    if (id != null) 'id': id,
     'scriptId': scriptId,
     'currentNodeId': currentNodeId,
     'status': status.name,

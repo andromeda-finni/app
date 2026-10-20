@@ -7,12 +7,15 @@ import '../core/pet_assets.dart';
 import '../core/game_audio_service.dart';
 import '../day_summary/day_summary.dart';
 import '../day_summary/day_summary_screen.dart';
+import '../events/fox/fox_event_dialog.dart';
+import '../events/fox/fox_event_models.dart';
 import '../events/pet_event_dialog.dart';
 import '../events/pet_event_indicator.dart';
 import '../events/pet_event_models.dart';
 import '../minigames/catch_food/catch_food_entry_card.dart';
 import '../minigames/catch_food/catch_food_screen.dart';
 import '../pet/pet_energy_status.dart';
+import '../services/fox_event_service.dart';
 import '../services/pet_event_service.dart';
 import '../theme/app_theme.dart';
 import 'home_tour.dart';
@@ -80,6 +83,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late final PetEventService _eventService = PetEventService(widget.apiClient);
+  late final FoxEventService _foxService = FoxEventService(widget.apiClient);
+  bool _foxDialogOpen = false;
+  String? _presentedFoxVisit;
+  FoxEventLaunch? _pausedFoxVisit;
   _LoadState _loadState = _LoadState.loading;
   HomeEconomyState? _data;
   bool _offline = false;
@@ -139,6 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _data = next;
+        if (next.activeDay == null) _pausedFoxVisit = null;
         _energy = energy;
         _recentDays = recentDays;
         _offline = false;
@@ -176,6 +184,11 @@ class _HomeScreenState extends State<HomeScreen> {
       if (event != null && event.id != _presentedEventId) {
         await _openEvent(event: event);
       }
+      if (mounted &&
+          widget.isActive &&
+          ModalRoute.of(context)?.isCurrent == true) {
+        await _checkFoxVisit();
+      }
       if (!mounted ||
           !widget.isActive ||
           !widget.focusPlan ||
@@ -186,6 +199,49 @@ class _HomeScreenState extends State<HomeScreen> {
       _planFocused = true;
       await _openPlan();
     });
+  }
+
+  Future<void> _checkFoxVisit({bool resume = false}) async {
+    if (_foxDialogOpen ||
+        _eventDialogOpen ||
+        _data?.activeDay?.isConfirmed != true) {
+      return;
+    }
+    _foxDialogOpen = true;
+    try {
+      final launch = await _foxService.visit();
+      if (!mounted) return;
+      setState(() => _pausedFoxVisit = launch);
+      if (launch == null ||
+          !widget.isActive ||
+          ModalRoute.of(context)?.isCurrent != true) {
+        return;
+      }
+      final visitKey = '${launch.session.id}:${_foxService.gameDay}';
+      if (!resume && visitKey == _presentedFoxVisit) return;
+      _presentedFoxVisit = visitKey;
+      await showFoxEventDialog(
+        context,
+        launch: launch,
+        wallet: _foxService,
+        mode: FoxRuntimeMode.normal,
+        currentGameDay: _foxService.gameDay,
+        petName: _data!.pet.name,
+      );
+      if (!mounted) return;
+      setState(() {
+        _pausedFoxVisit = launch.session.status == FoxSessionStatus.active
+            ? launch
+            : null;
+      });
+      await _load(showLoader: false);
+    } on ApiException {
+      if (resume && mounted) {
+        _showError('Не получилось открыть разговор. Попробуй ещё раз.');
+      }
+    } finally {
+      _foxDialogOpen = false;
+    }
   }
 
   void _syncEnergyTicker() {
@@ -589,6 +645,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+    if (mounted) _scheduleHomeDialogs();
   }
 
   Future<void> _openDistribution() async {
@@ -741,6 +798,9 @@ class _HomeScreenState extends State<HomeScreen> {
         onCloseDay: _closeDay,
         onProgress: _showProgress,
         onOpenEvent: _openEvent,
+        onResumeFox: _pausedFoxVisit == null
+            ? null
+            : () => _checkFoxVisit(resume: true),
         onSubmitParentTask: _submitParentTask,
         onStroke: () => unawaited(_strokePet()),
         recentDays: _recentDays,
@@ -785,6 +845,7 @@ class _HomeContent extends StatelessWidget {
     required this.onOpenEvent,
     required this.onSubmitParentTask,
     required this.onStroke,
+    this.onResumeFox,
   });
 
   final HomeEconomyState data;
@@ -811,6 +872,7 @@ class _HomeContent extends StatelessWidget {
   final VoidCallback onOpenEvent;
   final ValueChanged<String> onSubmitParentTask;
   final VoidCallback onStroke;
+  final VoidCallback? onResumeFox;
 
   @override
   Widget build(BuildContext context) {
@@ -831,6 +893,14 @@ class _HomeContent extends StatelessWidget {
         : 'Составить план';
     final panel = HomeSidePanel(
       actions: [
+        if (onResumeFox != null)
+          HomePanelAction(
+            key: const Key('resume-fox-visit'),
+            icon: Icons.chat_bubble_outline_rounded,
+            color: AppColors.crimson,
+            label: 'Продолжить разговор с Лисом',
+            onTap: onResumeFox,
+          ),
         HomePanelAction(
           key: const Key('open-pet-care'),
           // The tour's "stats" step: the pet's gauges live behind this

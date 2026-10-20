@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../dictionary/dictionary_text.dart';
 import '../../../theme/app_theme.dart';
 import '../goldfish_game_content.dart';
 import '../goldfish_game_controller.dart';
@@ -177,7 +178,10 @@ class _Header extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             Align(
               alignment: Alignment.centerLeft,
-              child: Text(level.taskText, style: AppTextStyles.supporting),
+              child: DictionaryText(
+                level.taskText,
+                style: AppTextStyles.supporting,
+              ),
             ),
           ],
         ),

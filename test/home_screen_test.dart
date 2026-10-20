@@ -806,6 +806,68 @@ void main() {
     );
   });
 
+  testWidgets(
+    'Fox arrives in normal Home and a paused conversation can resume',
+    (tester) async {
+      var visits = 0;
+      await _pump(
+        tester,
+        _screen(
+          handler: (request) async {
+            if (request.url.path == '/fox-events/visit') {
+              visits++;
+              return _json({
+                'gameDay': 3,
+                'balance': 42,
+                'session': {
+                  'id': '11111111-1111-4111-8111-111111111111',
+                  'scriptId': 'fox_younger_introduction',
+                  'currentNodeId': 'start',
+                  'status': 'active',
+                  'isReturnVisit': false,
+                },
+              });
+            }
+            return _json(_economy(activeDay: _draftDay(status: 'CONFIRMED')));
+          },
+        ),
+      );
+      expect(find.text('Пришел Лис'), findsOneWidget);
+      await tester.tap(find.byTooltip('Закрыть событие'));
+      await tester.pumpAndSettle();
+      expect(find.text('Пришел Лис'), findsNothing);
+      final beforeResume = visits;
+      await tester.tap(find.byKey(const Key('resume-fox-visit')));
+      await tester.pumpAndSettle();
+      expect(visits, beforeResume + 1);
+      expect(find.text('Пришел Лис'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Fox waits until the home tour and day planning are finished', (
+    tester,
+  ) async {
+    var visits = 0;
+    Future<http.Response> handler(http.Request request) async {
+      if (request.url.path == '/fox-events/visit') visits++;
+      return _json(_economy(activeDay: _draftDay(status: 'CONFIRMED')));
+    }
+
+    await _pump(tester, _screen(handler: handler, isActive: false));
+    expect(visits, 0);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pump(
+      tester,
+      _screen(
+        handler: (request) async {
+          if (request.url.path == '/fox-events/visit') visits++;
+          return _json(_economy(activeDay: _draftDay()));
+        },
+      ),
+    );
+    expect(visits, 0);
+  });
+
   testWidgets('failed load offers a retry', (tester) async {
     var attempts = 0;
     await _pump(

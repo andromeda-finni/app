@@ -10,14 +10,11 @@ import 'core/game_audio_service.dart';
 import 'core/large_text.dart';
 import 'core/offline/offline_sync.dart';
 import 'home/main_shell.dart';
-import 'home/pet_home_screen.dart';
 import 'onboarding/onboarding_data.dart';
 import 'onboarding/onboarding_flow.dart';
 import 'parent/parent_home_screen.dart';
 import 'parent/parent_access_gate.dart';
 import 'theme/app_theme.dart';
-
-const _foxEventDemo = bool.fromEnvironment('FOX_EVENT_DEMO');
 
 void main() {
   runApp(const GroshikApp());
@@ -76,16 +73,11 @@ class _GroshikAppState extends State<GroshikApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       builder: LargeTextScope.builder,
-      // FOX_EVENT_DEMO is a build-time switch for the Fox story prototype,
-      // which still runs on its own in-memory wallet; normal builds never
-      // reach it.
-      home: _foxEventDemo
-          ? const PetHomeScreen()
-          : _AudienceGate(
-              authStorage: widget.authStorage,
-              apiClient: widget.apiClient,
-              initialAudience: widget.initialAudience,
-            ),
+      home: _AudienceGate(
+        authStorage: widget.authStorage,
+        apiClient: widget.apiClient,
+        initialAudience: widget.initialAudience,
+      ),
     );
   }
 }

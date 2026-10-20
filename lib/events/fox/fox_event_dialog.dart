@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../dictionary/dictionary_text.dart';
 import '../../theme/app_theme.dart';
 import '../../onboarding/widgets/story_button.dart';
 import 'fox_event_content.dart';
@@ -148,6 +149,8 @@ class _FoxEventDialogState extends State<FoxEventDialog> {
         key: const ValueKey('arrival'),
         isReturnVisit: widget.isReturnVisit,
         mood: widget.script.node(widget.session.currentNodeId).mood,
+        busy: _controller.busy,
+        errorMessage: _controller.errorMessage,
         onContinue: _controller.continueFromArrival,
       );
     }
@@ -190,6 +193,7 @@ class _FoxEventDialogState extends State<FoxEventDialog> {
   void _finish() => Navigator.of(context).pop(FoxDialogResult.completed);
 
   void _close() {
+    if (_controller.busy) return;
     final result = _controller.node.terminal
         ? FoxDialogResult.completed
         : FoxDialogResult.paused;
@@ -259,11 +263,15 @@ class _ArrivalView extends StatelessWidget {
     required this.isReturnVisit,
     required this.mood,
     required this.onContinue,
+    required this.busy,
+    this.errorMessage,
   });
 
   final bool isReturnVisit;
   final FoxMood mood;
   final Future<void> Function() onContinue;
+  final bool busy;
+  final String? errorMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -287,9 +295,14 @@ class _ArrivalView extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 20),
+          if (errorMessage != null) ...[
+            Text(errorMessage!, style: AppTextStyles.story),
+            const SizedBox(height: 12),
+          ],
           StoryButton(
             label: isReturnVisit ? 'Узнать, что случилось' : 'Поговорить',
-            onPressed: () => onContinue(),
+            isLoading: busy,
+            onPressed: busy ? null : () => onContinue(),
           ),
         ],
       ),
@@ -373,7 +386,7 @@ class _StoryView extends StatelessWidget {
                 duration: MediaQuery.disableAnimationsOf(context)
                     ? Duration.zero
                     : const Duration(milliseconds: 180),
-                child: Text(
+                child: DictionaryText(
                   _withPetName(pages[pageIndex], petName),
                   key: ValueKey('${node.id}:$pageIndex'),
                   style: AppTextStyles.story,
@@ -558,7 +571,7 @@ class _FeedbackCard extends StatelessWidget {
               children: [
                 Text(petName, style: AppTextStyles.sectionTitle),
                 const SizedBox(height: 4),
-                Text(
+                DictionaryText(
                   _withPetName(node.groshikFeedback!, petName),
                   style: AppTextStyles.story,
                 ),

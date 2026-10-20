@@ -43,7 +43,7 @@ class RoleChoiceScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   const Text(
-                    'Кто сегодня открывает «Грошик»?',
+                    'Кто сегодня открывает «Финни»?',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontFamily: AppFonts.body,

@@ -8,6 +8,7 @@ import '../core/game_audio_service.dart';
 import '../core/large_text.dart';
 import '../core/offline/offline_banner.dart';
 import '../dictionary/dictionary_progress.dart';
+import '../dictionary/dictionary_scope.dart';
 import '../dictionary/dictionary_storage.dart';
 import '../dictionary/scroll_sheet.dart';
 import '../dictionary/word_token.dart';
@@ -320,7 +321,11 @@ class _MainShellState extends State<MainShell> {
   Future<void> _openInsurance() async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => InsuranceScreen(apiClient: widget.apiClient),
+        builder: (_) => DictionaryScope(
+          progress: _dictionary,
+          media: MediaQuery.of(context),
+          child: InsuranceScreen(apiClient: widget.apiClient),
+        ),
       ),
     );
     if (!mounted) return;
@@ -471,14 +476,18 @@ class _MainShellState extends State<MainShell> {
                       onOpenPlan: _openPlan,
                       onOpenQuests: () => _selectTab(1),
                     ),
-                    SavingsScreen(
-                      key: ValueKey('savings-$_savingsRevision'),
-                      apiClient: widget.apiClient,
-                      onBack: () => setState(() => _index = 0),
-                      onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
-                      onBrowseGoals: () =>
-                          _openGoalStore(StoreMode.browseGoals),
-                      onOpenSettings: _openSettings,
+                    TickerMode(
+                      enabled: _index == 3,
+                      child: SavingsScreen(
+                        key: ValueKey('savings-$_savingsRevision'),
+                        apiClient: widget.apiClient,
+                        onBack: () => setState(() => _index = 0),
+                        onChooseGoal: () =>
+                            _openGoalStore(StoreMode.selectGoal),
+                        onBrowseGoals: () =>
+                            _openGoalStore(StoreMode.browseGoals),
+                        onOpenSettings: _openSettings,
+                      ),
                     ),
                   ],
                 ],
@@ -496,7 +505,11 @@ class _MainShellState extends State<MainShell> {
       key: _tourOverlayKey,
       children: [
         Positioned.fill(
-          child: ExcludeSemantics(excluding: _tourActive, child: content),
+          child: DictionaryScope(
+            progress: _dictionary,
+            media: MediaQuery.of(context),
+            child: ExcludeSemantics(excluding: _tourActive, child: content),
+          ),
         ),
         if (_tourActive)
           Positioned.fill(

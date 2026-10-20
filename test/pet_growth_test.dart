@@ -9,6 +9,45 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'well-fed pets look content while illness and low joy remain visible',
+    () {
+      for (final stage in [1, 2, 3]) {
+        final json = {
+          'pet_name': 'Финни',
+          'fur_option_id': 'FUR_WHITE',
+          'accessory_option_id': 'ACC_COLLAR_BLUE',
+          'energy_level': 100,
+          'joy_level': 65,
+          'health_level': 100,
+          'evolution_stage': stage,
+        };
+        final fed = Pet.fromJson(json);
+        expect(fed.mood, PetMood.fully);
+        expect(
+          fed.assetPath,
+          catAsset(
+            furOptionId: 'FUR_WHITE',
+            accessoryOptionId: 'ACC_COLLAR_BLUE',
+            evolutionStage: stage,
+            mood: PetMood.happy,
+          ),
+        );
+        expect(
+          Pet.fromJson({...json, 'health_level': 55}).assetPath,
+          endsWith('/sad_white.webp'),
+        );
+        expect(
+          Pet.fromJson({...json, 'joy_level': 10}).assetPath,
+          endsWith('/sad_white.webp'),
+        );
+        expect(fed.satiety, 100);
+        expect(fed.joy, 65);
+        expect(fed.health, 100);
+      }
+    },
+  );
+
   test('all 135 appearance combinations resolve to nonempty bundled art', () {
     final paths = <String>{};
     for (final stage in [1, 2, 3]) {

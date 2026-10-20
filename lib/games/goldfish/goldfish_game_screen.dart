@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../dictionary/dictionary_text.dart';
 import '../../core/api_client.dart';
 import '../../minigames/quest_reward_messages.dart';
 import '../../theme/app_theme.dart';
@@ -174,7 +175,7 @@ class _GoldfishGameScreenState extends State<GoldfishGameScreen> {
               const SizedBox(height: AppSpacing.sm),
               Text('Подсказка', style: AppTextStyles.screenTitle),
               const SizedBox(height: AppSpacing.xs),
-              Text(
+              DictionaryText(
                 _controller.level.hintText,
                 textAlign: TextAlign.center,
                 style: AppTextStyles.story,
@@ -311,7 +312,7 @@ SnackBar _insufficientCoinsSnackBar(int missingCoins) {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xxs),
-                  Text(
+                  DictionaryText(
                     'Сравни цены и выбери товар подешевле.',
                     style: AppTextStyles.supporting.copyWith(
                       color: AppColors.ink,

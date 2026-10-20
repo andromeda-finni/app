@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'fox_event_content.dart';
 import 'fox_event_models.dart';
 
-const kDefaultFoxEventChance = 0.25;
+const kDefaultFoxEventChance = 0.7;
 
 /// Decides when the Fox appears. The whole application calls [startNextDay]
 /// once when its own game-day boundary is crossed. A due return visit always
