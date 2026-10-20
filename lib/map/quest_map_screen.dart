@@ -7,6 +7,8 @@ import '../core/api_client.dart';
 import '../core/child_difficulty.dart';
 import '../core/pet_assets.dart';
 import '../dictionary/dictionary_progress.dart';
+import '../dictionary/dictionary_scope.dart';
+import '../dictionary/dictionary_text.dart';
 import '../games/goldfish/goldfish_game_models.dart';
 import '../games/goldfish/goldfish_game_screen.dart';
 import '../games/ivan/ivan_game_models.dart';
@@ -558,25 +560,42 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: const Color(0x663B2F27),
-      builder: (context) => _QuestDetailsSheet(
-        node: node,
-        state: _stateFor(node),
-        unlockMessage: _unlockMessage(node),
-        rewardAmount: _rewardFor(node),
-        isInProgress: _inProgress(node),
-        parkStatus: node.destination == QuestMapDestination.badger
-            ? _parkStatusText
-            : null,
+      builder: (_) => _withDictionary(
+        _QuestDetailsSheet(
+          node: node,
+          state: _stateFor(node),
+          unlockMessage: _unlockMessage(node),
+          rewardAmount: _rewardFor(node),
+          isInProgress: _inProgress(node),
+          parkStatus: node.destination == QuestMapDestination.badger
+              ? _parkStatusText
+              : null,
+        ),
       ),
     );
     if (shouldOpen == true && mounted) await _launchNode(node);
+  }
+
+  DictionaryScope _withDictionary(Widget child) {
+    final scope = DictionaryScope.maybeOf(context);
+    return DictionaryScope(
+      progress: widget.dictionaryProgress ?? scope?.progress,
+      media: scope?.media ?? MediaQuery.of(context),
+      child: child,
+    );
+  }
+
+  MaterialPageRoute<void> _gameRoute({required WidgetBuilder builder}) {
+    return MaterialPageRoute<void>(
+      builder: (gameContext) => _withDictionary(builder(gameContext)),
+    );
   }
 
   Future<void> _launch(QuestMapDestination destination) {
     final navigator = Navigator.of(context);
     return switch (destination) {
       QuestMapDestination.turnip => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => TurnipGameScreen(
             difficulty: widget.difficulty == ChildDifficulty.advanced
                 ? TurnipDifficulty.hard
@@ -588,12 +607,10 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         ),
       ),
       QuestMapDestination.mole => navigator.push<void>(
-        MaterialPageRoute(
-          builder: (_) => MoleGameScreen(apiClient: widget.apiClient),
-        ),
+        _gameRoute(builder: (_) => MoleGameScreen(apiClient: widget.apiClient)),
       ),
       QuestMapDestination.bakery => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => BakeryGameScreen(
             difficulty: widget.difficulty,
             apiClient: widget.apiClient,
@@ -602,7 +619,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         ),
       ),
       QuestMapDestination.ivan => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => IvanGameScreen(
             initialLevel: nextIvanLevel(
               completedQuestIds: _completedQuestIds,
@@ -617,7 +634,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         ),
       ),
       QuestMapDestination.goldfish => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => GoldfishGameScreen(
             initialLevel: nextGoldfishLevel(
               completedQuestIds: _completedQuestIds,
@@ -632,7 +649,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         ),
       ),
       QuestMapDestination.squirrel => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => SquirrelGameScreen(
             difficulty: widget.difficulty == ChildDifficulty.advanced
                 ? SquirrelDifficulty.hard
@@ -647,7 +664,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         ),
       ),
       QuestMapDestination.tugriki => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => TugrikiGameScreen(
             apiClient: widget.apiClient,
             dictionaryProgress: widget.dictionaryProgress,
@@ -661,7 +678,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         ),
       ),
       QuestMapDestination.badger => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => ParkProjectScreen(
             difficulty: widget.difficulty,
             apiClient: widget.apiClient,
@@ -678,7 +695,10 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      _withDictionary(Builder(builder: _buildMap));
+
+  Widget _buildMap(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.parchment,
       body: SafeArea(
@@ -1401,7 +1421,7 @@ class _QuestWorldPrompt extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(
+                          child: DictionaryText(
                             node.title,
                             style: const TextStyle(
                               fontFamily: AppFonts.body,
@@ -1727,7 +1747,7 @@ class _TopicPill extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: AppColors.fieldBorder),
         ),
-        child: Text(
+        child: DictionaryText(
           topic,
           style: const TextStyle(
             fontFamily: AppFonts.body,
@@ -1825,7 +1845,7 @@ class _QuestDetailsSheet extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            DictionaryText(
                               node.title,
                               style: const TextStyle(
                                 fontFamily: AppFonts.body,
@@ -1854,7 +1874,7 @@ class _QuestDetailsSheet extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text(
+                  DictionaryText(
                     node.description,
                     style: const TextStyle(
                       fontFamily: AppFonts.body,

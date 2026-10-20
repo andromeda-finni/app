@@ -81,8 +81,13 @@ class CatchFoodLayout {
 }
 
 class CatchFoodBoard extends StatelessWidget {
-  const CatchFoodBoard({super.key, required this.controller});
+  const CatchFoodBoard({
+    super.key,
+    required this.controller,
+    this.coat = CatchFoodCoat.striped,
+  });
   final CatchFoodController controller;
+  final CatchFoodCoat coat;
 
   @override
   Widget build(BuildContext context) => ExcludeSemantics(
@@ -111,7 +116,7 @@ class CatchFoodBoard extends StatelessWidget {
               Positioned.fromRect(
                 rect: layout.catRect(selected),
                 child: Image.asset(
-                  '$catchFoodAssetRoot/cat_catch_${selected.assetName}.webp',
+                  coat.catAsset('catch_${selected.assetName}'),
                   key: ValueKey('catch-pose-${selected.assetName}'),
                   gaplessPlayback: true,
                   fit: BoxFit.fill,

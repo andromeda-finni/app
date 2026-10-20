@@ -40,6 +40,7 @@ class _CatchFoodScreenState extends State<CatchFoodScreen>
   bool _saved = false;
   bool _artReady = false;
   bool _warmingArt = false;
+  CatchFoodCoat? _loadedCoat;
   bool _foreground = true;
   bool _exitDialogOpen = false;
   int _chargedCost = 0;
@@ -61,11 +62,14 @@ class _CatchFoodScreenState extends State<CatchFoodScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_artReady && !_warmingArt) unawaited(_warmArt());
+    if (_info != null && !_artReady && !_warmingArt) unawaited(_warmArt());
   }
 
   Future<void> _warmArt() async {
+    final info = _info;
+    if (info == null || _warmingArt) return;
     _warmingArt = true;
+    _artReady = false;
     Object? failure;
     final assets = [
       'pantry_background',
@@ -73,19 +77,15 @@ class _CatchFoodScreenState extends State<CatchFoodScreen>
       'food_spoiled',
       'food_crumbs',
       'catch_sparkle',
-      'cat_idle',
-      'cat_happy',
-      'cat_miss',
-      'cat_tired',
-      for (final lane in CatchLane.values) ...[
-        'cat_catch_${lane.assetName}',
-        'chute_${lane.assetName}',
-      ],
+      for (final lane in CatchLane.values) 'chute_${lane.assetName}',
     ];
     await Future.wait(
-      assets.map(
-        (name) => precacheImage(
-          AssetImage('$catchFoodAssetRoot/$name.webp'),
+      [
+        for (final name in assets) '$catchFoodAssetRoot/$name.webp',
+        ...info.coat.catAssets,
+      ].map(
+        (path) => precacheImage(
+          AssetImage(path),
           context,
           onError: (error, stack) => failure = error,
         ),
@@ -95,6 +95,7 @@ class _CatchFoodScreenState extends State<CatchFoodScreen>
     setState(() {
       _warmingArt = false;
       _artReady = failure == null;
+      _loadedCoat = failure == null ? info.coat : null;
       if (failure != null) _error = 'Не удалось загрузить картинки игры.';
     });
   }
@@ -113,6 +114,7 @@ class _CatchFoodScreenState extends State<CatchFoodScreen>
         _info = info;
         _bestScore = info.bestScore;
       });
+      await _warmArt();
     } catch (error) {
       if (mounted) setState(() => _error = _problem(error));
     } finally {
@@ -130,6 +132,12 @@ class _CatchFoodScreenState extends State<CatchFoodScreen>
     try {
       final attempt = await _service.start(_sessionId!);
       if (!mounted) return;
+      if (_loadedCoat != attempt.info.coat) {
+        setState(() => _info = attempt.info);
+        await _warmArt();
+        if (!mounted) return;
+        if (!_artReady) return;
+      }
       final game = CatchFoodController(config: attempt.info.config)..start();
       if (!_foreground) game.pause();
       setState(() {
@@ -405,7 +413,6 @@ class _CatchFoodScreenState extends State<CatchFoodScreen>
           _ActionButton(
             label: 'Повторить',
             onPressed: () {
-              if (!_artReady) unawaited(_warmArt());
               unawaited(_load());
             },
           ),
@@ -416,7 +423,7 @@ class _CatchFoodScreenState extends State<CatchFoodScreen>
     return _PagePanel(
       children: [
         Image.asset(
-          '$catchFoodAssetRoot/cat_idle.webp',
+          info.coat.catAsset('idle'),
           height: 200,
           excludeFromSemantics: true,
         ),
@@ -486,7 +493,7 @@ class _CatchFoodScreenState extends State<CatchFoodScreen>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              CatchFoodBoard(controller: game),
+              CatchFoodBoard(controller: game, coat: _info!.coat),
               if (game.elapsedUs - game.lastSpoiledCatchUs < 1000000)
                 Positioned(
                   top: 12,
@@ -569,7 +576,7 @@ class _CatchFoodScreenState extends State<CatchFoodScreen>
     return _PagePanel(
       children: [
         Image.asset(
-          '$catchFoodAssetRoot/cat_$cat.webp',
+          _info!.coat.catAsset(cat),
           height: 200,
           excludeFromSemantics: true,
         ),

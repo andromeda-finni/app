@@ -1,0 +1,74 @@
+{
+  "checkedOn": "2026-10-19",
+  "generatedSprites": 16,
+  "galleryImages": 24,
+  "galleryLinksValid": true,
+  "minimumSilhouetteIou": 0.966083,
+  "method": "Intersection over union of alpha masks >8 against the corresponding approved striped pose; no recoloring or geometric postprocessing.",
+  "sprites": [
+    {
+      "asset": "orange/cat_catch_lower_left",
+      "silhouetteIou": 0.979105
+    },
+    {
+      "asset": "white/cat_catch_lower_left",
+      "silhouetteIou": 0.982601
+    },
+    {
+      "asset": "orange/cat_catch_upper_left",
+      "silhouetteIou": 0.987178
+    },
+    {
+      "asset": "white/cat_catch_upper_left",
+      "silhouetteIou": 0.98432
+    },
+    {
+      "asset": "orange/cat_catch_upper_right",
+      "silhouetteIou": 0.98844
+    },
+    {
+      "asset": "white/cat_catch_upper_right",
+      "silhouetteIou": 0.979677
+    },
+    {
+      "asset": "orange/cat_catch_lower_right",
+      "silhouetteIou": 0.990669
+    },
+    {
+      "asset": "white/cat_catch_lower_right",
+      "silhouetteIou": 0.985233
+    },
+    {
+      "asset": "orange/cat_idle",
+      "silhouetteIou": 0.986051
+    },
+    {
+      "asset": "white/cat_idle",
+      "silhouetteIou": 0.990203
+    },
+    {
+      "asset": "orange/cat_happy",
+      "silhouetteIou": 0.966083
+    },
+    {
+      "asset": "white/cat_happy",
+      "silhouetteIou": 0.983666
+    },
+    {
+      "asset": "orange/cat_miss",
+      "silhouetteIou": 0.97618
+    },
+    {
+      "asset": "white/cat_miss",
+      "silhouetteIou": 0.984594
+    },
+    {
+      "asset": "orange/cat_tired",
+      "silhouetteIou": 0.985532
+    },
+    {
+      "asset": "white/cat_tired",
+      "silhouetteIou": 0.981796
+    }
+  ]
+}

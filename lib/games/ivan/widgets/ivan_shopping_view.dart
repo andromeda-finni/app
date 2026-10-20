@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../dictionary/dictionary_text.dart';
 import '../../../theme/app_theme.dart';
 import '../ivan_game_content.dart';
 import '../ivan_game_controller.dart';
@@ -180,7 +181,7 @@ class _GameHeader extends StatelessWidget {
                 ),
               ],
             ),
-            Text(
+            DictionaryText(
               level.taskText,
               textAlign: TextAlign.center,
               style: AppTextStyles.supporting.copyWith(color: AppColors.ink),

@@ -100,6 +100,17 @@ void main() {
       findsOneWidget,
     );
     expect(find.bySemanticsLabel('На завтра защиты нет'), findsOneWidget);
+    expect(
+      find.image(const AssetImage('assets/insurance/plantain_shield.png')),
+      findsOneWidget,
+    );
+    expect(find.bySemanticsLabel('Щит с подорожником'), findsOneWidget);
+    expect(
+      find.text(
+        'Завтра будет прохладно и дождливо — защита может пригодиться!',
+      ),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 

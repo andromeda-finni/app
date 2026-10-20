@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../dictionary/dictionary_text.dart';
 import '../../onboarding/widgets/story_button.dart';
 import '../../theme/app_theme.dart';
 import 'mole_truth_board.dart';
@@ -111,7 +112,10 @@ class _MoleTruthCaseViewState extends State<MoleTruthCaseView> {
           if (_hintVisible && !solved)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Text(document.hint, style: AppTextStyles.supporting),
+              child: DictionaryText(
+                document.hint,
+                style: AppTextStyles.supporting,
+              ),
             ),
           if (_feedback != null)
             Semantics(
@@ -146,7 +150,7 @@ class _MoleTruthCaseViewState extends State<MoleTruthCaseView> {
                     size: 32,
                   ),
                   const SizedBox(height: 8),
-                  Text(switch (document.documentKind) {
+                  DictionaryText(switch (document.documentKind) {
                     MoleTruthDocumentKind.receipt => 'Чек исправлен!',
                     MoleTruthDocumentKind.advertisement =>
                       'Условие акции найдено!',
@@ -189,7 +193,7 @@ class _MoleTruthCaseViewState extends State<MoleTruthCaseView> {
                       ],
                     )
                   else
-                    Text(
+                    DictionaryText(
                       switch (document.documentKind) {
                         MoleTruthDocumentKind.advertisement =>
                           'Одна нужная вещь — ${moleCoinAmount(document.fairTotal)}.',
@@ -222,7 +226,7 @@ class _MoleTruthCaseViewState extends State<MoleTruthCaseView> {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        child: Text(
+                        child: DictionaryText(
                           span.explanation!,
                           style: AppTextStyles.supporting,
                         ),
@@ -231,7 +235,7 @@ class _MoleTruthCaseViewState extends State<MoleTruthCaseView> {
                   if (solved)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
+                      child: DictionaryText(
                         '«${document.sellerReply}»',
                         style: AppTextStyles.supporting,
                       ),

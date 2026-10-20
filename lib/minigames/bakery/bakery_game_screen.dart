@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../dictionary/dictionary_text.dart';
 import '../../core/api_client.dart';
 import '../../core/child_difficulty.dart';
 import '../../onboarding/widgets/back_circle_button.dart';
@@ -655,9 +656,9 @@ class _PaperPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: AppTextStyles.screenTitle),
+          DictionaryText(title, style: AppTextStyles.screenTitle),
           const SizedBox(height: AppSpacing.xs),
-          Text(text, style: AppTextStyles.story),
+          DictionaryText(text, style: AppTextStyles.story),
           if (extra != null) ...[const SizedBox(height: AppSpacing.md), extra!],
           if (footer != null) ...[
             const SizedBox(height: AppSpacing.lg),
@@ -817,7 +818,7 @@ class _MoneySummary extends StatelessWidget {
               color: AppColors.infoBg,
               borderRadius: BorderRadius.circular(AppRadii.sm),
             ),
-            child: Text(
+            child: DictionaryText(
               '${entry.key}: ${entry.value}',
               style: AppTextStyles.cardRowLabel,
             ),
@@ -862,7 +863,7 @@ class _QuestionPanel extends StatelessWidget {
                 color: AppColors.infoBg,
                 borderRadius: BorderRadius.circular(AppRadii.md),
               ),
-              child: Text(
+              child: DictionaryText(
                 equation,
                 textAlign: TextAlign.center,
                 style: AppTextStyles.screenTitle.copyWith(fontSize: 30),
@@ -907,7 +908,7 @@ class _FeedbackCard extends StatelessWidget {
           color: isHint ? AppColors.infoBg : AppColors.crimsonFaded,
           borderRadius: BorderRadius.circular(AppRadii.sm),
         ),
-        child: Text(
+        child: DictionaryText(
           message,
           style: AppTextStyles.supporting.copyWith(color: AppColors.ink),
         ),

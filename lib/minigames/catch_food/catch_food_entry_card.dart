@@ -4,8 +4,9 @@ import '../../theme/app_theme.dart';
 import 'catch_food_models.dart';
 
 class CatchFoodEntryCard extends StatelessWidget {
-  const CatchFoodEntryCard({super.key, required this.onTap});
+  const CatchFoodEntryCard({super.key, required this.onTap, this.furOptionId});
   final VoidCallback? onTap;
+  final String? furOptionId;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -24,11 +25,24 @@ class CatchFoodEntryCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              child: Image.asset(
-                '$catchFoodAssetRoot/game_entry.webp',
+              child: SizedBox(
                 width: 88,
                 height: 80,
-                fit: BoxFit.cover,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      '$catchFoodAssetRoot/pantry_background.webp',
+                      fit: BoxFit.cover,
+                      excludeFromSemantics: true,
+                    ),
+                    Image.asset(
+                      CatchFoodCoat.fromFur(furOptionId).catAsset('idle'),
+                      fit: BoxFit.contain,
+                      excludeFromSemantics: true,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 14),

@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/api_client.dart';
 import '../../core/pet_assets.dart';
-import '../../dictionary/dictionary_catalog.dart';
 import '../../dictionary/dictionary_progress.dart';
-import '../../dictionary/dictionary_reader.dart';
-import '../../dictionary/word_token.dart';
+import '../../dictionary/dictionary_scope.dart';
+import '../../dictionary/dictionary_text.dart';
 import '../../onboarding/widgets/back_circle_button.dart';
 import '../../onboarding/widgets/story_button.dart';
 import '../../theme/app_theme.dart';
@@ -59,24 +58,6 @@ class TugrikiGameScreen extends StatefulWidget {
 class _TugrikiGameScreenState extends State<TugrikiGameScreen>
     with SingleTickerProviderStateMixin {
   NovelStep _step = NovelStep.s1SparrowIntro;
-  bool _explainingWord = false;
-
-  Future<void> _explainBudget() async {
-    final progress = widget.dictionaryProgress;
-    if (progress == null || _explainingWord) return;
-    _explainingWord = true;
-    try {
-      await explainDictionaryWord(
-        context,
-        progress: progress,
-        word: budgetWord,
-        media: widget.dictionaryMedia,
-      );
-    } finally {
-      _explainingWord = false;
-    }
-  }
-
   // Интерактивный набор монет для булочки (Уровень 1)
   int _bunPairsFilled = 0; // от 0 до 6
 
@@ -259,7 +240,17 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
   bool get _budgetCanBuy => _selectedGoodIds.isNotEmpty && !_budgetIsOver;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => DictionaryScope(
+    progress:
+        widget.dictionaryProgress ?? DictionaryScope.maybeOf(context)?.progress,
+    media:
+        widget.dictionaryMedia ??
+        DictionaryScope.maybeOf(context)?.media ??
+        MediaQuery.of(context),
+    child: Builder(builder: _buildGame),
+  );
+
+  Widget _buildGame(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.parchment,
       body: SafeArea(
@@ -853,7 +844,6 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
           speakerName: widget.petName,
           isSparrow: false,
           dialogueText: 'У нас в кошельке осталось ровно 20 монеток — это наш бюджет. Выбирай покупки с умом, чтобы хватило денег и осталась сдача!',
-          explainBudget: true,
           actionText: 'Выбрать товары в лоток ➔',
           onAction: _nextStep,
         );
@@ -875,7 +865,6 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
     required String dialogueText,
     required String actionText,
     required VoidCallback onAction,
-    bool explainBudget = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -927,18 +916,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
                   height: 1.35,
                   color: AppColors.ink,
                 );
-                if (!explainBudget || widget.dictionaryProgress == null) {
-                  return Text(dialogueText, style: style);
-                }
-                final start = dialogueText.indexOf('бюджет');
-                return FinancialStoryText(
-                  before: dialogueText.substring(0, start),
-                  term: 'бюджет',
-                  after: dialogueText.substring(start + 'бюджет'.length),
-                  wordId: 'budget',
-                  style: style,
-                  onExplain: _explainBudget,
-                );
+                return DictionaryText(dialogueText, style: style);
               },
             ),
           ],
@@ -963,7 +941,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                const DictionaryText(
                   'Раскладываем по 2 монетки:',
                   style: TextStyle(
                     fontFamily: AppFonts.body,
@@ -1051,7 +1029,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
             const SizedBox(height: 6),
             if (isDone)
               const Center(
-                child: Text(
+                child: DictionaryText(
                   '2 + 2 + 2 + 2 + 2 + 2 = 12 монеток (6 × 2 = 12)',
                   style: TextStyle(
                     fontFamily: AppFonts.body,
@@ -1091,7 +1069,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            const DictionaryText(
               'Складываем тугрики за обед:',
               style: TextStyle(
                 fontFamily: AppFonts.body,
@@ -1115,7 +1093,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
                     '4 (суп) + 2 (сок) + 3 (булочка)',
                     style: TextStyle(fontSize: 13.5),
                   ),
-                  Text(
+                  DictionaryText(
                     '= 9 тугриков',
                     style: TextStyle(
                       fontSize: 15,
@@ -1128,7 +1106,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
             ),
             const SizedBox(height: 6),
             const Center(
-              child: Text(
+              child: DictionaryText(
                 'Курс 1 к 2: значит 9 тугриков × 2 = 18 монеток',
                 style: TextStyle(
                   fontFamily: AppFonts.body,
@@ -1162,7 +1140,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              const DictionaryText(
                 'Кошелек: 20 монет',
                 style: TextStyle(
                   fontFamily: AppFonts.body,
@@ -1171,7 +1149,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
                   color: AppColors.ink,
                 ),
               ),
-              Text(
+              DictionaryText(
                 _budgetRemainingCoins >= 0
                     ? 'Сдача: $_budgetRemainingCoins монет'
                     : 'Не хватает: ${-_budgetRemainingCoins} монет',
@@ -1222,7 +1200,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
           if (_budgetIsOver)
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
+              child: DictionaryText(
                 '⚠️ Превышен бюджет на ${-_budgetRemainingCoins} монет! Убери один товар.',
                 style: const TextStyle(
                   fontSize: 12,
@@ -1263,7 +1241,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
+            const DictionaryText(
               '«В другой стране могут использоваться другие деньги. Курс показывает, сколько одной валюты нужно для другой.»',
               style: TextStyle(
                 fontFamily: AppFonts.body,

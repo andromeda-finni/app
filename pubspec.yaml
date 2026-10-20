@@ -93,6 +93,7 @@ flutter:
     - assets/icons/pig.webp
     - assets/icons/coin.webp
     - assets/icons/leaf.webp
+    - assets/insurance/plantain_shield.png
     - assets/icons/chest.webp
     - assets/icons/bowl.webp
     - assets/icons/eat.webp
@@ -128,6 +129,8 @@ flutter:
     - assets/minigames/tugriki/
     - assets/minigames/mole/
     - assets/minigames/catch_food/
+    - assets/minigames/catch_food/orange/
+    - assets/minigames/catch_food/white/
     - assets/minigames/bakery/
     - assets/minigames/park/
     - assets/Fox/fox_friendly.webp

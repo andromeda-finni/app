@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../dictionary/dictionary_text.dart';
 import '../../../theme/app_theme.dart';
 import '../turnip_game_content.dart';
 import '../turnip_game_controller.dart';
@@ -138,7 +139,7 @@ class _TaskCard extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
-                child: Text(
+                child: DictionaryText(
                   turnipTaskText,
                   style: AppTextStyles.cardRowLabel,
                   textAlign: TextAlign.center,
@@ -190,7 +191,7 @@ class _FeedbackCard extends StatelessWidget {
             Icon(icon, size: 20, color: color),
             const SizedBox(width: AppSpacing.xs),
             Flexible(
-              child: Text(
+              child: DictionaryText(
                 text,
                 textAlign: TextAlign.center,
                 style: AppTextStyles.supporting.copyWith(

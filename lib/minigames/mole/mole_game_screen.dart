@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../dictionary/dictionary_text.dart';
 import '../../core/api_client.dart';
 import '../../onboarding/widgets/back_circle_button.dart';
 import '../../onboarding/widgets/story_button.dart';
@@ -578,7 +579,7 @@ class _ProgressHeader extends StatelessWidget {
                 style: AppTextStyles.stepCounter,
               ),
               const SizedBox(height: 2),
-              Text(title, style: AppTextStyles.cardTitle),
+              DictionaryText(title, style: AppTextStyles.cardTitle),
             ],
           ),
         ),
@@ -682,7 +683,7 @@ class _StoryScene extends StatelessWidget {
                     child: Center(
                       child: largeText
                           ? const Icon(Icons.receipt_long, color: AppColors.ink)
-                          : Text(
+                          : DictionaryText(
                               text,
                               maxLines: 7,
                               overflow: TextOverflow.ellipsis,
@@ -706,7 +707,7 @@ class _StoryScene extends StatelessWidget {
         scene,
         if (largeText) ...[
           const SizedBox(height: 10),
-          Text(text, style: AppTextStyles.story),
+          DictionaryText(text, style: AppTextStyles.story),
         ],
       ],
     );
@@ -766,7 +767,7 @@ class _QuestionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          DictionaryText(
             question.prompt,
             style: AppTextStyles.cardTitle.copyWith(fontSize: 20),
           ),
@@ -834,7 +835,7 @@ class _FeedbackCard extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
+              child: DictionaryText(
                 text,
                 style: AppTextStyles.story.copyWith(fontSize: 14),
               ),
@@ -865,7 +866,7 @@ class _SolvedCard extends StatelessWidget {
           const Icon(Icons.verified, color: AppColors.leafGreen, size: 30),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
+            child: DictionaryText(
               text,
               style: AppTextStyles.story.copyWith(fontSize: 15),
             ),
@@ -903,7 +904,7 @@ class _SyncNote extends StatelessWidget {
             color: AppColors.inkMuted,
           ),
         const SizedBox(width: 8),
-        Expanded(child: Text(text, style: AppTextStyles.swatchLabel)),
+        Expanded(child: DictionaryText(text, style: AppTextStyles.swatchLabel)),
       ],
     );
   }
