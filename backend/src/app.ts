@@ -50,6 +50,7 @@ const REQUIRED_SCHEMA_VERSIONS = [
   "0035_pet_collar_options.sql",
   "0036_catch_food_sessions.sql",
   "0036_fox_daily_events.sql",
+  "0037_daily_quest_offers.sql",
   "0037_main_tabs_tour.sql",
 ] as const;
 

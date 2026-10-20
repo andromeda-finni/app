@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../dictionary/dictionary_text.dart';
 import '../../../theme/app_theme.dart';
+import '../../../minigames/quest_reward_messages.dart';
 import '../ivan_game_content.dart';
 import '../ivan_game_models.dart';
 
@@ -51,7 +52,7 @@ class IvanResultView extends StatelessWidget {
     final success = result.isSuccessful;
     final rewardText = rewardAmount != null
         ? rewardWasAlreadyGranted
-              ? 'Награда $rewardAmount монет уже была получена.'
+              ? questPracticeCompleteMessage
               : '+$rewardAmount монет начислено в кошелёк!'
         : statusNote ??
               (isSyncing

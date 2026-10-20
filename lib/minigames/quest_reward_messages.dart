@@ -1,10 +1,17 @@
 import '../core/api_client.dart';
 
+const questPracticeCompleteMessage =
+    'Отличная тренировка! '
+    'Награду за это задание ты уже получил. Приходи за наградой в другой день!';
+
 /// Turns a refused quest start or answer into something a child can act on.
 ///
 /// Most refusals are the economy's own rules, not a network fault, so saying
 /// "check your connection" for them would send the child after the wrong fix.
 String questProblemMessage(ApiException error) {
+  if (error.code == 'daily_quests_need_connection') {
+    return 'Подключись к сети, чтобы начать новую просьбу. Продолжать начатое и тренироваться можно без новой награды.';
+  }
   if (error.isSavedOffline) {
     return 'Нет интернета, но результат сохранён. Он отправится сам, когда '
         'связь вернётся, тогда же придёт и награда.';
@@ -19,7 +26,11 @@ String questProblemMessage(ApiException error) {
     'daily_quest_reward_limit_reached' =>
       'Сегодня награды за задания уже получены. Загляни завтра!',
     'quest_prerequisite_not_completed' =>
-      'Сначала пройди предыдущее задание на карте.',
+      'Сначала выполни предыдущую просьбу этого персонажа.',
+    'quest_not_offered_today' =>
+      'Сегодня помощь не нужна, приходи в другой день',
+    'daily_quests_need_connection' =>
+      'Подключись к сети, чтобы узнать просьбы нового игрового дня.',
     'quest_difficulty_mismatch' => 'Этот уровень относится к другой настройке сложности. Вернись на карту и открой задание снова.',
     'pet_energy_insufficient' => 'Питомцу не хватает сил для нового квеста. Подожди восстановления или покорми его в магазине.',
     'quest_already_completed' =>

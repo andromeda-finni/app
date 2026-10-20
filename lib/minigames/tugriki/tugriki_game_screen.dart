@@ -113,6 +113,8 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
       setState(() {
         if (res['completed'] == true) {
           _serverQuestCompleted = true;
+          _rewardWasAlreadyGranted = true;
+          _rewardAmount = (res['rewardAmount'] as num?)?.toInt();
           _assignmentId = null;
           _rewardNote =
               'Награда за это задание уже получена. Сейчас это тренировка.';
@@ -1262,7 +1264,7 @@ class _TugrikiGameScreenState extends State<TugrikiGameScreen>
                         ? 'Сохраняем результат…'
                         : _rewardAmount != null
                         ? _rewardWasAlreadyGranted
-                              ? 'Награда $_rewardAmount монет уже была сохранена.'
+                              ? questPracticeCompleteMessage
                               : '+$_rewardAmount монет начислено в кошелёк питомца!'
                         : _rewardNote ?? 'Результат не сохранён.',
                     style: TextStyle(

@@ -107,6 +107,16 @@ Widget _shell({
         'musicEnabled': true,
         'largeTextEnabled': largeText,
       },
+      // The map now reads the day's quest offers; with no active day the
+      // server answers with an empty day.
+      '/quests/day' => {
+        'periodId': null,
+        'sequenceNo': null,
+        'limit': 3,
+        'planConfirmed': false,
+        'offers': <Object>[],
+        'replays': <Object>[],
+      },
       _ => null,
     };
     return http.Response(

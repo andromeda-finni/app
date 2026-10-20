@@ -5,7 +5,7 @@ import { postTransaction } from "../../lib/ledger.js";
 import { requireAuth, requireRole } from "../../auth/plugin.js";
 import { bodySchema, paramsSchema, shortIdSchema, uuidSchema } from "../../lib/schema.js";
 import { useArtifact } from "../../lib/artifacts.js";
-import { ECONOMY_RULES, isQuestRewardAllowed } from "../economy/rules.js";
+import { isQuestRewardAllowed } from "../economy/rules.js";
 import {
   ACTIVITY_ENERGY_COST,
   presentPet,
@@ -13,8 +13,12 @@ import {
   spendPetEnergy,
 } from "../pet/energy.js";
 import { answerMatches, type UiSpec } from "./validation.js";
+import { readDailyQuests } from "./daily.js";
 
 export async function questRoutes(app: FastifyInstance): Promise<void> {
+  app.get("/quests/day", {
+    preHandler: [requireAuth, requireRole("CHILD")],
+  }, async req => withTransaction(client => readDailyQuests(client, req.authUser!.id)));
   // Difficulty controls the amount of guidance inside a game. The story/map
   // catalogue is shared: filtering SIMPLE quest definitions out for an
   // ADVANCED child would leave the map empty rather than make play harder.
@@ -90,11 +94,6 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         );
         const quest = questRes.rows[0];
         if (!quest) throw new HttpError(404, "quest_not_found");
-        const startsIvanTrack =
-          questId === "Q_IVAN_ROAD_EASY_1" || questId === "Q_IVAN_ROAD_HARD_1";
-        if (startsIvanTrack && quest.difficulty !== child.difficulty) {
-          throw new HttpError(409, "quest_difficulty_mismatch");
-        }
 
         const blockedRes = await client.query<{ prerequisite_quest_id: string }>(
           `SELECT qp.prerequisite_quest_id
@@ -115,15 +114,6 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
             prerequisiteQuestIds: blockedRes.rows.map((row) => row.prerequisite_quest_id),
           });
         }
-
-        const periodRes = await client.query<{ id: string }>(
-          `SELECT gp.id FROM game_periods gp
-            JOIN budget_plans bp ON bp.period_id = gp.id AND bp.status = 'CONFIRMED'
-           WHERE gp.child_user_id = $1 AND gp.status = 'ACTIVE'`,
-          [childUserId],
-        );
-        const period = periodRes.rows[0];
-        if (!period) throw new HttpError(409, "active_day_with_confirmed_plan_required");
 
         // An unfinished run is resumed rather than refused: a child who left a
         // game halfway must still be able to finish it and earn the reward.
@@ -161,6 +151,14 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
             nextStepNo: existing.next_step_no,
           };
         }
+        const daily = await readDailyQuests(client, childUserId);
+        if (!daily.periodId || !daily.planConfirmed) {
+          throw new HttpError(409, "active_day_with_confirmed_plan_required");
+        }
+        const period = { id: daily.periodId };
+        if (!daily.offers.some(offer => offer.questId === questId)) {
+          throw new HttpError(409, "quest_not_offered_today");
+        }
         if (existing) {
           return {
             assignmentId: existing.id,
@@ -193,6 +191,11 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
             requiredEnergy: ACTIVITY_ENERGY_COST,
           });
         }
+        await client.query(
+          `UPDATE quest_day_offers SET assignment_id = $1
+            WHERE period_id = $2 AND child_user_id = $3 AND quest_id = $4`,
+          [res.rows[0]!.id, period.id, childUserId, questId],
+        );
         return {
           assignmentId: res.rows[0]!.id,
           rewardAmount: quest.reward_amount,
@@ -267,6 +270,8 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
       const { stepNo, selectedOptionCode } = req.body;
 
       return withTransaction(async (client) => {
+        // Match the daily-selection/start owner lock order before assignment locks.
+        await client.query(`SELECT user_id FROM child_profiles WHERE user_id = $1 FOR UPDATE`, [childUserId]);
         const assignmentRes = await client.query<{
           quest_id: string;
           reward_amount: number;
@@ -298,6 +303,13 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         }
         if (assignment.status !== "IN_PROGRESS") {
           throw new HttpError(409, "assignment_not_in_progress");
+        }
+        const daily = await readDailyQuests(client, childUserId);
+        if (!daily.periodId || !daily.planConfirmed) {
+          throw new HttpError(409, "active_day_with_confirmed_plan_required");
+        }
+        if (!daily.offers.some(offer => offer.questId === assignment.quest_id)) {
+          throw new HttpError(409, "quest_not_offered_today");
         }
 
         // Steps must be answered in order: stepNo can only be attempted once
@@ -387,16 +399,8 @@ export async function questRoutes(app: FastifyInstance): Promise<void> {
         const period = periodRes.rows[0];
         if (!period) throw new HttpError(409, "active_day_with_confirmed_plan_required");
 
-        const bootsRes = await client.query(
-          `SELECT 1 FROM pets p
-            JOIN inventory_items i ON i.id = p.equipped_inventory_item_id
-           WHERE p.child_user_id = $1 AND i.item_id = 'boots'
-             AND NOT i.is_broken AND i.durability_current > 0`,
-          [childUserId],
-        );
-        const dailyLimit = (bootsRes.rowCount ?? 0) > 0
-          ? ECONOMY_RULES.bootsQuestLimit
-          : ECONOMY_RULES.dailyQuestLimit;
+        // The slots promised at selection time survive boots wearing out later.
+        const dailyLimit = daily.limit;
         const paidRes = await client.query<{ paid: string }>(
           `SELECT COUNT(*) AS paid FROM assignments
             WHERE child_user_id = $1 AND origin = 'SYSTEM'

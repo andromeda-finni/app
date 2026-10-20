@@ -214,6 +214,8 @@ class _TurnipGameScreenState extends State<TurnipGameScreen>
       setState(() {
         if (result['completed'] == true) {
           _serverQuestCompleted = true;
+          _rewardWasAlreadyGranted = true;
+          _rewardAmount = (result['rewardAmount'] as num?)?.toInt();
           _assignmentId = null;
           _syncNote =
               'Награда за это задание уже получена. Сейчас это тренировка.';

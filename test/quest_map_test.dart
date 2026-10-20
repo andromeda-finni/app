@@ -135,6 +135,8 @@ Widget _map({
       child: child!,
     ),
     home: QuestMapScreen(
+      useDailyQuests:
+          false, // Legacy static-preview progression is still supported.
       dictionaryProgress: dictionaryProgress,
       showBack: showBack,
       difficulty: difficulty,
@@ -339,24 +341,24 @@ void main() {
       const sourceWidth = 548.0;
       const sourceHeight = 1280.0;
       const expectedPixels = <Offset>[
-        Offset(274, 1184),
-        Offset(274, 924),
-        Offset(274, 760),
-        Offset(274, 600),
-        Offset(274, 447),
-        Offset(274, 298),
-        Offset(274, 157),
-        Offset(184, 70),
+        Offset(250, 1238),
+        Offset(262, 925),
+        Offset(275, 787),
+        Offset(315, 604),
+        Offset(235, 456),
+        Offset(307, 326),
+        Offset(316, 200),
+        Offset(452, 70),
       ];
       const expectedCatStops = <Offset>[
-        Offset(274, 1184),
-        Offset(274, 924),
-        Offset(274, 760),
-        Offset(274, 600),
-        Offset(274, 447),
-        Offset(274, 298),
-        Offset(274, 157),
-        Offset(274, 84),
+        Offset(250, 1238),
+        Offset(262, 925),
+        Offset(275, 787),
+        Offset(315, 604),
+        Offset(235, 456),
+        Offset(307, 326),
+        Offset(316, 200),
+        Offset(452, 150),
       ];
 
       for (var index = 0; index < questMapNodes.length; index++) {
