@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../dictionary/dictionary_text.dart';
 import '../../../theme/app_theme.dart';
 import '../../../minigames/quest_reward_messages.dart';
 import '../turnip_game_content.dart';
@@ -138,7 +139,7 @@ class TurnipSuccessView extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xs),
-                      Text(
+                      DictionaryText(
                         turnipSuccessText,
                         textAlign: TextAlign.center,
                         style: compact

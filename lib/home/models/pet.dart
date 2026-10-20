@@ -47,7 +47,8 @@ class Pet {
     furOptionId: furOptionId,
     accessoryOptionId: accessoryOptionId,
     evolutionStage: evolutionStage,
-    mood: mood,
+    // The full-belly pose has a worried face; a well-fed pet looks content.
+    mood: mood == PetMood.fully ? PetMood.happy : mood,
   );
 
   Pet copyWith({String? name, int? health, String? accessoryOptionId}) => Pet(

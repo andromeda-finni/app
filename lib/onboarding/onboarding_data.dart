@@ -88,6 +88,7 @@ class OnboardingResumeState {
     required this.data,
     this.difficulty,
     this.homeTourCompleted = false,
+    this.mainTabsTourCompleted = false,
   });
 
   factory OnboardingResumeState.fresh() => OnboardingResumeState(
@@ -96,6 +97,7 @@ class OnboardingResumeState {
     data: OnboardingData(),
     difficulty: null,
     homeTourCompleted: false,
+    mainTabsTourCompleted: false,
   );
 
   factory OnboardingResumeState.fromJson(Map<String, dynamic> json) {
@@ -146,6 +148,7 @@ class OnboardingResumeState {
       data: data,
       difficulty: childDifficultyFromApi(json['difficulty']),
       homeTourCompleted: json['homeTourCompleted'] == true,
+      mainTabsTourCompleted: json['mainTabsTourCompleted'] == true,
     );
   }
 
@@ -154,4 +157,5 @@ class OnboardingResumeState {
   final OnboardingData data;
   final ChildDifficulty? difficulty;
   final bool homeTourCompleted;
+  final bool mainTabsTourCompleted;
 }

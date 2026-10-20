@@ -148,6 +148,17 @@ void main() {
       expect(moodFor(satiety: 100, joy: 10, health: 100), PetMood.sad);
     });
 
+    test('sleeps only when energy is too low for a quest', () {
+      expect(moodFor(satiety: 0, joy: 50, health: 100), PetMood.sleep);
+      expect(moodFor(satiety: 19, joy: 50, health: 100), PetMood.sleep);
+      expect(moodFor(satiety: 20, joy: 50, health: 100), PetMood.base);
+    });
+
+    test('a full energy bar does not show the stuffed cat', () {
+      expect(moodFor(satiety: 100, joy: 60, health: 100), PetMood.base);
+      expect(moodFor(satiety: 100, joy: 70, health: 100), PetMood.happy);
+    });
+
     test('each mood resolves to art for every fur colour', () {
       for (final fur in ['FUR_GRAY', 'FUR_ORANGE', 'FUR_WHITE']) {
         for (final mood in PetMood.values) {
@@ -827,6 +838,68 @@ void main() {
       errors.where((error) => error.exceptionAsString().contains('overflowed')),
       isEmpty,
     );
+  });
+
+  testWidgets(
+    'Fox arrives in normal Home and a paused conversation can resume',
+    (tester) async {
+      var visits = 0;
+      await _pump(
+        tester,
+        _screen(
+          handler: (request) async {
+            if (request.url.path == '/fox-events/visit') {
+              visits++;
+              return _json({
+                'gameDay': 3,
+                'balance': 42,
+                'session': {
+                  'id': '11111111-1111-4111-8111-111111111111',
+                  'scriptId': 'fox_younger_introduction',
+                  'currentNodeId': 'start',
+                  'status': 'active',
+                  'isReturnVisit': false,
+                },
+              });
+            }
+            return _json(_economy(activeDay: _draftDay(status: 'CONFIRMED')));
+          },
+        ),
+      );
+      expect(find.text('Пришел Лис'), findsOneWidget);
+      await tester.tap(find.byTooltip('Закрыть событие'));
+      await tester.pumpAndSettle();
+      expect(find.text('Пришел Лис'), findsNothing);
+      final beforeResume = visits;
+      await tester.tap(find.byKey(const Key('resume-fox-visit')));
+      await tester.pumpAndSettle();
+      expect(visits, beforeResume + 1);
+      expect(find.text('Пришел Лис'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Fox waits until the home tour and day planning are finished', (
+    tester,
+  ) async {
+    var visits = 0;
+    Future<http.Response> handler(http.Request request) async {
+      if (request.url.path == '/fox-events/visit') visits++;
+      return _json(_economy(activeDay: _draftDay(status: 'CONFIRMED')));
+    }
+
+    await _pump(tester, _screen(handler: handler, isActive: false));
+    expect(visits, 0);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pump(
+      tester,
+      _screen(
+        handler: (request) async {
+          if (request.url.path == '/fox-events/visit') visits++;
+          return _json(_economy(activeDay: _draftDay()));
+        },
+      ),
+    );
+    expect(visits, 0);
   });
 
   testWidgets('failed load offers a retry', (tester) async {

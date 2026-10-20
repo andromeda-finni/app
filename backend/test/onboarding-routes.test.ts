@@ -19,6 +19,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
   let currentStep = 2;
   let completedAt: Date | null = null;
   let homeTourCompletedAt: Date | null = null;
+  let mainTabsTourCompletedAt: Date | null = null;
   let authRole = "CHILD";
   let profileExists = true;
   let tutorialPlan: [number, number, number] | null = null;
@@ -38,6 +39,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
             onboarding_step: currentStep,
             onboarding_completed_at: completedAt,
             home_tour_completed_at: homeTourCompletedAt,
+            main_tabs_tour_completed_at: mainTabsTourCompletedAt,
             pet_name: "Мурзик",
             fur_option_id: "FUR_GRAY",
             tutorial_need_amount: tutorialPlan?.[0] ?? null,
@@ -52,6 +54,11 @@ test("onboarding status resumes and progress advances sequentially and idempoten
     if (text.startsWith("UPDATE child_profiles") && text.includes("home_tour_completed_at")) {
       if (!profileExists) return { rows: [], rowCount: 0 };
       homeTourCompletedAt ??= new Date("2026-09-27T12:00:00Z");
+      return { rows: [], rowCount: 1 };
+    }
+    if (text.startsWith("UPDATE child_profiles") && text.includes("main_tabs_tour_completed_at")) {
+      if (!profileExists) return { rows: [], rowCount: 0 };
+      mainTabsTourCompletedAt ??= new Date("2026-10-19T12:00:00Z");
       return { rows: [], rowCount: 1 };
     }
     throw new Error(`Unexpected query in test: ${text}`);
@@ -123,6 +130,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       currentStep: 2,
       completed: false,
       homeTourCompleted: false,
+      mainTabsTourCompleted: false,
       pet: { petName: "Мурзик", furOptionId: "FUR_GRAY", accessoryOptionId: "ACC_COLLAR_BLUE" },
       tutorialPlan: null,
     });
@@ -135,6 +143,14 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       payload: {},
     });
     assert.equal(forbiddenTour.statusCode, 403);
+
+    const forbiddenMainTabsTour = await app.inject({
+      method: "PUT",
+      url: "/onboarding/main-tabs-tour",
+      headers: { authorization: "Bearer token" },
+      payload: {},
+    });
+    assert.equal(forbiddenMainTabsTour.statusCode, 403);
     authRole = "CHILD";
 
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -155,6 +171,27 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       payload: { completed: true },
     });
     assert.equal(unknownTourField.statusCode, 400);
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const completedMainTabsTour = await app.inject({
+        method: "PUT",
+        url: "/onboarding/main-tabs-tour",
+        headers: { authorization: "Bearer token" },
+        payload: {},
+      });
+      assert.equal(completedMainTabsTour.statusCode, 200);
+      assert.deepEqual(completedMainTabsTour.json(), {
+        mainTabsTourCompleted: true,
+      });
+    }
+
+    const unknownMainTabsTourField = await app.inject({
+      method: "PUT",
+      url: "/onboarding/main-tabs-tour",
+      headers: { authorization: "Bearer token" },
+      payload: { completed: true },
+    });
+    assert.equal(unknownMainTabsTourField.statusCode, 400);
 
     profileExists = false;
     const missingProfileTour = await app.inject({
@@ -255,6 +292,7 @@ test("onboarding status resumes and progress advances sequentially and idempoten
       currentStep: 4,
       completed: true,
       homeTourCompleted: true,
+      mainTabsTourCompleted: true,
       pet: { petName: "Мурзик", furOptionId: "FUR_GRAY", accessoryOptionId: "ACC_COLLAR_BLUE" },
       tutorialPlan: { needAmount: 5, wantAmount: 2, savingsAmount: 3 },
     });

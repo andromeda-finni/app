@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../dictionary/dictionary_text.dart';
 import '../core/api_client.dart';
+import '../home/main_tabs_tour.dart';
 import '../theme/app_theme.dart';
 import 'economy_action_ui.dart';
 import 'economy_actions.dart';
@@ -25,6 +27,8 @@ class SavingsScreen extends StatefulWidget {
     required this.onChooseGoal,
     required this.onBrowseGoals,
     this.onOpenSettings,
+    this.tourTargets,
+    this.onTourReady,
   });
 
   final ApiClient apiClient;
@@ -32,6 +36,8 @@ class SavingsScreen extends StatefulWidget {
   final VoidCallback onChooseGoal;
   final VoidCallback onBrowseGoals;
   final VoidCallback? onOpenSettings;
+  final MainTabsTourTargets? tourTargets;
+  final VoidCallback? onTourReady;
 
   @override
   State<SavingsScreen> createState() => _SavingsScreenState();
@@ -42,6 +48,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
   String? _error;
   bool _loading = true;
   bool _busy = false;
+  bool _tourReadyReported = false;
   late final EconomyActions _actions = EconomyActions(widget.apiClient);
 
   @override
@@ -59,6 +66,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
         _economy = EconomyState.fromJson(json);
         _error = null;
       });
+      _reportTourReady();
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _error = economyErrorMessage(error));
@@ -68,6 +76,15 @@ class _SavingsScreenState extends State<SavingsScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _reportTourReady() {
+    if (_tourReadyReported || widget.onTourReady == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _tourReadyReported) return;
+      _tourReadyReported = true;
+      widget.onTourReady?.call();
+    });
   }
 
   Future<void> _execute(EconomyOperation operation) async {
@@ -167,7 +184,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
             children: [
               Text(title, style: AppTextStyles.sectionTitle),
               const SizedBox(height: AppSpacing.xxs),
-              Text(hint, style: AppTextStyles.supporting),
+              DictionaryText(hint, style: AppTextStyles.supporting),
               const SizedBox(height: AppSpacing.md),
               LayoutBuilder(
                 builder: (context, constraints) {
@@ -249,6 +266,7 @@ class _SavingsScreenState extends State<SavingsScreen> {
       onRefresh: _load,
       color: AppColors.crimson,
       child: CustomScrollView(
+        controller: widget.tourTargets?.savingsScrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
@@ -267,32 +285,41 @@ class _SavingsScreenState extends State<SavingsScreen> {
                     onOpenSettings: widget.onOpenSettings,
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  _BalanceSummary(
-                    savings: economy.savings,
-                    wallet: economy.wallet,
-                    frozen: economy.frozen,
+                  KeyedSubtree(
+                    key: widget.tourTargets?.savingsBalance,
+                    child: _BalanceSummary(
+                      savings: economy.savings,
+                      wallet: economy.wallet,
+                      frozen: economy.frozen,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.xl),
-                  _GoalSection(
-                    economy: economy,
-                    busy: _busy,
-                    onChoose: hasGoal
-                        ? widget.onBrowseGoals
-                        : widget.onChooseGoal,
-                    onRedeem: _redeem,
+                  KeyedSubtree(
+                    key: widget.tourTargets?.savingsGoal,
+                    child: _GoalSection(
+                      economy: economy,
+                      busy: _busy,
+                      onChoose: hasGoal
+                          ? widget.onBrowseGoals
+                          : widget.onChooseGoal,
+                      onRedeem: _redeem,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   if (transferNotice != null) ...[
                     _Notice(message: transferNotice),
                     const SizedBox(height: AppSpacing.sm),
                   ],
-                  _TransferActions(
-                    onDeposit: _dayReady && hasGoal && !_busy
-                        ? () => _moveSavings(true)
-                        : null,
-                    onWithdraw: _dayReady && economy.savings > 0 && !_busy
-                        ? () => _moveSavings(false)
-                        : null,
+                  KeyedSubtree(
+                    key: widget.tourTargets?.savingsTransfers,
+                    child: _TransferActions(
+                      onDeposit: _dayReady && hasGoal && !_busy
+                          ? () => _moveSavings(true)
+                          : null,
+                      onWithdraw: _dayReady && economy.savings > 0 && !_busy
+                          ? () => _moveSavings(false)
+                          : null,
+                    ),
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: AppSpacing.sm),
@@ -307,12 +334,15 @@ class _SavingsScreenState extends State<SavingsScreen> {
                   const SizedBox(height: AppSpacing.xl),
                   _SavingsHistory(entries: economy.savingsHistory),
                   const SizedBox(height: AppSpacing.xl),
-                  _FrostSection(
-                    economy: economy,
-                    busy: _busy,
-                    dayReady: _dayReady,
-                    onOpen: _openFrost,
-                    onFinish: _finishFrost,
+                  KeyedSubtree(
+                    key: widget.tourTargets?.savingsFrost,
+                    child: _FrostSection(
+                      economy: economy,
+                      busy: _busy,
+                      dayReady: _dayReady,
+                      onOpen: _openFrost,
+                      onFinish: _finishFrost,
+                    ),
                   ),
                 ],
               ),
@@ -592,7 +622,7 @@ class _EmptyGoalCard extends StatelessWidget {
           style: AppTextStyles.cardTitle,
         ),
         const SizedBox(height: AppSpacing.xxs),
-        Text(
+        DictionaryText(
           'Артефакт из сказки, на который будешь копить. Монеты из копилки '
           'пойдут к нему.',
           textAlign: TextAlign.center,
@@ -1077,7 +1107,7 @@ class _FrostSection extends StatelessWidget {
                   children: [
                     Text('Сундук Морозко', style: AppTextStyles.sectionTitle),
                     const SizedBox(height: AppSpacing.xxs),
-                    Text(
+                    DictionaryText(
                       chest == null
                           ? 'Заморозь монеты на несколько дней — вернутся с бонусом.'
                           : 'Монеты заморожены и ждут своего дня.',
@@ -1210,7 +1240,7 @@ class _OpenFrostDetails extends StatelessWidget {
                 style: AppTextStyles.cardTitle,
               ),
             ),
-            Text(
+            DictionaryText(
               '+$bonus бонус',
               style: AppTextStyles.cardRowLabel.copyWith(
                 color: AppColors.frostBlue,
@@ -1232,7 +1262,7 @@ class _OpenFrostDetails extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
-        Text(
+        DictionaryText(
           matured
               ? 'Срок вышел — можно забирать с бонусом.'
               : 'Осталось ${_gameDaysLabel(remaining)}',

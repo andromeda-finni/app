@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../dictionary/dictionary_text.dart';
 import '../../core/api_client.dart';
 import '../../minigames/quest_reward_messages.dart';
 import '../../theme/app_theme.dart';
@@ -450,8 +451,10 @@ class _SquirrelDialogue extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 7),
-                    Text(
+                    DictionaryText(
                       lines[page],
+                      // These are winter food supplies, not a money reserve.
+                      excludedWordIds: const {'reserve'},
                       style: AppTextStyles.story.copyWith(fontSize: 18),
                     ),
                     const SizedBox(height: 14),
@@ -591,7 +594,7 @@ class _SquirrelLessonCard extends StatelessWidget {
                   style: AppTextStyles.eventTitle.copyWith(fontSize: 27),
                 ),
                 const SizedBox(height: 14),
-                Text(
+                DictionaryText(
                   message,
                   textAlign: TextAlign.center,
                   style: AppTextStyles.story.copyWith(fontSize: 18),
@@ -816,7 +819,7 @@ class _InstructionCard extends StatelessWidget {
       color: const Color(0xEFFFF9EC),
       borderRadius: BorderRadius.circular(18),
     ),
-    child: Text(
+    child: DictionaryText(
       level.instruction,
       textAlign: TextAlign.center,
       style: AppTextStyles.story.copyWith(fontSize: 16),

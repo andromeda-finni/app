@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
+import '../../theme/wax_seal.dart';
+
+enum HomePanelStyle { classic, waxSeal }
+
+const _defaultPanelStyle =
+    bool.fromEnvironment('HOME_WAX_SEAL_BUTTONS', defaultValue: true)
+    ? HomePanelStyle.waxSeal
+    : HomePanelStyle.classic;
 
 /// One action of the home's left-side panel: a round, colour-coded medallion
 /// drawn over the room scene, game-style. The picture carries the meaning on
@@ -32,9 +40,14 @@ class HomePanelAction {
 }
 
 class HomeSidePanel extends StatelessWidget {
-  const HomeSidePanel({super.key, required this.actions});
+  const HomeSidePanel({
+    super.key,
+    required this.actions,
+    this.style = _defaultPanelStyle,
+  });
 
   final List<HomePanelAction> actions;
+  final HomePanelStyle style;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +65,7 @@ class HomeSidePanel extends StatelessWidget {
             if (i > 0) const SizedBox(height: AppSpacing.sm),
             KeyedSubtree(
               key: actions[i].tourKey,
-              child: _PanelButton(action: actions[i]),
+              child: _PanelButton(action: actions[i], style: style),
             ),
           ],
         ],
@@ -62,9 +75,10 @@ class HomeSidePanel extends StatelessWidget {
 }
 
 class _PanelButton extends StatefulWidget {
-  const _PanelButton({required this.action});
+  const _PanelButton({required this.action, required this.style});
 
   final HomePanelAction action;
+  final HomePanelStyle style;
 
   @override
   State<_PanelButton> createState() => _PanelButtonState();
@@ -118,38 +132,52 @@ class _PanelButtonState extends State<_PanelButton>
     final action = widget.action;
     final enabled = action.onTap != null && !action.busy;
     final color = enabled ? action.color : AppColors.inkMuted;
-    final medallion = DecoratedBox(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color.lerp(color, Colors.white, 0.22)!, color],
-        ),
-        border: Border.all(color: AppColors.cardBg, width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.ink.withValues(alpha: enabled ? 0.28 : 0.12),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: SizedBox.square(
-        dimension: _size,
-        child: Center(
-          child: action.busy
-              ? const SizedBox.square(
-                  dimension: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 3,
-                    color: Colors.white,
-                  ),
-                )
-              : Icon(action.icon, size: 32, color: Colors.white),
-        ),
-      ),
-    );
+    final medallion = widget.style == HomePanelStyle.waxSeal
+        ? WaxSeal(
+            size: _size,
+            icon: action.icon,
+            child: action.busy
+                ? const SizedBox.square(
+                    dimension: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: Color(0xFFF4CBAB),
+                    ),
+                  )
+                : null,
+          )
+        : DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color.lerp(color, Colors.white, 0.22)!, color],
+              ),
+              border: Border.all(color: AppColors.cardBg, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.ink.withValues(alpha: enabled ? 0.28 : 0.12),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: SizedBox.square(
+              dimension: _size,
+              child: Center(
+                child: action.busy
+                    ? const SizedBox.square(
+                        dimension: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(action.icon, size: 32, color: Colors.white),
+              ),
+            ),
+          );
 
     return Semantics(
       button: true,
@@ -181,10 +209,10 @@ class _PanelButtonState extends State<_PanelButton>
                   ),
                 ),
                 if (action.attention)
-                  const Positioned(
+                  Positioned(
                     top: -4,
                     right: -4,
-                    child: _AttentionBadge(),
+                    child: _AttentionBadge(style: widget.style),
                   ),
               ],
             ),
@@ -196,7 +224,9 @@ class _PanelButtonState extends State<_PanelButton>
 }
 
 class _AttentionBadge extends StatelessWidget {
-  const _AttentionBadge();
+  const _AttentionBadge({required this.style});
+
+  final HomePanelStyle style;
 
   @override
   Widget build(BuildContext context) {
@@ -205,14 +235,18 @@ class _AttentionBadge extends StatelessWidget {
       height: 24,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppColors.coinGold,
+        color: style == HomePanelStyle.waxSeal
+            ? AppColors.parchment
+            : AppColors.coinGold,
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.cardBg, width: 2),
       ),
-      child: const Text(
+      child: Text(
         '!',
         style: TextStyle(
-          color: Colors.white,
+          color: style == HomePanelStyle.waxSeal
+              ? AppColors.crimson
+              : Colors.white,
           fontWeight: FontWeight.w800,
           fontSize: 14,
           height: 1,

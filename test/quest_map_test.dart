@@ -1,12 +1,20 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/core/child_difficulty.dart';
+import 'package:andromeda_app/dictionary/dictionary_progress.dart';
+import 'package:andromeda_app/dictionary/dictionary_scope.dart';
+import 'package:andromeda_app/games/ivan/ivan_game_screen.dart';
+import 'package:andromeda_app/minigames/bakery/bakery_game_screen.dart';
+import 'package:andromeda_app/minigames/mole/mole_game_screen.dart';
+import 'package:andromeda_app/minigames/park/park_project_screen.dart';
+import 'package:andromeda_app/minigames/tugriki/tugriki_game_screen.dart';
 import 'package:andromeda_app/games/goldfish/goldfish_game_models.dart';
 import 'package:andromeda_app/games/goldfish/goldfish_game_screen.dart';
 import 'package:andromeda_app/games/squirrel/squirrel_game_models.dart';
@@ -18,6 +26,7 @@ import 'package:andromeda_app/map/quest_map_screen.dart';
 import 'package:andromeda_app/theme/app_theme.dart';
 
 import 'support/fake_auth_storage.dart';
+import 'dictionary_progress_test.dart' show MemoryStorage;
 
 Widget _map({
   List<String> completed = const [],
@@ -28,6 +37,7 @@ Widget _map({
   bool ambientMotion = false,
   ChildDifficulty difficulty = ChildDifficulty.beginner,
   int energy = 100,
+  DictionaryProgress? dictionaryProgress,
 }) {
   final client = MockClient((request) async {
     if (failProgress) {
@@ -39,7 +49,18 @@ Widget _map({
     }
     if (request.url.path == '/park-project') {
       return http.Response(
-        jsonEncode({'scene': 'FIRST_OFFER', 'completed': false}),
+        jsonEncode({
+          'scene': 'FIRST_OFFER',
+          'stage': 'FIRST_OFFER',
+          'completed': false,
+          'targetAmount': 100,
+          'collectedAmount': 0,
+          'offerAmount': 5,
+          'spendableBalance': 20,
+          'availableToContribute': 10,
+          'canContribute': true,
+          'childContribution': 0,
+        }),
         200,
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
@@ -107,13 +128,16 @@ Widget _map({
   return MaterialApp(
     theme: AppTheme.light,
     builder: (context, child) => MediaQuery(
-      data: MediaQuery.of(context)
-          .copyWith(textScaler: TextScaler.linear(textScale)),
+      data: MediaQuery.of(context).copyWith(
+        textScaler: TextScaler.linear(textScale),
+        disableAnimations: dictionaryProgress != null,
+      ),
       child: child!,
     ),
     home: QuestMapScreen(
       useDailyQuests:
           false, // Legacy static-preview progression is still supported.
+      dictionaryProgress: dictionaryProgress,
       showBack: showBack,
       difficulty: difficulty,
       enableAmbientSceneMotion: ambientMotion,
@@ -136,6 +160,72 @@ Future<void> _openNode(WidgetTester tester, String id) async {
 }
 
 void main() {
+  test('the map contains Squirrel and has no permanent Fox stop', () {
+    expect(questMapNodes.where((node) => node.id == 'squirrel'), hasLength(1));
+    expect(
+      questMapNodes.any(
+        (node) => node.id.contains('fox') || node.character.contains('Лис'),
+      ),
+      false,
+    );
+  });
+
+  for (final entry in {
+    'turnip': TurnipGameScreen,
+    'mole': MoleGameScreen,
+    'ivan': IvanGameScreen,
+    'goldfish': GoldfishGameScreen,
+    'squirrel': SquirrelGameScreen,
+    'bakery': BakeryGameScreen,
+    'tugriki': TugrikiGameScreen,
+    'badger': ParkProjectScreen,
+  }.entries) {
+    testWidgets('${entry.key} route uses the map profile dictionary', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(480, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final font = FontLoader('PTSerif')
+        ..addFont(rootBundle.load('assets/fonts/PTSerif-Regular.ttf'))
+        ..addFont(rootBundle.load('assets/fonts/PTSerif-Bold.ttf'));
+      await font.load();
+      final progress = DictionaryProgress(storage: MemoryStorage());
+      addTearDown(progress.dispose);
+      await tester.pumpWidget(
+        _map(
+          dictionaryProgress: progress,
+          completed: const [
+            'Q_TURNIP_HARVEST',
+            'Q_MOLE_FINE_PRINT',
+            'Q_IVAN_ROAD_EASY_1',
+            'Q_IVAN_ROAD_EASY_2',
+            'Q_GOLDFISH_HOME_SIMPLE_1',
+            'Q_GOLDFISH_HOME_SIMPLE_2',
+            'Q_SQUIRREL_QUALITY_SIMPLE',
+            'Q_BAKERY_PROFIT',
+            'Q_TUGRIKI_CURRENCY',
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _openNode(tester, entry.key);
+      await tester.tap(find.byKey(Key('play-${entry.key}')));
+      // Existing game scene animations can loop; only wait for route/loading.
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 500));
+      }
+      expect(find.byType(entry.value), findsOneWidget);
+      expect(
+        DictionaryScope.maybeOf(tester.element(find.byType(entry.value)))
+            ?.progress,
+        same(progress),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   group('progress comes from completed server quests', () {
     int indexOf(String id) => questMapNodes.indexWhere((n) => n.id == id);
 

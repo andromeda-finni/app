@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../dictionary/dictionary_text.dart';
 import '../../../theme/app_theme.dart';
 import '../goldfish_game_content.dart';
 import '../goldfish_game_models.dart';
@@ -141,7 +142,7 @@ class GoldfishDialogueView extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: AppSpacing.xs),
-                        Text(
+                        DictionaryText(
                           line.text,
                           style: compact
                               ? AppTextStyles.supporting.copyWith(

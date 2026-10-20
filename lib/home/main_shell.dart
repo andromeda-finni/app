@@ -8,6 +8,7 @@ import '../core/game_audio_service.dart';
 import '../core/large_text.dart';
 import '../core/offline/offline_banner.dart';
 import '../dictionary/dictionary_progress.dart';
+import '../dictionary/dictionary_scope.dart';
 import '../dictionary/dictionary_storage.dart';
 import '../dictionary/scroll_sheet.dart';
 import '../dictionary/word_token.dart';
@@ -19,6 +20,7 @@ import '../shop/shop_screen.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'home_tour.dart';
+import 'main_tabs_tour.dart';
 import 'widgets/app_nav_bar.dart';
 
 /// The app once onboarding is done: four tabs behind one bottom bar.
@@ -32,6 +34,7 @@ class MainShell extends StatefulWidget {
     required this.apiClient,
     this.initialDifficulty = ChildDifficulty.beginner,
     this.showHomeTour = false,
+    this.showMainTabsTour = false,
     this.onSwitchAudience,
     this.dictionaryProgress,
   });
@@ -39,6 +42,7 @@ class MainShell extends StatefulWidget {
   final ApiClient apiClient;
   final ChildDifficulty initialDifficulty;
   final bool showHomeTour;
+  final bool showMainTabsTour;
 
   /// Returns to the child/parent role choice; wired from the settings screen.
   final VoidCallback? onSwitchAudience;
@@ -51,6 +55,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   final _tourOverlayKey = GlobalKey(debugLabel: 'home-tour-overlay');
   final _tourTargets = HomeTourTargets();
+  final _mainTabsTourTargets = MainTabsTourTargets();
   int _index = 0;
   int _storeReturnIndex = 0;
   int _homeRevision = 0;
@@ -72,6 +77,13 @@ class _MainShellState extends State<MainShell> {
   int _tourStep = 0;
   String? _tourError;
   List<Rect> _spotlights = const [];
+  bool _mainTabsTourStarted = false;
+  bool _mainTabsTourCompleted = false;
+  bool _mainTabsTourBusy = false;
+  int _mainTabsTourStep = 0;
+  String? _mainTabsTourError;
+  List<Rect> _mainTabsSpotlights = const [];
+  final Set<int> _mainTabsReady = {};
 
   @override
   void initState() {
@@ -92,6 +104,7 @@ class _MainShellState extends State<MainShell> {
     LargeTextScope.enabled.value = false;
     widget.apiClient.offline?.removeListener(_offlineChanged);
     _tourTargets.dispose();
+    _mainTabsTourTargets.dispose();
     if (widget.dictionaryProgress == null) _dictionary.dispose();
     super.dispose();
   }
@@ -122,16 +135,43 @@ class _MainShellState extends State<MainShell> {
 
   bool get _tourActive => widget.showHomeTour && _homeReady && !_tourCompleted;
 
+  bool get _mainTabsTourActive =>
+      widget.showMainTabsTour &&
+      _mainTabsTourStarted &&
+      !_mainTabsTourCompleted &&
+      _mainTabsReady.contains(
+        _mainTabsTourTargets.tabForStep(_mainTabsTourStep),
+      );
+
   void _homeDidBecomeReady() {
-    if (!widget.showHomeTour || _homeReady) return;
+    if (_homeReady) return;
     setState(() => _homeReady = true);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _prepareTourStep(0));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_tourActive) {
+        _prepareTourStep(0);
+      } else {
+        _startMainTabsTour();
+      }
+    });
   }
 
   Duration _tourMotionDuration() =>
       MediaQuery.maybeOf(context)?.disableAnimations == true
       ? Duration.zero
       : const Duration(milliseconds: 260);
+
+  Future<void> _moveScroll(ScrollController controller, double offset) async {
+    final duration = _tourMotionDuration();
+    if (duration == Duration.zero) {
+      controller.jumpTo(offset);
+      return;
+    }
+    await controller.animateTo(
+      offset,
+      duration: duration,
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   Future<void> _prepareTourStep(int step) async {
     if (!mounted || !_tourActive || _tourBusy) return;
@@ -146,18 +186,13 @@ class _MainShellState extends State<MainShell> {
 
     final controller = _tourTargets.scrollController;
     if (step < 2) {
-      await controller.animateTo(
-        0,
-        duration: _tourMotionDuration(),
-        curve: Curves.easeOutCubic,
-      );
+      await _moveScroll(controller, 0);
     } else {
       final planContext = _tourTargets.plan.currentContext;
       if (planContext == null) {
-        await controller.animateTo(
+        await _moveScroll(
+          controller,
           controller.position.maxScrollExtent.clamp(0, 520),
-          duration: _tourMotionDuration(),
-          curve: Curves.easeOutCubic,
         );
         await WidgetsBinding.instance.endOfFrame;
       }
@@ -210,11 +245,7 @@ class _MainShellState extends State<MainShell> {
         throw const FormatException('Invalid home tour response');
       }
       if (_tourTargets.scrollController.hasClients) {
-        await _tourTargets.scrollController.animateTo(
-          0,
-          duration: _tourMotionDuration(),
-          curve: Curves.easeOutCubic,
-        );
+        await _moveScroll(_tourTargets.scrollController, 0);
       }
       if (!mounted) return;
       setState(() {
@@ -222,11 +253,136 @@ class _MainShellState extends State<MainShell> {
         _tourCompleted = true;
         _spotlights = const [];
       });
+      _startMainTabsTour();
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _tourBusy = false;
         _tourError = 'Не получилось сохранить. Попробовать ещё раз.';
+      });
+    }
+  }
+
+  void _startMainTabsTour() {
+    if (!mounted ||
+        !widget.showMainTabsTour ||
+        _mainTabsTourStarted ||
+        _mainTabsTourCompleted ||
+        _tourActive) {
+      return;
+    }
+    setState(() {
+      _mainTabsTourStarted = true;
+      _index = 1;
+    });
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _prepareMainTabsTourStep(0),
+    );
+  }
+
+  void _mainTabDidBecomeReady(int tab) {
+    _mainTabsReady.add(tab);
+    if (!_mainTabsTourActive ||
+        _mainTabsTourTargets.tabForStep(_mainTabsTourStep) != tab) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _prepareMainTabsTourStep(_mainTabsTourStep),
+    );
+  }
+
+  Future<void> _prepareMainTabsTourStep(int step) async {
+    if (!mounted || !_mainTabsTourActive || _mainTabsTourBusy) return;
+    final targetTab = _mainTabsTourTargets.tabForStep(step);
+    final changingTab = _index != targetTab;
+    setState(() {
+      _mainTabsTourStep = step;
+      _mainTabsTourError = null;
+      _mainTabsSpotlights = const [];
+      if (changingTab && targetTab == 2) {
+        _storeMode = StoreMode.normal;
+        _storeRevision++;
+        _mainTabsReady.remove(2);
+      }
+      if (changingTab && targetTab == 3) {
+        _savingsRevision++;
+        _mainTabsReady.remove(3);
+      }
+      _index = targetTab;
+    });
+
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || !_mainTabsReady.contains(targetTab)) return;
+
+    final target = _mainTabsTourTargets.scrollTargetForStep(step);
+    final controller = _mainTabsTourTargets.scrollControllerForStep(step);
+    if (controller?.hasClients == true && (step == 2 || step == 4)) {
+      await _moveScroll(controller!, 0);
+    }
+    final targetContext = target?.currentContext;
+    if (targetContext != null && targetContext.mounted) {
+      await Scrollable.ensureVisible(
+        targetContext,
+        alignment: step == 6 ? 0.08 : 0.2,
+        duration: _tourMotionDuration(),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) _refreshMainTabsSpotlights();
+  }
+
+  void _refreshMainTabsSpotlights() {
+    final overlayBox = _tourOverlayKey.currentContext?.findRenderObject();
+    if (overlayBox is! RenderBox || !overlayBox.hasSize) return;
+    final viewport = Offset.zero & overlayBox.size;
+    final rects = <Rect>[];
+    for (final key in _mainTabsTourTargets.keysForStep(_mainTabsTourStep)) {
+      final targetBox = key.currentContext?.findRenderObject();
+      if (targetBox is! RenderBox || !targetBox.hasSize) continue;
+      final origin = targetBox.localToGlobal(Offset.zero, ancestor: overlayBox);
+      final rect = origin & targetBox.size;
+      if (rect.overlaps(viewport)) rects.add(rect.intersect(viewport));
+    }
+    if (mounted) setState(() => _mainTabsSpotlights = rects);
+  }
+
+  Future<void> _nextMainTabsTourStep() async {
+    if (_mainTabsTourStep < MainTabsTourOverlay.stepCount - 1) {
+      await _prepareMainTabsTourStep(_mainTabsTourStep + 1);
+      return;
+    }
+    await _finishMainTabsTour();
+  }
+
+  Future<void> _finishMainTabsTour() async {
+    if (_mainTabsTourBusy) return;
+    setState(() {
+      _mainTabsTourBusy = true;
+      _mainTabsTourError = null;
+    });
+    try {
+      final response = await widget.apiClient.put('/onboarding/main-tabs-tour');
+      if (response['mainTabsTourCompleted'] != true) {
+        throw const FormatException('Invalid main tabs tour response');
+      }
+      final savingsScroll = _mainTabsTourTargets.savingsScrollController;
+      if (savingsScroll.hasClients) {
+        await _moveScroll(savingsScroll, 0);
+      }
+      if (!mounted) return;
+      setState(() {
+        _mainTabsTourBusy = false;
+        _mainTabsTourCompleted = true;
+        _mainTabsSpotlights = const [];
+        _index = 0;
+        _homeRevision++;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _mainTabsTourBusy = false;
+        _mainTabsTourError = 'Не получилось сохранить. Попробовать ещё раз.';
       });
     }
   }
@@ -320,7 +476,11 @@ class _MainShellState extends State<MainShell> {
   Future<void> _openInsurance() async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => InsuranceScreen(apiClient: widget.apiClient),
+        builder: (_) => DictionaryScope(
+          progress: _dictionary,
+          media: MediaQuery.of(context),
+          child: InsuranceScreen(apiClient: widget.apiClient),
+        ),
       ),
     );
     if (!mounted) return;
@@ -410,7 +570,10 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final tourPending = widget.showHomeTour && !_tourCompleted;
+    final homeTourPending = widget.showHomeTour && !_tourCompleted;
+    final mainTabsTourPending =
+        widget.showMainTabsTour && !_mainTabsTourCompleted;
+    final anyTourPending = homeTourPending || mainTabsTourPending;
     final content = Scaffold(
       backgroundColor: AppColors.parchment,
       body: SafeArea(
@@ -437,12 +600,12 @@ class _MainShellState extends State<MainShell> {
                       if (_planningRequired == required || !mounted) return;
                       setState(() => _planningRequired = required);
                     },
-                    isActive: _index == 0 && !tourPending,
+                    isActive: _index == 0 && !anyTourPending,
                     focusPlan: _focusHomePlan,
                     tourTargets: widget.showHomeTour ? _tourTargets : null,
                     onTourReady: _homeDidBecomeReady,
                   ),
-                  if (tourPending) ...[
+                  if (homeTourPending) ...[
                     const SizedBox.shrink(),
                     const SizedBox.shrink(),
                     const SizedBox.shrink(),
@@ -461,6 +624,12 @@ class _MainShellState extends State<MainShell> {
                         showBack: false,
                         onStartDayRequested: _openPlan,
                         difficulty: _settings.difficulty,
+                        tourTargets: mainTabsTourPending
+                            ? _mainTabsTourTargets
+                            : null,
+                        onTourReady: mainTabsTourPending
+                            ? () => _mainTabDidBecomeReady(1)
+                            : null,
                       ),
                     ),
                     ShopScreen(
@@ -471,15 +640,31 @@ class _MainShellState extends State<MainShell> {
                       onGoalSelected: _goalSelected,
                       onOpenPlan: _openPlan,
                       onOpenQuests: () => _selectTab(1),
+                      tourTargets: mainTabsTourPending
+                          ? _mainTabsTourTargets
+                          : null,
+                      onTourReady: mainTabsTourPending
+                          ? () => _mainTabDidBecomeReady(2)
+                          : null,
                     ),
-                    SavingsScreen(
-                      key: ValueKey('savings-$_savingsRevision'),
-                      apiClient: widget.apiClient,
-                      onBack: () => setState(() => _index = 0),
-                      onChooseGoal: () => _openGoalStore(StoreMode.selectGoal),
-                      onBrowseGoals: () =>
-                          _openGoalStore(StoreMode.browseGoals),
-                      onOpenSettings: _openSettings,
+                    TickerMode(
+                      enabled: _index == 3,
+                      child: SavingsScreen(
+                        key: ValueKey('savings-$_savingsRevision'),
+                        apiClient: widget.apiClient,
+                        onBack: () => setState(() => _index = 0),
+                        onChooseGoal: () =>
+                            _openGoalStore(StoreMode.selectGoal),
+                        onBrowseGoals: () =>
+                            _openGoalStore(StoreMode.browseGoals),
+                        onOpenSettings: _openSettings,
+                        tourTargets: mainTabsTourPending
+                            ? _mainTabsTourTargets
+                            : null,
+                        onTourReady: mainTabsTourPending
+                            ? () => _mainTabDidBecomeReady(3)
+                            : null,
+                      ),
                     ),
                   ],
                 ],
@@ -497,7 +682,14 @@ class _MainShellState extends State<MainShell> {
       key: _tourOverlayKey,
       children: [
         Positioned.fill(
-          child: ExcludeSemantics(excluding: _tourActive, child: content),
+          child: DictionaryScope(
+            progress: _dictionary,
+            media: MediaQuery.of(context),
+            child: ExcludeSemantics(
+              excluding: _tourActive || _mainTabsTourActive,
+              child: content,
+            ),
+          ),
         ),
         if (_tourActive)
           Positioned.fill(
@@ -508,6 +700,17 @@ class _MainShellState extends State<MainShell> {
               error: _tourError,
               onNext: _nextTourStep,
               onBack: () => _prepareTourStep(_tourStep - 1),
+            ),
+          ),
+        if (_mainTabsTourActive && !_tourActive)
+          Positioned.fill(
+            child: MainTabsTourOverlay(
+              step: _mainTabsTourStep,
+              spotlights: _mainTabsSpotlights,
+              busy: _mainTabsTourBusy,
+              error: _mainTabsTourError,
+              onNext: _nextMainTabsTourStep,
+              onBack: () => _prepareMainTabsTourStep(_mainTabsTourStep - 1),
             ),
           ),
       ],

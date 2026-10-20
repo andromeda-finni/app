@@ -17,6 +17,7 @@ interface OnboardingStatusRow {
   onboarding_step: number;
   onboarding_completed_at: Date | null;
   home_tour_completed_at: Date | null;
+  main_tabs_tour_completed_at: Date | null;
   pet_name: string | null;
   fur_option_id: string | null;
   tutorial_need_amount: number | null;
@@ -42,6 +43,7 @@ function statusResponse(row: OnboardingStatusRow) {
     currentStep: row.onboarding_step,
     completed: row.onboarding_completed_at !== null,
     homeTourCompleted: row.home_tour_completed_at !== null,
+    mainTabsTourCompleted: row.main_tabs_tour_completed_at !== null,
     pet:
       row.pet_name === null
         ? null
@@ -68,7 +70,8 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
     async (req) => {
       const res = await pool.query<OnboardingStatusRow>(
         `SELECT cp.difficulty, cp.onboarding_step, cp.onboarding_completed_at,
-                cp.home_tour_completed_at, cp.tutorial_need_amount,
+                cp.home_tour_completed_at, cp.main_tabs_tour_completed_at,
+                cp.tutorial_need_amount,
                 cp.tutorial_want_amount, cp.tutorial_savings_amount,
                 p.pet_name, p.fur_option_id, p.accessory_option_id
            FROM child_profiles cp
@@ -79,6 +82,30 @@ export async function onboardingRoutes(app: FastifyInstance): Promise<void> {
       const row = res.rows[0];
       if (!row) throw new HttpError(404, "child_profile_not_found");
       return statusResponse(row);
+    },
+  );
+
+  app.put(
+    "/onboarding/main-tabs-tour",
+    {
+      preHandler: [requireAuth, requireRole("CHILD")],
+      schema: bodySchema({}, []),
+    },
+    async (req) => {
+      const result = await pool.query(
+        `UPDATE child_profiles
+            SET main_tabs_tour_completed_at = COALESCE(main_tabs_tour_completed_at, now()),
+                updated_at = CASE
+                  WHEN main_tabs_tour_completed_at IS NULL THEN now()
+                  ELSE updated_at
+                END
+          WHERE user_id = $1`,
+        [req.authUser!.id],
+      );
+      if (result.rowCount === 0) {
+        throw new HttpError(404, "child_profile_not_found");
+      }
+      return { mainTabsTourCompleted: true };
     },
   );
 

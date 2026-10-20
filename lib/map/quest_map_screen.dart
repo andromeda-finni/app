@@ -7,6 +7,8 @@ import '../core/api_client.dart';
 import '../core/child_difficulty.dart';
 import '../core/pet_assets.dart';
 import '../dictionary/dictionary_progress.dart';
+import '../dictionary/dictionary_scope.dart';
+import '../dictionary/dictionary_text.dart';
 import '../games/goldfish/goldfish_game_models.dart';
 import '../games/goldfish/goldfish_game_screen.dart';
 import '../games/ivan/ivan_game_models.dart';
@@ -15,6 +17,7 @@ import '../games/squirrel/squirrel_game_models.dart';
 import '../games/squirrel/squirrel_game_screen.dart';
 import '../games/turnip/turnip_game_models.dart';
 import '../games/turnip/turnip_game_screen.dart';
+import '../home/main_tabs_tour.dart';
 import '../minigames/bakery/bakery_game_screen.dart';
 import '../minigames/mole/mole_game_screen.dart';
 import '../minigames/park/park_project_screen.dart';
@@ -37,6 +40,8 @@ class QuestMapScreen extends StatefulWidget {
     this.dailyPreview,
     this.useDailyQuests = true,
     this.onStartDayRequested,
+    this.tourTargets,
+    this.onTourReady,
   });
 
   /// Source of progress and the server every launched game reports to.
@@ -59,6 +64,8 @@ class QuestMapScreen extends StatefulWidget {
   /// Allows deterministic screenshots and tests while production keeps the
   /// current story scene gently alive. System reduced-motion still wins.
   final bool enableAmbientSceneMotion;
+  final MainTabsTourTargets? tourTargets;
+  final VoidCallback? onTourReady;
 
   @override
   State<QuestMapScreen> createState() => _QuestMapScreenState();
@@ -111,6 +118,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   bool _hasLoadedProgress = false;
   bool _isLoadingProgress = false;
   String? _progressError;
+  bool _tourReadyReported = false;
 
   @override
   void initState() {
@@ -239,6 +247,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       } else {
         WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToStart());
       }
+      _reportTourReady();
     } on ApiException {
       if (!mounted) return;
       setState(() {
@@ -255,6 +264,15 @@ class _QuestMapScreenState extends State<QuestMapScreen>
     }
   }
 
+  void _reportTourReady() {
+    if (_tourReadyReported || widget.onTourReady == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _tourReadyReported) return;
+      _tourReadyReported = true;
+      widget.onTourReady?.call();
+    });
+  }
+
   QuestMapNodeState _stateFor(QuestMapNode node) {
     if (!_usesDaily || !node.isRewardedQuest) {
       return stateForQuestMapNode(node, _completedQuestIds);
@@ -266,6 +284,13 @@ class _QuestMapScreenState extends State<QuestMapScreen>
     }
     return QuestMapNodeState.locked;
   }
+
+  /// The one node the tabs tour points at. Daily quests make several nodes
+  /// "current" at once, but a GlobalKey may sit on a single widget only.
+  String? get _tourQuestNodeId => questMapNodes
+      .where((node) => _stateFor(node) == QuestMapNodeState.current)
+      .firstOrNull
+      ?.id;
 
   bool _trackIsComplete(QuestMapNode node) =>
       node.isRewardedQuest &&
@@ -709,25 +734,42 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: const Color(0x663B2F27),
-      builder: (context) => _QuestDetailsSheet(
-        node: node,
-        state: _stateFor(node),
-        unlockMessage: _unlockMessage(node),
-        rewardAmount: _rewardFor(node),
-        isInProgress: _inProgress(node),
-        parkStatus: node.destination == QuestMapDestination.badger
-            ? _parkStatusText
-            : null,
+      builder: (_) => _withDictionary(
+        _QuestDetailsSheet(
+          node: node,
+          state: _stateFor(node),
+          unlockMessage: _unlockMessage(node),
+          rewardAmount: _rewardFor(node),
+          isInProgress: _inProgress(node),
+          parkStatus: node.destination == QuestMapDestination.badger
+              ? _parkStatusText
+              : null,
+        ),
       ),
     );
     if (shouldOpen == true && mounted) await _launchNode(node);
+  }
+
+  DictionaryScope _withDictionary(Widget child) {
+    final scope = DictionaryScope.maybeOf(context);
+    return DictionaryScope(
+      progress: widget.dictionaryProgress ?? scope?.progress,
+      media: scope?.media ?? MediaQuery.of(context),
+      child: child,
+    );
+  }
+
+  MaterialPageRoute<void> _gameRoute({required WidgetBuilder builder}) {
+    return MaterialPageRoute<void>(
+      builder: (gameContext) => _withDictionary(builder(gameContext)),
+    );
   }
 
   Future<void> _launch(QuestMapDestination destination) {
     final navigator = Navigator.of(context);
     return switch (destination) {
       QuestMapDestination.turnip => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => TurnipGameScreen(
             difficulty: widget.difficulty == ChildDifficulty.advanced
                 ? TurnipDifficulty.hard
@@ -739,12 +781,10 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         ),
       ),
       QuestMapDestination.mole => navigator.push<void>(
-        MaterialPageRoute(
-          builder: (_) => MoleGameScreen(apiClient: widget.apiClient),
-        ),
+        _gameRoute(builder: (_) => MoleGameScreen(apiClient: widget.apiClient)),
       ),
       QuestMapDestination.bakery => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => BakeryGameScreen(
             difficulty: widget.difficulty,
             apiClient: widget.apiClient,
@@ -753,7 +793,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         ),
       ),
       QuestMapDestination.ivan => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => IvanGameScreen(
             initialLevel:
                 IvanLevelId.values
@@ -776,7 +816,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         ),
       ),
       QuestMapDestination.goldfish => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => GoldfishGameScreen(
             initialLevel:
                 GoldfishLevelId.values
@@ -799,7 +839,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         ),
       ),
       QuestMapDestination.squirrel => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => SquirrelGameScreen(
             difficulty:
                 (_dailyQuestId(destination) == squirrelAdvancedQuestId ||
@@ -819,7 +859,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         ),
       ),
       QuestMapDestination.tugriki => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => TugrikiGameScreen(
             apiClient: widget.apiClient,
             dictionaryProgress: widget.dictionaryProgress,
@@ -833,7 +873,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
         ),
       ),
       QuestMapDestination.badger => navigator.push<void>(
-        MaterialPageRoute(
+        _gameRoute(
           builder: (gameContext) => ParkProjectScreen(
             difficulty: widget.difficulty,
             apiClient: widget.apiClient,
@@ -850,45 +890,57 @@ class _QuestMapScreenState extends State<QuestMapScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      _withDictionary(Builder(builder: _buildMap));
+
+  Widget _buildMap(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.parchment,
       body: SafeArea(
         child: Column(
           children: [
-            _MapHeader(
-              onBack: widget.showBack
-                  ? () => Navigator.of(context).maybePop()
-                  : null,
-              progressLabel: _headerProgressLabel,
+            KeyedSubtree(
+              key: widget.tourTargets?.mapHeader,
+              child: _MapHeader(
+                onBack: widget.showBack
+                    ? () => Navigator.of(context).maybePop()
+                    : null,
+                progressLabel: _headerProgressLabel,
+              ),
             ),
             if (_usesDaily &&
                 _daily != null &&
                 _daily!.periodId == null &&
                 !_isLoadingProgress &&
                 _progressError == null)
-              Padding(
-                key: const Key('map-start-new-day'),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'День завершён. Начни новый игровой день, чтобы увидеть просьбы.',
-                      style: AppTextStyles.story,
-                    ),
-                    if (widget.onStartDayRequested != null) ...[
-                      const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: widget.onStartDayRequested,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.crimson,
-                          minimumSize: const Size(48, 54),
+              // Shrinks and scrolls on a short screen with large text so the
+              // map below always keeps its space.
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    key: const Key('map-start-new-day'),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'День завершён. Начни новый игровой день, чтобы увидеть просьбы.',
+                          style: AppTextStyles.story,
                         ),
-                        child: const Text('Начать новый день'),
-                      ),
-                    ],
-                  ],
+                        if (widget.onStartDayRequested != null) ...[
+                          const SizedBox(height: 12),
+                          FilledButton(
+                            onPressed: widget.onStartDayRequested,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.crimson,
+                              minimumSize: const Size(48, 54),
+                            ),
+                            child: const Text('Начать новый день'),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
             if (_hasLoadedProgress &&
@@ -909,6 +961,7 @@ class _QuestMapScreenState extends State<QuestMapScreen>
                 onAction: _loadProgress,
               ),
             Expanded(
+              key: widget.tourTargets?.mapViewport,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final mapWidth = math.min(constraints.maxWidth, _sourceWidth);
@@ -1056,6 +1109,9 @@ class _QuestMapScreenState extends State<QuestMapScreen>
       width: nodeWidth,
       height: nodeHeight,
       child: Semantics(
+        key: node.id == _tourQuestNodeId
+            ? widget.tourTargets?.mapCurrentQuest
+            : null,
         button: true,
         selected: isSelected,
         label:
@@ -1695,7 +1751,7 @@ class _QuestWorldPrompt extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(
+                          child: DictionaryText(
                             node.title,
                             style: const TextStyle(
                               fontFamily: AppFonts.body,
@@ -2040,7 +2096,7 @@ class _TopicPill extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: AppColors.fieldBorder),
         ),
-        child: Text(
+        child: DictionaryText(
           topic,
           style: const TextStyle(
             fontFamily: AppFonts.body,
@@ -2138,7 +2194,7 @@ class _QuestDetailsSheet extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            DictionaryText(
                               node.title,
                               style: const TextStyle(
                                 fontFamily: AppFonts.body,
@@ -2167,7 +2223,7 @@ class _QuestDetailsSheet extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text(
+                  DictionaryText(
                     node.description,
                     style: const TextStyle(
                       fontFamily: AppFonts.body,

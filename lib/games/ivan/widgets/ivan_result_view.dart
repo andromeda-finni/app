@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../dictionary/dictionary_text.dart';
 import '../../../theme/app_theme.dart';
 import '../../../minigames/quest_reward_messages.dart';
 import '../ivan_game_content.dart';
@@ -114,7 +115,7 @@ class IvanResultView extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: AppSpacing.xs),
-                            Text(
+                            DictionaryText(
                               success ? level.successText : _failureText,
                               textAlign: TextAlign.center,
                               style: compact
@@ -146,7 +147,7 @@ class IvanResultView extends StatelessWidget {
                                           ),
                                     ),
                                     const SizedBox(height: AppSpacing.xxs),
-                                    Text(
+                                    DictionaryText(
                                       ivanLearningText,
                                       textAlign: TextAlign.center,
                                       style: AppTextStyles.supporting.copyWith(

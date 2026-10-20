@@ -4,6 +4,7 @@ import 'package:andromeda_app/dictionary/dictionary_audio.dart';
 import 'package:andromeda_app/dictionary/dictionary_catalog.dart';
 import 'package:andromeda_app/dictionary/dictionary_progress.dart';
 import 'package:andromeda_app/dictionary/dictionary_reader.dart';
+import 'package:andromeda_app/dictionary/dictionary_text.dart';
 import 'package:andromeda_app/dictionary/scroll_sheet.dart';
 import 'package:andromeda_app/dictionary/word_token.dart';
 import 'package:andromeda_app/minigames/tugriki/tugriki_game_screen.dart';
@@ -26,7 +27,16 @@ class SilentDictionaryAudio implements DictionaryAudio {
 
 Offset _budgetCenter(WidgetTester tester) {
   final paragraph = tester.renderObject<RenderParagraph>(
-    find.byKey(const Key('financial-story')),
+    find
+        .byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              widget.textSpan
+                      ?.toPlainText(includeSemanticsLabels: false)
+                      .contains('бюджет') ==
+                  true,
+        )
+        .first,
   );
   final text = paragraph.text.toPlainText(includeSemanticsLabels: false);
   final start = text.indexOf('бюджет');
@@ -249,16 +259,16 @@ void main() {
       // Follow the real story and fill the six coin pairs; no test-only stage API.
       for (
         var i = 0;
-        i < 20 && find.byType(FinancialStoryText).evaluate().isEmpty;
+        i < 20 && find.text('Выбрать товары в лоток ➔').evaluate().isEmpty;
         i++
       ) {
         await tester.tap(find.byType(StoryButton).first);
         await tester.pump(const Duration(milliseconds: 400));
       }
-      expect(find.byType(FinancialStoryText), findsOneWidget);
+      expect(find.byType(DictionaryText), findsOneWidget);
       expect(
         tester
-            .widget<Text>(find.byKey(const Key('financial-story')))
+            .widget<DictionaryText>(find.byType(DictionaryText))
             .style!
             .fontSize,
         15.5,
@@ -269,7 +279,7 @@ void main() {
       await tester.tap(find.byKey(const Key('close-explanation')));
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.text('Выбрать товары в лоток ➔'), findsOneWidget);
-      expect(find.byType(FinancialStoryText), findsOneWidget);
+      expect(find.byType(DictionaryText), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:andromeda_app/core/api_client.dart';
 import 'package:andromeda_app/games/ivan/ivan_game_screen.dart';
+import 'package:andromeda_app/home/main_tabs_tour.dart';
 import 'package:andromeda_app/map/daily_quests.dart';
 import 'package:andromeda_app/map/quest_map_screen.dart';
 import 'package:andromeda_app/theme/app_theme.dart';
@@ -64,6 +65,61 @@ void main() {
     planConfirmed: true,
     offers: offers,
   );
+
+  // Several daily offers are "current" at once; the tabs tour may still mark
+  // only one of them, or Flutter fails on a duplicated GlobalKey.
+  testWidgets('the tabs tour marks a single quest among several offers', (
+    tester,
+  ) async {
+    final targets = MainTabsTourTargets();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: QuestMapScreen(
+          enableAmbientSceneMotion: false,
+          dailyPreview: day,
+          tourTargets: targets,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(targets.mapCurrentQuest), findsOneWidget);
+    expect(find.byKey(const ValueKey('daily-badge-available')), findsWidgets);
+  });
+
+  testWidgets('the start-day prompt fits a narrow phone with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(() {
+      tester.view.reset();
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: QuestMapScreen(
+          enableAmbientSceneMotion: false,
+          dailyPreview: const DailyQuestDay(
+            periodId: null,
+            sequenceNo: null,
+            planConfirmed: false,
+            offers: [],
+          ),
+          onStartDayRequested: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text('Начать новый день'));
+    expect(find.text('Начать новый день'), findsOneWidget);
+  });
 
   testWidgets('between days the map offers an explicit start-day action', (
     tester,
